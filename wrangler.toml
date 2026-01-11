@@ -12,3 +12,12 @@ bindings = [{ name = "BOARD_DO", class_name = "BoardDO" }]
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["BoardDO"]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
