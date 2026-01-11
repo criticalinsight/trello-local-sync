@@ -1,7 +1,8 @@
 import { Component, For, createSignal, createMemo, onMount, onCleanup, Show } from 'solid-js';
-import { store, moveCard, addCard, deleteCard, updateCardTitle, deleteList, updateListTitle, addList, performUndo, performRedo } from '../store';
+import { store, moveCard, addCard, deleteCard, updateCardTitle, deleteList, updateListTitle, addList, performUndo, performRedo, moveList } from '../store';
 import { StatusPill } from './StatusPill';
 import { CardModal } from './CardModal';
+import { ThemeToggle } from './ThemeToggle';
 import type { Card as CardType, List as ListType } from '../types';
 
 // Icons
@@ -112,7 +113,7 @@ const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => 
     );
 };
 
-// List component with drop zone
+// List component with drop zone and draggable support
 const List: Component<{ list: ListType; onOpenCard: (id: string) => void }> = (props) => {
     const [isOver, setIsOver] = createSignal(false);
     const [newCardTitle, setNewCardTitle] = createSignal('');
@@ -126,10 +127,15 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void }> = (p
             .sort((a, b) => a.pos - b.pos);
     });
 
+    // --- Card Drop Zone ---
     const handleDragOver = (e: DragEvent) => {
         e.preventDefault();
-        e.dataTransfer!.dropEffect = 'move';
-        setIsOver(true);
+        e.stopPropagation(); // Prevent bubbling to Board (which handles List filtering)
+        // Only accept cards here
+        if (e.dataTransfer?.types.includes('card-id')) {
+            e.dataTransfer!.dropEffect = 'move';
+            setIsOver(true);
+        }
     };
 
     const handleDragLeave = () => {
@@ -138,21 +144,49 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void }> = (p
 
     const handleDrop = (e: DragEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsOver(false);
 
-        const cardId = e.dataTransfer!.getData('text/plain');
-        if (!cardId) return;
+        // Case 1: Dropping a Card
+        const cardId = e.dataTransfer!.getData('card-id');
+        if (cardId) {
+            const newPos = listCards().length; // Append to end
+            requestAnimationFrame(() => {
+                moveCard(cardId, props.list.id, newPos);
+            });
+            return;
+        }
 
-        // Calculate new position (end of list)
-        const newPos = listCards().length;
+        // Case 2: Dropping a List
+        const droppedListId = e.dataTransfer!.getData('list-id');
+        if (droppedListId && droppedListId !== props.list.id) {
+            // Swap positions or insert?
+            // Swap is easiest to implement without complex coord calcs
+            const droppedList = store.lists[droppedListId];
+            if (droppedList) {
+                const targetPos = props.list.pos;
+                const sourcePos = droppedList.pos;
+                // Ideally we shift everything, but swapping works for v1
+                moveList(droppedListId, targetPos);
+                moveList(props.list.id, sourcePos);
+            }
+        }
+    };
 
-        // Use requestAnimationFrame to ensure smooth 60fps
-        requestAnimationFrame(() => {
-            moveCard(cardId, props.list.id, newPos);
-        });
+    // --- List Dragging ---
+    const handleListDragStart = (e: DragEvent) => {
+        e.dataTransfer!.setData('list-id', props.list.id);
+        e.dataTransfer!.effectAllowed = 'move';
+        // Make ephemeral
+        (e.target as HTMLElement).style.opacity = '0.5';
+    };
+
+    const handleListDragEnd = (e: DragEvent) => {
+        (e.target as HTMLElement).style.opacity = '1';
     };
 
     const handleAddCard = async () => {
+        // ... (unchanged)
         const title = newCardTitle().trim();
         if (!title) return;
 
@@ -162,6 +196,7 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void }> = (p
     };
 
     const handleUpdateListTitle = (e: Event) => {
+        // ... (unchanged)
         const input = e.target as HTMLInputElement;
         const newTitle = input.value.trim();
         if (newTitle && newTitle !== props.list.title) {
@@ -172,8 +207,11 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void }> = (p
 
     return (
         <div
+            draggable={!isEditingTitle() && !isAdding()}
+            onDragStart={handleListDragStart}
+            onDragEnd={handleListDragEnd}
             class={`bg-board-list rounded-xl p-3 min-w-[280px] max-w-[280px] flex flex-col max-h-[calc(100vh-120px)]
-              transition-all duration-200 ${isOver() ? 'ring-2 ring-blue-500' : ''}`}
+              transition-all duration-200 cursor-default ${isOver() ? 'ring-2 ring-blue-500' : ''}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -301,19 +339,51 @@ export const Board: Component = () => {
             .sort((a, b) => a.pos - b.pos);
     });
 
+    // List Drop Zone on Board
+    const handleBoardDragOver = (e: DragEvent) => {
+        if (e.dataTransfer?.types.includes('list-id')) {
+            e.preventDefault();
+            e.dataTransfer!.dropEffect = 'move';
+        }
+    };
+
+    const handleBoardDrop = (e: DragEvent) => {
+        if (e.dataTransfer?.types.includes('list-id')) {
+            e.preventDefault();
+            const listId = e.dataTransfer!.getData('list-id');
+            // Logic to find new position could be complex (between lists)
+            // For simplicity, let's just make it the last list or crude swapping?
+            // "Real" sortable lists usually use mouse position relative to other lists.
+            // Simplified approach: If dropped on the *container*, move to end?
+            // Better: If dropped *on another list*, that logic should be in List component or a wrapper.
+
+            // Actually, let's skip complex sortable logic for now and just allow dropping on the whiteboard to move to end?
+            // Or better, handle drop on list to swap? 
+            // Let's implement a simple "move to end if dropped on board background" for now, 
+            // but fully robust sortables need a lot of calculate.
+
+            // BETTER: Add `onDrop` to List component to handle "insert before/after".
+            // But List component `onDrop` is currently hijacking for Cards.
+            // We need to distinguish types.
+        }
+    };
+
     return (
-        <div class="min-h-screen bg-board-bg">
+        <div class="min-h-screen bg-board-bg" onDragOver={handleBoardDragOver} onDrop={handleBoardDrop}>
             <Show when={openCardId()}>
                 <CardModal cardId={openCardId()!} onClose={() => setOpenCardId(null)} />
             </Show>
 
             {/* Board Header */}
-            <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+            <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center z-10 relative">
                 <div>
                     <h1 class="text-xl font-bold text-white">Trello Clone</h1>
                     <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
                 </div>
-                <StatusPill />
+                <div class="flex items-center gap-4">
+                    <ThemeToggle />
+                    <StatusPill />
+                </div>
             </header>
 
             {/* Lists Container */}

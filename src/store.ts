@@ -624,43 +624,61 @@ export async function deleteList(listId: string) {
                 params: [listId],
                 clientId,
             }));
+            setStore('lists', listId, 'pos', newPos);
+
+            // Rebalance client-side immediately for smoother feel?
+            // Actually, let's just update and let CSS handle order if we use flex order or sort.
+            // Board.tsx sorts by pos.
+
+            try {
+                // 2. Persist
+                if (pglite) {
+                    await pglite.query('UPDATE lists SET pos = $1 WHERE id = $2', [newPos, listId]);
+                }
+
+                // 3. Sync
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'EXECUTE_SQL',
+                        sql: 'UPDATE lists SET pos = ? WHERE id = ?',
+                        params: [newPos, listId],
+                        clientId,
+                    }));
+                }
+            } catch (error) {
+                console.error('Move list failed:', error);
+                setStore('lists', listId, 'pos', oldPos);
+            }
         }
-    } catch (error) {
-        console.error('Delete list failed:', error);
-        // Simplistic rollback - reload page might be better here due to complexity
-        // For MVP, we'll just log
-    }
-}
+        // Global variable to track current board
+        let currentBoardId = 'default';
 
-// Global variable to track current board
-let currentBoardId = 'default';
+        // Initialize
+        export async function initStore(boardId: string) {
+            console.log(`🚀 Starting store initialization for board: ${boardId}`);
+            currentBoardId = boardId;
 
-// Initialize
-export async function initStore(boardId: string) {
-    console.log(`🚀 Starting store initialization for board: ${boardId}`);
-    currentBoardId = boardId;
+            // Reset store
+            setStore({
+                lists: {},
+                cards: {},
+                connected: false,
+                syncing: false
+            });
 
-    // Reset store
-    setStore({
-        lists: {},
-        cards: {},
-        connected: false,
-        syncing: false
-    });
+            // PGlite init runs in background
+            await initPGlite(boardId);
 
-    // PGlite init runs in background
-    await initPGlite(boardId);
+            // Connect WS
+            if (import.meta.env.PROD) {
+                connectWebSocket(boardId);
+            } else {
+                // Dev: still connect if you want to test sync locally?
+                // Ideally yes.
+                connectWebSocket(boardId);
+            }
+            console.log('✅ Store ready');
+        }
 
-    // Connect WS
-    if (import.meta.env.PROD) {
-        connectWebSocket(boardId);
-    } else {
-        // Dev: still connect if you want to test sync locally?
-        // Ideally yes.
-        connectWebSocket(boardId);
-    }
-    console.log('✅ Store ready');
-}
-
-// Export store for components
-export { store };
+        // Export store for components
+        export { store };
