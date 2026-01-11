@@ -1,4 +1,4 @@
-# Product Requirements Document (PRD): Local-First Trello Clone
+# Product Requirements Document (PRD): Work (Local-First Kanban)
 
 ## 1. Executive Summary
 **Product Name:** Trello Sync (Local-First)  

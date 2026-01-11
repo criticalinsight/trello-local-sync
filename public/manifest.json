@@ -1,7 +1,7 @@
 {
-    "name": "Local-First Trello",
-    "short_name": "TrelloClone",
-    "description": "Offline-capable Trello Clone with 0ms latency.",
+    "name": "Work",
+    "short_name": "Work",
+    "description": "Offline-capable Kanban Board with 0ms latency.",
     "theme_color": "#0f172a",
     "background_color": "#0f172a",
     "display": "standalone",

@@ -1,4 +1,4 @@
-# Local-First Trello Clone
+# Work (Local-First Kanban)
 
 A high-performance Kanban board built with **SolidJS**, **PGlite** (Postgres WASM), and **Cloudflare Durable Objects**.
 

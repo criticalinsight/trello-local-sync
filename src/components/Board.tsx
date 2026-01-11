@@ -348,7 +348,7 @@ export const Board: Component = () => {
             {/* Board Header */}
             <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center z-10 relative">
                 <div>
-                    <h1 class="text-xl font-bold text-white">Trello Clone</h1>
+                    <h1 class="text-xl font-bold text-white">Work</h1>
                     <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
                 </div>
                 <div class="flex items-center gap-2 sm:gap-4">
