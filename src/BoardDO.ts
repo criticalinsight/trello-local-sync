@@ -194,19 +194,3 @@ export class BoardDO extends DurableObject {
         }
     }
 }
-
-export default {
-    async fetch(request: Request, env: Env): Promise<Response> {
-        const url = new URL(request.url);
-
-        // Route to Durable Object
-        if (url.pathname.startsWith('/api') || request.headers.get('Upgrade') === 'websocket') {
-            const boardId = url.searchParams.get('board') || 'default';
-            const id = env.BOARD_DO.idFromName(boardId);
-            const stub = env.BOARD_DO.get(id);
-            return stub.fetch(request);
-        }
-
-        return new Response('OK');
-    }
-};
