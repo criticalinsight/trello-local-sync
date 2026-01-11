@@ -3,6 +3,7 @@ import { store, moveCard, addCard, deleteCard, updateCardTitle, deleteList, upda
 import { StatusPill } from './StatusPill';
 import { CardModal } from './CardModal';
 import { ThemeToggle } from './ThemeToggle';
+import { SearchBar } from './SearchBar';
 import type { Card as CardType, List as ListType } from '../types';
 
 // Icons
@@ -114,18 +115,30 @@ const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => 
 };
 
 // List component with drop zone and draggable support
-const List: Component<{ list: ListType; onOpenCard: (id: string) => void }> = (props) => {
+const List: Component<{ list: ListType; onOpenCard: (id: string) => void; searchQuery: string }> = (props) => {
     const [isOver, setIsOver] = createSignal(false);
-    const [newCardTitle, setNewCardTitle] = createSignal('');
-    const [isAdding, setIsAdding] = createSignal(false);
-    const [isEditingTitle, setIsEditingTitle] = createSignal(false);
+    // ...
 
-    // Get cards for this list, sorted by position
+    // Get cards for this list, sorted by position, AND filtered
     const listCards = createMemo(() => {
-        return Object.values(store.cards)
-            .filter((c) => c && c.listId === props.list.id)
-            .sort((a, b) => a.pos - b.pos);
+        let cards = Object.values(store.cards)
+            .filter((c) => c && c.listId === props.list.id);
+
+        // Filter logic
+        if (props.searchQuery) {
+            const lowerQ = props.searchQuery.toLowerCase();
+            cards = cards.filter(c => {
+                const textMatch = c.title.toLowerCase().includes(lowerQ) ||
+                    (c.description || '').toLowerCase().includes(lowerQ);
+                const tagMatch = (c.tags || []).some(t => t.toLowerCase().includes(lowerQ));
+                return textMatch || tagMatch;
+            });
+        }
+
+        return cards.sort((a, b) => a.pos - b.pos);
     });
+
+    // ... (rest is same)
 
     // --- Card Drop Zone ---
     const handleDragOver = (e: DragEvent) => {
@@ -309,64 +322,11 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void }> = (p
 // Main Board component
 export const Board: Component = () => {
     const [openCardId, setOpenCardId] = createSignal<string | null>(null);
+    const [searchQuery, setSearchQuery] = createSignal(''); // New state
 
-    // Keyboard shortcuts
-    onMount(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // Undo: Ctrl+Z
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-                e.preventDefault();
-                performUndo();
-            }
-            // Redo: Ctrl+Y or Ctrl+Shift+Z
-            if (
-                ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
-                ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey)
-            ) {
-                e.preventDefault();
-                performRedo();
-            }
-        };
+    // Keyboard shortcuts...
 
-        window.addEventListener('keydown', handleKeyDown);
-        onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
-    });
-
-    // Get lists sorted by position
-    const lists = createMemo(() => {
-        return Object.values(store.lists)
-            .filter(Boolean)
-            .sort((a, b) => a.pos - b.pos);
-    });
-
-    // List Drop Zone on Board
-    const handleBoardDragOver = (e: DragEvent) => {
-        if (e.dataTransfer?.types.includes('list-id')) {
-            e.preventDefault();
-            e.dataTransfer!.dropEffect = 'move';
-        }
-    };
-
-    const handleBoardDrop = (e: DragEvent) => {
-        if (e.dataTransfer?.types.includes('list-id')) {
-            e.preventDefault();
-            const listId = e.dataTransfer!.getData('list-id');
-            // Logic to find new position could be complex (between lists)
-            // For simplicity, let's just make it the last list or crude swapping?
-            // "Real" sortable lists usually use mouse position relative to other lists.
-            // Simplified approach: If dropped on the *container*, move to end?
-            // Better: If dropped *on another list*, that logic should be in List component or a wrapper.
-
-            // Actually, let's skip complex sortable logic for now and just allow dropping on the whiteboard to move to end?
-            // Or better, handle drop on list to swap? 
-            // Let's implement a simple "move to end if dropped on board background" for now, 
-            // but fully robust sortables need a lot of calculate.
-
-            // BETTER: Add `onDrop` to List component to handle "insert before/after".
-            // But List component `onDrop` is currently hijacking for Cards.
-            // We need to distinguish types.
-        }
-    };
+    // ...
 
     return (
         <div class="min-h-screen bg-board-bg" onDragOver={handleBoardDragOver} onDrop={handleBoardDrop}>
@@ -381,6 +341,7 @@ export const Board: Component = () => {
                     <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
                 </div>
                 <div class="flex items-center gap-4">
+                    <SearchBar onSearch={setSearchQuery} />
                     <ThemeToggle />
                     <StatusPill />
                 </div>
@@ -390,26 +351,112 @@ export const Board: Component = () => {
             <main class="p-6 overflow-x-auto">
                 <div class="flex gap-4 items-start">
                     <For each={lists()}>
-                        {(list) => <List list={list} onOpenCard={setOpenCardId} />}
+                        {(list) => <List list={list} onOpenCard={setOpenCardId} searchQuery={searchQuery()} />}
                     </For>
 
-                    {/* Add List Button */}
-                    <button
-                        class="min-w-[280px] bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-colors text-left font-medium flex items-center gap-2"
-                        onClick={() => {
-                            const title = prompt('Enter list title:');
-                            if (title && title.trim()) {
-                                addList(title.trim());
-                            }
-                        }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        Add another list
-                    </button>
+                    {/* ... */}
                 </div>
             </main>
         </div>
     );
+};
+// Undo: Ctrl+Z
+if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    performUndo();
+}
+// Redo: Ctrl+Y or Ctrl+Shift+Z
+if (
+    ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
+    ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey)
+) {
+    e.preventDefault();
+    performRedo();
+}
+        };
+
+window.addEventListener('keydown', handleKeyDown);
+onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+    });
+
+// Get lists sorted by position
+const lists = createMemo(() => {
+    return Object.values(store.lists)
+        .filter(Boolean)
+        .sort((a, b) => a.pos - b.pos);
+});
+
+// List Drop Zone on Board
+const handleBoardDragOver = (e: DragEvent) => {
+    if (e.dataTransfer?.types.includes('list-id')) {
+        e.preventDefault();
+        e.dataTransfer!.dropEffect = 'move';
+    }
+};
+
+const handleBoardDrop = (e: DragEvent) => {
+    if (e.dataTransfer?.types.includes('list-id')) {
+        e.preventDefault();
+        const listId = e.dataTransfer!.getData('list-id');
+        // Logic to find new position could be complex (between lists)
+        // For simplicity, let's just make it the last list or crude swapping?
+        // "Real" sortable lists usually use mouse position relative to other lists.
+        // Simplified approach: If dropped on the *container*, move to end?
+        // Better: If dropped *on another list*, that logic should be in List component or a wrapper.
+
+        // Actually, let's skip complex sortable logic for now and just allow dropping on the whiteboard to move to end?
+        // Or better, handle drop on list to swap? 
+        // Let's implement a simple "move to end if dropped on board background" for now, 
+        // but fully robust sortables need a lot of calculate.
+
+        // BETTER: Add `onDrop` to List component to handle "insert before/after".
+        // But List component `onDrop` is currently hijacking for Cards.
+        // We need to distinguish types.
+    }
+};
+
+return (
+    <div class="min-h-screen bg-board-bg" onDragOver={handleBoardDragOver} onDrop={handleBoardDrop}>
+        <Show when={openCardId()}>
+            <CardModal cardId={openCardId()!} onClose={() => setOpenCardId(null)} />
+        </Show>
+
+        {/* Board Header */}
+        <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center z-10 relative">
+            <div>
+                <h1 class="text-xl font-bold text-white">Trello Clone</h1>
+                <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <ThemeToggle />
+                <StatusPill />
+            </div>
+        </header>
+
+        {/* Lists Container */}
+        <main class="p-6 overflow-x-auto">
+            <div class="flex gap-4 items-start">
+                <For each={lists()}>
+                    {(list) => <List list={list} onOpenCard={setOpenCardId} searchQuery={searchQuery()} />}
+                </For>
+
+                {/* Add List Button */}
+                <button
+                    class="min-w-[280px] bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-colors text-left font-medium flex items-center gap-2"
+                    onClick={() => {
+                        const title = prompt('Enter list title:');
+                        if (title && title.trim()) {
+                            addList(title.trim());
+                        }
+                    }}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Add another list
+                </button>
+            </div>
+        </main>
+    </div>
+);
 };
