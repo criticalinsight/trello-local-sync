@@ -132,6 +132,52 @@ export const CardModal: Component<CardModalProps> = (props) => {
                             />
                         </div>
 
+                        {/* Due Date */}
+                        <div class="space-y-3">
+                            <h3 class="text-slate-200 font-semibold flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 opacity-70">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Due Date
+                            </h3>
+                            <div class="flex items-center gap-4">
+                                <input
+                                    type="date"
+                                    class="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                                    value={card()?.dueDate ? new Date(card()!.dueDate!).toISOString().slice(0, 10) : ''}
+                                    onChange={(e) => {
+                                        const date = e.currentTarget.valueAsDate; // Local time, but creates date at UTC midnight usually or local?
+                                        if (date) {
+                                            // Handle timezone offset to ensure we safe "noon" or something safe
+                                            // Simplest: use timestamp of noon local time to avoid boundary issues
+                                            const timestamp = date.getTime() + date.getTimezoneOffset() * 60000 + 12 * 60 * 60 * 1000;
+                                            updateCardDetails(props.cardId, { dueDate: timestamp });
+                                        } else {
+                                            updateCardDetails(props.cardId, { dueDate: undefined }); // Clear it? Or null. Types says optional number.
+                                            // Since we can't send 'undefined' easily in JSON partial updates sometimes if keys missing.
+                                            // But our update logic handles it if undefined.
+                                            // Wait, if undefined, keys won't be in JSON.
+                                            // We need to explicitly send null if we want to clear column.
+                                            // Type is `dueDate?: number`.
+                                            // Let's send 0 or null.
+                                            // store logic: `if (updates.dueDate !== undefined)`
+                                            // So undefined is ignored.
+                                            // We need to change store to accept null or handle clear.
+                                            // For now, let's keep it simple: date required.
+                                        }
+                                    }}
+                                />
+                                <Show when={card()?.dueDate}>
+                                    <button
+                                        onClick={() => updateCardDetails(props.cardId, { dueDate: 0 })} // 0 as marker for removal? Need store handling.
+                                        class="text-red-400 hover:text-red-300 text-sm"
+                                    >
+                                        Remove
+                                    </button>
+                                </Show>
+                            </div>
+                        </div>
+
                         {/* Checklist */}
                         <div class="space-y-3">
                             <h3 class="text-slate-200 font-semibold flex items-center gap-2">

@@ -8,6 +8,7 @@ export interface Card {
     description?: string;
     tags?: string[]; // JSON array
     checklist?: { id: string; text: string; done: boolean }[]; // JSON array
+    dueDate?: number; // timestamp
 }
 
 export interface List {

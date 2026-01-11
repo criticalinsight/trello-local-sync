@@ -54,6 +54,7 @@ async function initPGlite(boardId: string) {
                 ALTER TABLE cards ADD COLUMN IF NOT EXISTS description TEXT;
                 ALTER TABLE cards ADD COLUMN IF NOT EXISTS tags JSON;
                 ALTER TABLE cards ADD COLUMN IF NOT EXISTS checklist JSON;
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS due_date BIGINT;
                 ALTER TABLE lists ADD COLUMN IF NOT EXISTS board_id TEXT;
             `);
             // Default NULL board_id (legacy data) to 'default' if we are loading 'default' board
@@ -85,6 +86,7 @@ async function initPGlite(boardId: string) {
                 description?: string;
                 tags?: string;
                 checklist?: string;
+                due_date?: number;
             }>(`SELECT * FROM cards WHERE list_id IN (${placeholders}) ORDER BY pos`, listIds);
             cards = result.rows;
         }
@@ -111,6 +113,7 @@ async function initPGlite(boardId: string) {
                     description: card.description || '',
                     tags: card.tags ? JSON.parse(card.tags) : [],
                     checklist: card.checklist ? JSON.parse(card.checklist) : [],
+                    dueDate: card.due_date,
                 };
             }
         }));
@@ -175,6 +178,7 @@ function handleSyncMessage(msg: SyncMessage) {
                         description: (card as any).description || '',
                         tags: typeof (card as any).tags === 'string' ? JSON.parse((card as any).tags) : (card.tags || []),
                         checklist: typeof (card as any).checklist === 'string' ? JSON.parse((card as any).checklist) : (card.checklist || []),
+                        dueDate: (card as any).due_date || card.dueDate,
                     };
                 }
             }));
@@ -443,6 +447,11 @@ export async function updateCardDetails(cardId: string, updates: Partial<Card>, 
         if (updates.checklist !== undefined) {
             setClauses.push('checklist = $' + (values.length + 1));
             values.push(JSON.stringify(updates.checklist));
+        }
+        if (updates.dueDate !== undefined) {
+            setClauses.push('due_date = $' + (values.length + 1));
+            // Treat 0 as null for clearing
+            values.push(updates.dueDate === 0 ? null : updates.dueDate);
         }
 
         if (setClauses.length === 0) return;

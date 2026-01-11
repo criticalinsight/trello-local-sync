@@ -38,6 +38,7 @@ export class BoardDO extends DurableObject {
         description TEXT,
         tags JSON,
         checklist JSON,
+        due_date INTEGER,
         FOREIGN KEY (list_id) REFERENCES lists(id)
       );
       
@@ -53,6 +54,7 @@ export class BoardDO extends DurableObject {
             try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN description TEXT'); } catch { }
             try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN tags JSON'); } catch { }
             try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN checklist JSON'); } catch { }
+            try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN due_date INTEGER'); } catch { }
         } catch (e) {
             console.warn('Migration warning:', e);
         }

@@ -107,6 +107,17 @@ const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => 
                                 </For>
                             </span>
                         )}
+                        {props.card.dueDate && props.card.dueDate > 0 && (
+                            <span
+                                class="flex items-center gap-1 bg-slate-700/50 px-1.5 py-0.5 rounded"
+                                title={new Date(props.card.dueDate).toLocaleDateString()}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {new Date(props.card.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                        )}
                     </div>
                 </>
             )}
