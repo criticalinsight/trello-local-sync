@@ -5,6 +5,9 @@ export interface Card {
     listId: string;
     pos: number;
     createdAt: number;
+    description?: string;
+    tags?: string[]; // JSON array
+    checklist?: { id: string; text: string; done: boolean }[]; // JSON array
 }
 
 export interface List {

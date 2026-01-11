@@ -40,12 +40,36 @@ async function initPGlite() {
         title TEXT NOT NULL,
         list_id TEXT NOT NULL,
         pos REAL NOT NULL,
-        created_at BIGINT NOT NULL
+        created_at BIGINT NOT NULL,
+        description TEXT,
+        tags JSON,
+        checklist JSON
       );
     `);
 
+        // Migration: Add columns if they don't exist (simplistic check)
+        try {
+            await pglite.exec(`
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS description TEXT;
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS tags JSON;
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS checklist JSON;
+            `);
+        } catch (e) {
+            // Check if error is because column exists (PGlite might not support IF NOT EXISTS in ALTER)
+            // Ignoring error for now as it's likely "duplicate column"
+        }
+
         // Load existing cards from PGlite
-        const cards = await pglite.query<{ id: string; title: string; list_id: string; pos: number; created_at: number }>('SELECT id, title, list_id, pos, created_at FROM cards ORDER BY pos');
+        const cards = await pglite.query<{
+            id: string;
+            title: string;
+            list_id: string;
+            pos: number;
+            created_at: number;
+            description?: string;
+            tags?: string; // JSON string from DB
+            checklist?: string; // JSON string from DB
+        }>('SELECT * FROM cards ORDER BY pos');
 
         if (cards.rows.length > 0) {
             setStore(produce((s) => {
@@ -56,6 +80,9 @@ async function initPGlite() {
                         listId: card.list_id,
                         pos: card.pos,
                         createdAt: card.created_at,
+                        description: card.description || '',
+                        tags: card.tags ? JSON.parse(card.tags) : [],
+                        checklist: card.checklist ? JSON.parse(card.checklist) : [],
                     };
                 }
             }));
@@ -115,6 +142,9 @@ function handleSyncMessage(msg: SyncMessage) {
                         listId: (card as any).list_id || card.listId,
                         pos: card.pos,
                         createdAt: (card as any).created_at || card.createdAt,
+                        description: (card as any).description || '',
+                        tags: typeof (card as any).tags === 'string' ? JSON.parse((card as any).tags) : (card.tags || []),
+                        checklist: typeof (card as any).checklist === 'string' ? JSON.parse((card as any).checklist) : (card.checklist || []),
                     };
                 }
             }));
@@ -345,6 +375,70 @@ export async function deleteCard(cardId: string, recordHistory = true) {
     } catch (error) {
         console.error('Delete failed:', error);
         setStore('cards', cardId, card);
+    }
+}
+
+// Update card details (description, tags, checklist)
+export async function updateCardDetails(cardId: string, updates: Partial<Card>, recordHistory = true) {
+    const card = store.cards[cardId];
+    if (!card) return;
+
+    const oldCard = { ...card };
+
+    // Record history
+    if (recordHistory) {
+        logAction(
+            () => updateCardDetails(cardId, oldCard, false),
+            () => updateCardDetails(cardId, updates, false)
+        );
+    }
+
+    // 1. Instant UI
+    setStore('cards', cardId, updates);
+
+    try {
+        // Prepare arrays for batch update if needed
+        const keys = [];
+        const values = [];
+        const setClauses = [];
+
+        if (updates.description !== undefined) {
+            setClauses.push('description = $' + (values.length + 1));
+            values.push(updates.description);
+        }
+        if (updates.tags !== undefined) {
+            setClauses.push('tags = $' + (values.length + 1));
+            values.push(JSON.stringify(updates.tags));
+        }
+        if (updates.checklist !== undefined) {
+            setClauses.push('checklist = $' + (values.length + 1));
+            values.push(JSON.stringify(updates.checklist));
+        }
+
+        if (setClauses.length === 0) return;
+
+        const sql = `UPDATE cards SET ${setClauses.join(', ')} WHERE id = $${values.length + 1}`;
+        const params = [...values, cardId];
+
+        // 2. Persist
+        if (pglite) {
+            await pglite.query(sql, params);
+        }
+
+        // 3. Sync
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            // Convert $1 to ? for sync (assuming common format or handling in DO)
+            const syncSql = `UPDATE cards SET ${setClauses.map(c => c.split('=')[0] + '= ?').join(', ')} WHERE id = ?`;
+            socket.send(JSON.stringify({
+                type: 'EXECUTE_SQL',
+                sql: syncSql,
+                params: params,
+                clientId,
+            }));
+        }
+    } catch (error) {
+        console.error('Update card details failed:', error);
+        setStore('cards', cardId, oldCard);
     }
 }
 

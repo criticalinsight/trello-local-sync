@@ -35,12 +35,27 @@ export class BoardDO extends DurableObject {
         list_id TEXT NOT NULL,
         pos REAL NOT NULL,
         created_at INTEGER NOT NULL,
+        description TEXT,
+        tags JSON,
+        checklist JSON,
         FOREIGN KEY (list_id) REFERENCES lists(id)
       );
       
       CREATE INDEX IF NOT EXISTS idx_cards_list ON cards(list_id);
       CREATE INDEX IF NOT EXISTS idx_cards_pos ON cards(pos);
     `);
+
+        // Migration for existing databases
+        try {
+            // SQLite doesn't support IF NOT EXISTS in ALTER COLUMN, so we catch errors
+            // or checking pragma table_info would be cleaner but verbose.
+            // Quick & dirty for this implementation: separate try/catches
+            try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN description TEXT'); } catch { }
+            try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN tags JSON'); } catch { }
+            try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN checklist JSON'); } catch { }
+        } catch (e) {
+            console.warn('Migration warning:', e);
+        }
 
         // Insert default lists if empty
         const listCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as count FROM lists').one();
