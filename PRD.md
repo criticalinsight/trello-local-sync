@@ -18,7 +18,7 @@
 
 ### 3.1 Board Management
 - **FR-01:** System shall initialize with default lists ("To Do", "In Progress", "Done").
-- **FR-02:** User cannot create/delete lists in MVP (fixed layout).
+- **FR-02:** User can create, rename, and delete lists. ~User cannot create/delete lists in MVP (fixed layout).~
 
 ### 3.2 Card Management
 - **FR-03:** User can create a card with a title.

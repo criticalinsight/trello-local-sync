@@ -233,6 +233,158 @@ export async function deleteCard(cardId: string) {
     }
 }
 
+// Update card title
+export async function updateCardTitle(cardId: string, title: string) {
+    const card = store.cards[cardId];
+    if (!card) return;
+
+    const oldTitle = card.title;
+
+    // 1. Instant UI
+    setStore('cards', cardId, 'title', title);
+
+    try {
+        // 2. Persist
+        if (pglite) {
+            await pglite.query('UPDATE cards SET title = $1 WHERE id = $2', [title, cardId]);
+        }
+
+        // 3. Sync
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'EXECUTE_SQL',
+                sql: 'UPDATE cards SET title = ? WHERE id = ?',
+                params: [title, cardId],
+                clientId,
+            }));
+        }
+    } catch (error) {
+        console.error('Update card failed:', error);
+        setStore('cards', cardId, 'title', oldTitle);
+    }
+}
+
+// Add new list
+export async function addList(title: string) {
+    const id = genId();
+    const pos = Object.values(store.lists).length;
+    const list: List = { id, title, pos };
+
+    // 1. Instant UI
+    setStore('lists', id, list);
+
+    try {
+        // 2. Persist
+        if (pglite) {
+            await pglite.query(
+                'INSERT INTO lists (id, title, pos) VALUES ($1, $2, $3)',
+                [id, title, pos]
+            );
+        }
+
+        // 3. Sync
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'EXECUTE_SQL',
+                sql: 'INSERT INTO lists (id, title, pos) VALUES (?, ?, ?)',
+                params: [id, title, pos],
+                clientId,
+            }));
+        }
+    } catch (error) {
+        console.error('Add list failed:', error);
+        setStore('lists', id, undefined!);
+    }
+
+    return id;
+}
+
+// Update list title
+export async function updateListTitle(listId: string, title: string) {
+    const list = store.lists[listId];
+    if (!list) return;
+
+    const oldTitle = list.title;
+
+    // 1. Instant UI
+    setStore('lists', listId, 'title', title);
+
+    try {
+        // 2. Persist
+        if (pglite) {
+            await pglite.query('UPDATE lists SET title = $1 WHERE id = $2', [title, listId]);
+        }
+
+        // 3. Sync
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'EXECUTE_SQL',
+                sql: 'UPDATE lists SET title = ? WHERE id = ?',
+                params: [title, listId],
+                clientId,
+            }));
+        }
+    } catch (error) {
+        console.error('Update list failed:', error);
+        setStore('lists', listId, 'title', oldTitle);
+    }
+}
+
+// Delete list
+export async function deleteList(listId: string) {
+    const list = store.lists[listId];
+    if (!list) return;
+
+    // 1. Instant UI
+    setStore('lists', listId, undefined!);
+
+    // Also delete associated cards from UI
+    const cardIds = Object.values(store.cards)
+        .filter(c => c && c.listId === listId)
+        .map(c => c.id);
+
+    // Batch update cards to undefined
+    setStore(produce(s => {
+        if (s.lists[listId]) delete s.lists[listId];
+        cardIds.forEach(id => {
+            if (s.cards[id]) delete s.cards[id];
+        });
+    }));
+
+    try {
+        // 2. Persist
+        if (pglite) {
+            await pglite.tx(async (tx) => {
+                await tx.query('DELETE FROM cards WHERE list_id = $1', [listId]);
+                await tx.query('DELETE FROM lists WHERE id = $1', [listId]);
+            });
+        }
+
+        // 3. Sync
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            // Send two commands or one transaction?
+            // SQLite in DO handles these sequentially, but ideally we should batch.
+            // For now, we'll send two commands.
+            socket.send(JSON.stringify({
+                type: 'EXECUTE_SQL',
+                sql: 'DELETE FROM cards WHERE list_id = ?',
+                params: [listId],
+                clientId,
+            }));
+            socket.send(JSON.stringify({
+                type: 'EXECUTE_SQL',
+                sql: 'DELETE FROM lists WHERE id = ?',
+                params: [listId],
+                clientId,
+            }));
+        }
+    } catch (error) {
+        console.error('Delete list failed:', error);
+        // Simplistic rollback - reload page might be better here due to complexity
+        // For MVP, we'll just log
+    }
+}
+
 // Initialize
 export async function initStore() {
     console.log('🚀 Starting store initialization...');
