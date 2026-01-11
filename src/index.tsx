@@ -34,6 +34,10 @@ const App = () => {
     onMount(async () => {
         handleRoute();
         window.addEventListener('popstate', handleRoute);
+
+        if ('serviceWorker' in navigator && import.meta.env.PROD) {
+            navigator.serviceWorker.register('/sw.js');
+        }
     });
 
     return (
