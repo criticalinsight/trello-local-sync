@@ -1,16 +1,60 @@
 /* @refresh reload */
 import { render } from 'solid-js/web';
-import { onMount } from 'solid-js';
-import { Board } from './components/Board';
-import { initStore } from './store';
-import './index.css';
+import { createSignal, onMount, Show } from 'solid-js';
+import { Home } from './components/Home';
 
 const App = () => {
+    // Simple routing state
+    const [page, setPage] = createSignal<'home' | 'board'>('home');
+    const [boardId, setBoardId] = createSignal<string>('');
+
+    const navigate = (path: string) => {
+        window.history.pushState({}, '', path);
+        handleRoute();
+    };
+
+    const handleRoute = () => {
+        const path = window.location.pathname;
+        if (path === '/' || path === '') {
+            setPage('home');
+        } else {
+            // Assume /:id
+            const id = path.substring(1);
+            // Basic validation or sanitization could go here
+            if (id) {
+                setBoardId(id);
+                setPage('board');
+                initStore(id);
+            } else {
+                setPage('home');
+            }
+        }
+    };
+
     onMount(async () => {
-        await initStore();
+        handleRoute();
+        window.addEventListener('popstate', handleRoute);
     });
 
-    return <Board />;
+    return (
+        <>
+            <Show when={page() === 'home'}>
+                <Home onNavigate={(id) => navigate('/' + id)} />
+            </Show>
+            <Show when={page() === 'board'}>
+                <Board />
+                <button
+                    class="fixed bottom-4 left-4 p-2 bg-slate-800 text-slate-400 hover:text-white rounded-full shadow-lg z-50 border border-slate-700 transition-colors"
+                    onClick={() => navigate('/')}
+                    title="Back to Home"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                    </svg>
+                </button>
+            </Show>
+        </>
+    );
 };
 
 const root = document.getElementById('root');

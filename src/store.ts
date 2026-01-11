@@ -23,7 +23,7 @@ const [store, setStore] = createStore<StoreState>({
 const genId = () => crypto.randomUUID();
 
 // Initialize PGlite database
-async function initPGlite() {
+async function initPGlite(boardId: string) {
     try {
         console.log('🔄 Initializing PGlite...');
         pglite = new PGlite('idb://trello-local');
@@ -32,7 +32,8 @@ async function initPGlite() {
       CREATE TABLE IF NOT EXISTS lists (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
-        pos REAL NOT NULL
+        pos REAL NOT NULL,
+        board_id TEXT
       );
       
       CREATE TABLE IF NOT EXISTS cards (
@@ -47,57 +48,86 @@ async function initPGlite() {
       );
     `);
 
-        // Migration: Add columns if they don't exist (simplistic check)
+        // Migration: Add columns
         try {
             await pglite.exec(`
                 ALTER TABLE cards ADD COLUMN IF NOT EXISTS description TEXT;
                 ALTER TABLE cards ADD COLUMN IF NOT EXISTS tags JSON;
                 ALTER TABLE cards ADD COLUMN IF NOT EXISTS checklist JSON;
+                ALTER TABLE lists ADD COLUMN IF NOT EXISTS board_id TEXT;
             `);
-        } catch (e) {
-            // Check if error is because column exists (PGlite might not support IF NOT EXISTS in ALTER)
-            // Ignoring error for now as it's likely "duplicate column"
+            // Default NULL board_id (legacy data) to 'default' if we are loading 'default' board
+            // Or update all nulls to 'default' once
+            await pglite.exec("UPDATE lists SET board_id = 'default' WHERE board_id IS NULL");
+
+        } catch (e) { }
+
+        // Load existing cards for this board
+        // JOIN lists to filter cards by board_id? Or just load all cards and filter in memory?
+        // Better: filtering in SQL.
+        // We need lists first.
+
+        const lists = await pglite.query<{ id: string; title: string; pos: number }>('SELECT id, title, pos FROM lists WHERE board_id = $1 ORDER BY pos', [boardId]);
+
+        const listIds = lists.rows.map(l => l.id);
+
+        let cards: any[] = [];
+        if (listIds.length > 0) {
+            // Parameterized IN clause is tricky, let's just get all cards for now or construct query string
+            // Simplest for now: Get all cards where list_id IN (...)
+            const placeholders = listIds.map((_, i) => '$' + (i + 1)).join(',');
+            const result = await pglite.query<{
+                id: string;
+                title: string;
+                list_id: string;
+                pos: number;
+                created_at: number;
+                description?: string;
+                tags?: string;
+                checklist?: string;
+            }>(`SELECT * FROM cards WHERE list_id IN (${placeholders}) ORDER BY pos`, listIds);
+            cards = result.rows;
         }
 
-        // Load existing cards from PGlite
-        const cards = await pglite.query<{
-            id: string;
-            title: string;
-            list_id: string;
-            pos: number;
-            created_at: number;
-            description?: string;
-            tags?: string; // JSON string from DB
-            checklist?: string; // JSON string from DB
-        }>('SELECT * FROM cards ORDER BY pos');
+        setStore(produce((s) => {
+            // Clear current state first? Or merge?
+            // Since we are switching boards, we should likely clear or reset.
+            // But initStore is called once per page load.
 
-        if (cards.rows.length > 0) {
-            setStore(produce((s) => {
-                for (const card of cards.rows) {
-                    s.cards[card.id] = {
-                        id: card.id,
-                        title: card.title,
-                        listId: card.list_id,
-                        pos: card.pos,
-                        createdAt: card.created_at,
-                        description: card.description || '',
-                        tags: card.tags ? JSON.parse(card.tags) : [],
-                        checklist: card.checklist ? JSON.parse(card.checklist) : [],
-                    };
-                }
-            }));
-        }
+            s.lists = {};
+            s.cards = {};
 
-        console.log('✅ PGlite initialized, loaded', cards.rows.length, 'cards');
+            for (const list of lists.rows) {
+                s.lists[list.id] = list;
+            }
+
+            for (const card of cards) {
+                s.cards[card.id] = {
+                    id: card.id,
+                    title: card.title,
+                    listId: card.list_id,
+                    pos: card.pos,
+                    createdAt: card.created_at,
+                    description: card.description || '',
+                    tags: card.tags ? JSON.parse(card.tags) : [],
+                    checklist: card.checklist ? JSON.parse(card.checklist) : [],
+                };
+            }
+        }));
+
+        console.log(`✅ PGlite initialized for board ${boardId}`);
     } catch (error) {
         console.error('❌ PGlite initialization failed:', error);
-        // App still works with in-memory store
     }
 }
 
 // Connect to Cloudflare Durable Object
-function connectWebSocket(boardId = 'default') {
+function connectWebSocket(boardId: string) {
     try {
+        if (socket) {
+            socket.close();
+        }
+
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${location.host}/api?board=${boardId}`;
 
@@ -602,15 +632,32 @@ export async function deleteList(listId: string) {
     }
 }
 
-// Initialize
-export async function initStore() {
-    console.log('🚀 Starting store initialization...');
-    // PGlite init runs in background - lists already rendered from default state
-    initPGlite().catch(console.error);
+// Global variable to track current board
+let currentBoardId = 'default';
 
-    // Only connect to WS in production (when deployed to Cloudflare)
+// Initialize
+export async function initStore(boardId: string) {
+    console.log(`🚀 Starting store initialization for board: ${boardId}`);
+    currentBoardId = boardId;
+
+    // Reset store
+    setStore({
+        lists: {},
+        cards: {},
+        connected: false,
+        syncing: false
+    });
+
+    // PGlite init runs in background
+    await initPGlite(boardId);
+
+    // Connect WS
     if (import.meta.env.PROD) {
-        connectWebSocket();
+        connectWebSocket(boardId);
+    } else {
+        // Dev: still connect if you want to test sync locally?
+        // Ideally yes.
+        connectWebSocket(boardId);
     }
     console.log('✅ Store ready');
 }
