@@ -1,4 +1,4 @@
-```typescript
+
 import { Component, createSignal, For, Show } from 'solid-js';
 import { Card, Comment, Attachment } from '../types';
 import { store, updateCardDetails, addComment, uploadAttachment } from '../store';
@@ -66,6 +66,13 @@ export const CardModal: Component<CardModalProps> = (props) => {
         const currentItems = card()?.checklist || [];
         const newItems = currentItems.filter(item => item.id !== itemId);
         updateCardDetails(props.cardId, { checklist: newItems });
+    };
+
+    const getChecklistProgress = () => {
+        const items = card()?.checklist || [];
+        if (items.length === 0) return 0;
+        const done = items.filter(i => i.done).length;
+        return Math.round((done / items.length) * 100);
     };
 
     return (
@@ -148,30 +155,21 @@ export const CardModal: Component<CardModalProps> = (props) => {
                                     class="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
                                     value={card()?.dueDate ? new Date(card()!.dueDate!).toISOString().slice(0, 10) : ''}
                                     onChange={(e) => {
-                                        const date = e.currentTarget.valueAsDate; // Local time, but creates date at UTC midnight usually or local?
+                                        const date = e.currentTarget.valueAsDate;
                                         if (date) {
                                             // Handle timezone offset to ensure we safe "noon" or something safe
                                             // Simplest: use timestamp of noon local time to avoid boundary issues
                                             const timestamp = date.getTime() + date.getTimezoneOffset() * 60000 + 12 * 60 * 60 * 1000;
                                             updateCardDetails(props.cardId, { dueDate: timestamp });
                                         } else {
-                                            updateCardDetails(props.cardId, { dueDate: undefined }); // Clear it? Or null. Types says optional number.
-                                            // Since we can't send 'undefined' easily in JSON partial updates sometimes if keys missing.
-                                            // But our update logic handles it if undefined.
-                                            // Wait, if undefined, keys won't be in JSON.
-                                            // We need to explicitly send null if we want to clear column.
-                                            // Type is `dueDate ?: number`.
-                                            // Let's send 0 or null.
-                                            // store logic: `if (updates.dueDate !== undefined)`
-                                            // So undefined is ignored.
-                                            // We need to change store to accept null or handle clear.
-                                            // For now, let's keep it simple: date required.
+                                            updateCardDetails(props.cardId, { dueDate: undefined });
+                                            // Clear due date
                                         }
                                     }}
                                 />
                                 <Show when={card()?.dueDate}>
                                     <button
-                                        onClick={() => updateCardDetails(props.cardId, { dueDate: 0 })} // 0 as marker for removal? Need store handling.
+                                        onClick={() => updateCardDetails(props.cardId, { dueDate: 0 })}
                                         class="text-red-400 hover:text-red-300 text-sm"
                                     >
                                         Remove
@@ -194,7 +192,7 @@ export const CardModal: Component<CardModalProps> = (props) => {
                                 <div class="w-full bg-slate-700 rounded-full h-2">
                                     <div
                                         class="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                        style={{ width: `${ Math.round(((card()!.checklist || []).filter(i => i.done).length / (card()!.checklist || []).length) * 100) }% ` }}
+                                        style={{ width: `${getChecklistProgress()}% ` }}
                                     />
                                 </div>
                             </Show>
@@ -209,7 +207,7 @@ export const CardModal: Component<CardModalProps> = (props) => {
                                                 onChange={() => toggleItem(item.id)}
                                                 class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-offset-slate-800"
                                             />
-                                            <span class={`flex - 1 text - slate - 300 ${ item.done ? 'line-through opacity-50' : '' } `}>{item.text}</span>
+                                            <span class={`flex - 1 text - slate - 300 ${item.done ? 'line-through opacity-50' : ''} `}>{item.text}</span>
                                             <button
                                                 onClick={() => deleteItem(item.id)}
                                                 class="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"

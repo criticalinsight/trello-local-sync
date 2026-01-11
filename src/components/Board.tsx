@@ -35,7 +35,7 @@ const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => 
             e.preventDefault();
             return;
         }
-        e.dataTransfer!.setData('text/plain', props.card.id);
+        e.dataTransfer!.setData('card-id', props.card.id);
         e.dataTransfer!.effectAllowed = 'move';
         (e.target as HTMLElement).classList.add('opacity-50');
     };
@@ -129,10 +129,19 @@ const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => 
 // List component with drop zone and draggable support
 const List: Component<{ list: ListType; onOpenCard: (id: string) => void; searchQuery: string }> = (props) => {
     const [isOver, setIsOver] = createSignal(false);
-    // ...
+    const [isAdding, setIsAdding] = createSignal(false);
+    const [newCardTitle, setNewCardTitle] = createSignal('');
+
+    const handleAddCard = () => {
+        if (newCardTitle().trim()) {
+            addCard(props.list.id, newCardTitle().trim());
+            setNewCardTitle('');
+            setIsAdding(false);
+        }
+    };
 
     // Get cards for this list, sorted by position, AND filtered
-    const listCards = createMemo(() => {
+    const sortedListCards = createMemo(() => {
         let cards = Object.values(store.cards)
             .filter((c) => c && c.listId === props.list.id);
 
@@ -150,7 +159,16 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void; search
         return cards.sort((a, b) => a.pos - b.pos);
     });
 
-    // ... (rest is same)
+    const [isEditingTitle, setIsEditingTitle] = createSignal(false);
+
+    const handleUpdateTitle = (e: Event) => {
+        const input = e.target as HTMLInputElement;
+        const newTitle = input.value.trim();
+        if (newTitle && newTitle !== props.list.title) {
+            updateListTitle(props.list.id, newTitle);
+        }
+        setIsEditingTitle(false);
+    };
 
     // --- Card Drop Zone ---
     const handleDragOver = (e: DragEvent) => {
@@ -175,7 +193,7 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void; search
         // Case 1: Dropping a Card
         const cardId = e.dataTransfer!.getData('card-id');
         if (cardId) {
-            const newPos = listCards().length; // Append to end
+            const newPos = sortedListCards().length; // Append to end
             requestAnimationFrame(() => {
                 moveCard(cardId, props.list.id, newPos);
             });
@@ -185,15 +203,12 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void; search
         // Case 2: Dropping a List
         const droppedListId = e.dataTransfer!.getData('list-id');
         if (droppedListId && droppedListId !== props.list.id) {
-            // Swap positions or insert?
-            // Swap is easiest to implement without complex coord calcs
-            const droppedList = store.lists[droppedListId];
-            if (droppedList) {
-                const targetPos = props.list.pos;
-                const sourcePos = droppedList.pos;
-                // Ideally we shift everything, but swapping works for v1
-                moveList(droppedListId, targetPos);
-                moveList(props.list.id, sourcePos);
+            // Correct usage of moveList (shift)
+            const allLists = Object.values(store.lists).sort((a, b) => a.pos - b.pos);
+            const oldIndex = allLists.findIndex(l => l.id === droppedListId);
+            const newIndex = allLists.findIndex(l => l.id === props.list.id);
+            if (oldIndex !== -1 && newIndex !== -1) {
+                moveList(droppedListId, oldIndex, newIndex);
             }
         }
     };
@@ -202,7 +217,6 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void; search
     const handleListDragStart = (e: DragEvent) => {
         e.dataTransfer!.setData('list-id', props.list.id);
         e.dataTransfer!.effectAllowed = 'move';
-        // Make ephemeral
         (e.target as HTMLElement).style.opacity = '0.5';
     };
 
@@ -210,123 +224,101 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void; search
         (e.target as HTMLElement).style.opacity = '1';
     };
 
-    const handleAddCard = async () => {
-        // ... (unchanged)
-        const title = newCardTitle().trim();
-        if (!title) return;
-
-        await addCard(props.list.id, title);
-        setNewCardTitle('');
-        setIsAdding(false);
-    };
-
-    const handleUpdateListTitle = (e: Event) => {
-        // ... (unchanged)
-        const input = e.target as HTMLInputElement;
-        const newTitle = input.value.trim();
-        if (newTitle && newTitle !== props.list.title) {
-            updateListTitle(props.list.id, newTitle);
-        }
-        setIsEditingTitle(false);
-    };
-
     return (
         <div
-            draggable={!isEditingTitle() && !isAdding()}
-            onDragStart={handleListDragStart}
-            onDragEnd={handleListDragEnd}
-            class={`bg-board-list rounded-xl p-3 min-w-[280px] max-w-[280px] flex flex-col max-h-[calc(100vh-120px)]
-              transition-all duration-200 cursor-default ${isOver() ? 'ring-2 ring-blue-500' : ''}`}
+            class={`flex flex-col w-72 max-h-full rounded-xl transition-colors duration-200 border border-slate-700/50 shadow-xl
+                ${isOver() ? 'bg-slate-700/50 ring-2 ring-blue-500/50' : 'bg-board-list'}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            draggable="true"
+            onDragStart={handleListDragStart}
+            onDragEnd={handleListDragEnd}
         >
             {/* List Header */}
-            <div class="flex justify-between items-start mb-3 px-1 group">
+            <div class="flex justify-between items-center p-3 shrink-0 cursor-grab active:cursor-grabbing">
                 {isEditingTitle() ? (
                     <input
-                        class="w-full bg-slate-700 text-slate-100 font-semibold px-1 rounded border border-blue-500 focus:outline-none"
+                        class="bg-slate-700 text-slate-100 px-2 py-1 rounded w-full font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={props.list.title}
-                        onBlur={handleUpdateListTitle}
+                        onBlur={handleUpdateTitle}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                         }}
                         autofocus
                     />
                 ) : (
-                    <h2
-                        class="text-slate-100 font-semibold cursor-pointer w-full"
-                        onDblClick={() => setIsEditingTitle(true)}
+                    <h3
+                        class="font-semibold text-slate-200 px-2 py-1 flex-1 cursor-text"
+                        onClick={() => setIsEditingTitle(true)}
                     >
                         {props.list.title}
-                    </h2>
+                    </h3>
                 )}
-
                 <button
-                    class="ml-2 p-1 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded opacity-0 group-hover:opacity-100 transition-all"
+                    class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-700 transition-colors"
                     onClick={() => {
-                        if (confirm('Delete this list and all cards?')) {
-                            deleteList(props.list.id);
-                        }
+                        if (confirm('Delete list?')) deleteList(props.list.id);
                     }}
-                    title="Delete list"
                 >
-                    <TrashIcon />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                 </button>
             </div>
 
             {/* Cards Container */}
-            <div class="flex flex-col gap-2 overflow-y-auto flex-1 min-h-[50px] custom-scrollbar">
-                <For each={listCards()}>
+            <div class="flex flex-col gap-2 overflow-y-auto flex-1 p-2 custom-scrollbar">
+                <For each={sortedListCards()}>
                     {(card) => <Card card={card} onOpenModal={() => props.onOpenCard(card.id)} />}
                 </For>
             </div>
 
-            {/* Add Card Form */}
-            {isAdding() ? (
-                <div class="mt-2">
-                    <textarea
-                        class="w-full p-2 rounded bg-board-card text-slate-100 text-sm resize-none
-                   border border-slate-600 focus:border-blue-500 focus:outline-none"
-                        placeholder="Enter card title..."
-                        rows={2}
-                        value={newCardTitle()}
-                        onInput={(e) => setNewCardTitle(e.currentTarget.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleAddCard();
-                            }
-                            if (e.key === 'Escape') {
-                                setIsAdding(false);
-                                setNewCardTitle('');
-                            }
-                        }}
-                        autofocus
-                    />
-                    <div class="flex gap-2 mt-2">
-                        <button
-                            class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                            onClick={handleAddCard}
-                        >
-                            Add
-                        </button>
-                        <button
-                            class="px-3 py-1.5 text-slate-400 text-sm hover:text-slate-200 transition-colors"
-                            onClick={() => { setIsAdding(false); setNewCardTitle(''); }}
-                        >
-                            Cancel
-                        </button>
+            {/* Footer / Add Card */}
+            <div class="p-3 shrink-0">
+                {isAdding() ? (
+                    <div class="bg-board-card p-2 rounded shadow-sm">
+                        <textarea
+                            class="w-full bg-slate-700 text-slate-100 text-sm rounded p-2 border border-blue-500 focus:outline-none resize-none mb-2"
+                            placeholder="Enter a title for this card..."
+                            value={newCardTitle()}
+                            onInput={(e) => setNewCardTitle(e.currentTarget.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleAddCard();
+                                }
+                                if (e.key === 'Escape') {
+                                    setIsAdding(false);
+                                    setNewCardTitle('');
+                                }
+                            }}
+                            autofocus
+                        />
+                        <div class="flex gap-2">
+                            <button
+                                class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                                onClick={handleAddCard}
+                            >
+                                Add
+                            </button>
+                            <button
+                                class="px-3 py-1.5 text-slate-400 text-sm hover:text-slate-200 transition-colors"
+                                onClick={() => { setIsAdding(false); setNewCardTitle(''); }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
                     </div>
-                </div>
-            ) : (
-                <button
-                    class="mt-2 p-2 text-slate-400 text-sm text-left rounded hover:bg-board-card hover:text-slate-200 transition-colors flex items-center gap-2"
-                    onClick={() => setIsAdding(true)}
-                >
-                    <PlusIcon /> Add a card
-                </button>
-            )}
+                ) : (
+                    <button
+                        class="w-full text-left px-2 py-1.5 text-slate-400 text-sm rounded hover:bg-white/10 hover:text-slate-200 transition-colors flex items-center gap-2"
+                        onClick={() => setIsAdding(true)}
+                    >
+                        <PlusIcon /> Add a card
+                    </button>
+                )}
+            </div>
         </div>
     );
 };
@@ -334,20 +326,73 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void; search
 // Main Board component
 export const Board: Component = () => {
     const [openCardId, setOpenCardId] = createSignal<string | null>(null);
-    const [searchQuery, setSearchQuery] = createSignal(''); // New state
+    const [searchQuery, setSearchQuery] = createSignal('');
+    const [viewMode, setViewMode] = createSignal<'board' | 'calendar'>('board');
+    const [newListTitle, setNewListTitle] = createSignal('');
 
-    // Keyboard shortcuts...
+    // Undo/Redo Shortcuts
+    onMount(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Undo: Ctrl+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                performUndo();
+            }
+            // Redo: Ctrl+Y or Ctrl+Shift+Z
+            if (
+                ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
+                ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey)
+            ) {
+                e.preventDefault();
+                performRedo();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+    });
 
-    // ...
+    const lists = createMemo(() => {
+        return Object.values(store.lists)
+            .filter(Boolean)
+            .sort((a, b) => a.pos - b.pos);
+    });
+
+    const handleOpenModal = (card: CardType, listId: string) => {
+        setOpenCardId(card.id);
+    };
+
+    const handleExport = () => {
+        const data = {
+            lists: store.lists,
+            cards: store.cards
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `board-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleAddList = (e: Event) => {
+        e.preventDefault();
+        if (newListTitle().trim()) {
+            addList(newListTitle().trim());
+            setNewListTitle('');
+        }
+    };
 
     return (
-        <div class="min-h-screen bg-board-bg" onDragOver={handleBoardDragOver} onDrop={handleBoardDrop}>
+        <div class="min-h-screen bg-board-bg flex flex-col">
             <Show when={openCardId()}>
                 <CardModal cardId={openCardId()!} onClose={() => setOpenCardId(null)} />
             </Show>
 
             {/* Board Header */}
-            <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center z-10 relative">
+            <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center z-10 relative shrink-0">
                 <div>
                     <h1 class="text-xl font-bold text-white">Work</h1>
                     <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
@@ -388,116 +433,49 @@ export const Board: Component = () => {
                 </div>
             </header>
 
-            {/* Lists Container */}
-            <main class="p-6 overflow-x-auto">
-                <div class="flex gap-4 items-start">
-                    <For each={lists()}>
-                        {(list) => <List list={list} onOpenCard={setOpenCardId} searchQuery={searchQuery()} />}
-                    </For>
+            {/* Content Area */}
+            <div class="flex-1 overflow-hidden relative">
+                <Show when={viewMode() === 'board'} fallback={
+                    <CalendarView onOpenCard={(id) => {
+                        const card = store.cards[id];
+                        if (card) {
+                            handleOpenModal(card, card.listId);
+                        }
+                    }} />
+                }>
+                    <div class="h-full overflow-x-auto p-6">
+                        <div class="flex items-start gap-6 min-w-max h-full">
+                            <For each={lists()}>
+                                {(list) => (
+                                    <div class="w-80 shrink-0">
+                                        <List
+                                            list={list}
+                                            searchQuery={searchQuery()}
+                                            onOpenCard={(id) => {
+                                                const card = store.cards[id];
+                                                if (card) handleOpenModal(card, list.id);
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </For>
 
-                    {/* ... */}
-                </div>
-            </main>
+                            {/* Add List Button */}
+                            <div class="w-72 shrink-0">
+                                <form onSubmit={handleAddList} class="bg-slate-900/50 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-colors">
+                                    <input
+                                        type="text"
+                                        placeholder="+ Add another list"
+                                        class="w-full bg-transparent text-slate-100 placeholder-slate-400 focus:outline-none focus:placeholder-slate-500 font-medium"
+                                        value={newListTitle()}
+                                        onInput={(e) => setNewListTitle(e.currentTarget.value)}
+                                    />
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </Show>
+            </div>
         </div>
     );
-};
-// Undo: Ctrl+Z
-if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-    e.preventDefault();
-    performUndo();
-}
-// Redo: Ctrl+Y or Ctrl+Shift+Z
-if (
-    ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
-    ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey)
-) {
-    e.preventDefault();
-    performRedo();
-}
-        };
-
-window.addEventListener('keydown', handleKeyDown);
-onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
-    });
-
-// Get lists sorted by position
-const lists = createMemo(() => {
-    return Object.values(store.lists)
-        .filter(Boolean)
-        .sort((a, b) => a.pos - b.pos);
-});
-
-// List Drop Zone on Board
-const handleBoardDragOver = (e: DragEvent) => {
-    if (e.dataTransfer?.types.includes('list-id')) {
-        e.preventDefault();
-        e.dataTransfer!.dropEffect = 'move';
-    }
-};
-
-const handleBoardDrop = (e: DragEvent) => {
-    if (e.dataTransfer?.types.includes('list-id')) {
-        e.preventDefault();
-        const listId = e.dataTransfer!.getData('list-id');
-        // Logic to find new position could be complex (between lists)
-        // For simplicity, let's just make it the last list or crude swapping?
-        // "Real" sortable lists usually use mouse position relative to other lists.
-        // Simplified approach: If dropped on the *container*, move to end?
-        // Better: If dropped *on another list*, that logic should be in List component or a wrapper.
-
-        // Actually, let's skip complex sortable logic for now and just allow dropping on the whiteboard to move to end?
-        // Or better, handle drop on list to swap? 
-        // Let's implement a simple "move to end if dropped on board background" for now, 
-        // but fully robust sortables need a lot of calculate.
-
-        // BETTER: Add `onDrop` to List component to handle "insert before/after".
-        // But List component `onDrop` is currently hijacking for Cards.
-        // We need to distinguish types.
-    }
-};
-
-return (
-    <div class="min-h-screen bg-board-bg" onDragOver={handleBoardDragOver} onDrop={handleBoardDrop}>
-        <Show when={openCardId()}>
-            <CardModal cardId={openCardId()!} onClose={() => setOpenCardId(null)} />
-        </Show>
-
-        {/* Board Header */}
-        <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center z-10 relative">
-            <div>
-                <h1 class="text-xl font-bold text-white">Trello Clone</h1>
-                <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
-            </div>
-            <div class="flex items-center gap-4">
-                <ThemeToggle />
-                <StatusPill />
-            </div>
-        </header>
-
-        {/* Lists Container */}
-        <main class="p-6 overflow-x-auto">
-            <div class="flex gap-4 items-start">
-                <For each={lists()}>
-                    {(list) => <List list={list} onOpenCard={setOpenCardId} searchQuery={searchQuery()} />}
-                </For>
-
-                {/* Add List Button */}
-                <button
-                    class="min-w-[280px] bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-colors text-left font-medium flex items-center gap-2"
-                    onClick={() => {
-                        const title = prompt('Enter list title:');
-                        if (title && title.trim()) {
-                            addList(title.trim());
-                        }
-                    }}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Add another list
-                </button>
-            </div>
-        </main>
-    </div>
-);
 };

@@ -2,6 +2,9 @@
 import { render } from 'solid-js/web';
 import { createSignal, onMount, Show } from 'solid-js';
 import { Home } from './components/Home';
+import { Board } from './components/Board';
+import { initStore } from './store';
+import './index.css';
 import { polyfill } from "mobile-drag-drop";
 // import "mobile-drag-drop/default.css"; // We'll add custom minimal css or use default if needed
 
