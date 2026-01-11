@@ -1,0 +1,11 @@
+name = "trello-sync"
+main = "src/worker.ts"
+compatibility_date = "2024-09-23"
+account_id = "c61fd30bce61d2d26de34db53b001e3d"
+
+[durable_objects]
+bindings = [{ name = "BOARD_DO", class_name = "BoardDO" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BoardDO"]
