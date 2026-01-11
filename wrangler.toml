@@ -21,3 +21,7 @@ head_sampling_rate = 1
 enabled = true
 head_sampling_rate = 1
 invocation_logs = true
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
