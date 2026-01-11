@@ -1,5 +1,5 @@
-import { Component, For, createSignal, createMemo } from 'solid-js';
-import { store, moveCard, addCard, deleteCard, updateCardTitle, deleteList, updateListTitle, addList } from '../store';
+import { Component, For, createSignal, createMemo, onMount, onCleanup } from 'solid-js';
+import { store, moveCard, addCard, deleteCard, updateCardTitle, deleteList, updateListTitle, addList, performUndo, performRedo } from '../store';
 import { StatusPill } from './StatusPill';
 import type { Card as CardType, List as ListType } from '../types';
 
@@ -240,6 +240,28 @@ const List: Component<{ list: ListType }> = (props) => {
 
 // Main Board component
 export const Board: Component = () => {
+    // Keyboard shortcuts
+    onMount(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Undo: Ctrl+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                performUndo();
+            }
+            // Redo: Ctrl+Y or Ctrl+Shift+Z
+            if (
+                ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
+                ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey)
+            ) {
+                e.preventDefault();
+                performRedo();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+    });
+
     // Get lists sorted by position
     const lists = createMemo(() => {
         return Object.values(store.lists)

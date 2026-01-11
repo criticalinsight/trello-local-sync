@@ -129,15 +129,89 @@ function handleSyncMessage(msg: SyncMessage) {
     }
 }
 
+// History Stacks
+const undoStack: Array<() => Promise<void>> = [];
+const redoStack: Array<() => Promise<void>> = [];
+
+// Helper to push to history
+function addToHistory(undoAction: () => Promise<void>) {
+    undoStack.push(undoAction);
+    // Limit stack size if needed, e.g., 50 items
+    if (undoStack.length > 50) undoStack.shift();
+    // Clear redo stack on new action
+    redoStack.length = 0;
+}
+
+// Undo Action
+export async function undo() {
+    const action = undoStack.pop();
+    if (!action) return;
+
+    console.log('↩️ Undoing...');
+
+    // Create a logical inverse for redo (this is tricky with async closures, 
+    // strictly speaking we should capture the 'redo' action before executing undo if we want proper redo.
+    // For now, let's implement simple Undo first. 
+    // To support Redo, the 'action' logs need to be pairs: { undo, redo }
+    // Let's refactor:
+    // See implementation below in PUBLIC ACTIONS
+
+    await action();
+}
+
+// ... actually, let's restructure the stacks to store objects
+interface HistoryEntry {
+    undo: () => Promise<void>;
+    redo: () => Promise<void>;
+}
+
+const history: { undo: HistoryEntry[], redo: HistoryEntry[] } = {
+    undo: [],
+    redo: []
+};
+
+export async function performUndo() {
+    const entry = history.undo.pop();
+    if (!entry) return;
+
+    console.log('↩️ Undoing...');
+    await entry.undo();
+    history.redo.push(entry);
+}
+
+export async function performRedo() {
+    const entry = history.redo.pop();
+    if (!entry) return;
+
+    console.log('↪️ Redoing...');
+    await entry.redo();
+    history.undo.push(entry);
+}
+
+// Wrapper for actions to log history (internal use)
+function logAction(undo: () => Promise<void>, redo: () => Promise<void>) {
+    history.undo.push({ undo, redo });
+    if (history.undo.length > 50) history.undo.shift();
+    history.redo = []; // Clear redo stack
+}
+
 // ============= PUBLIC ACTIONS =============
 
-// Move card to new position (0ms latency pattern)
-export async function moveCard(cardId: string, newListId: string, newPos: number) {
+// Move card to new position
+export async function moveCard(cardId: string, newListId: string, newPos: number, recordHistory = true) {
     const card = store.cards[cardId];
     if (!card) return;
 
     const oldListId = card.listId;
     const oldPos = card.pos;
+
+    // Record history
+    if (recordHistory) {
+        logAction(
+            () => moveCard(cardId, oldListId, oldPos, false), // Undo: move back
+            () => moveCard(cardId, newListId, newPos, false)  // Redo: move forward
+        );
+    }
 
     // 1. INSTANT UI UPDATE (0ms)
     setStore('cards', cardId, { listId: newListId, pos: newPos });
@@ -168,12 +242,22 @@ export async function moveCard(cardId: string, newListId: string, newPos: number
 }
 
 // Add new card
-export async function addCard(listId: string, title: string) {
+export async function addCard(listId: string, title: string, recordHistory = true) {
     const id = genId();
     const pos = Object.values(store.cards).filter(c => c && c.listId === listId).length;
     const createdAt = Date.now();
 
     const card: Card = { id, title, listId, pos, createdAt };
+
+    // Record history
+    if (recordHistory) {
+        logAction(
+            () => deleteCard(id, false), // Undo: delete it
+            async () => { await restoreCard(card); } // Redo: restore it (complicated, need helper)
+            // Actually redo for add is just creating it again with same ID?
+            // Let's implement restoreCard helper
+        );
+    }
 
     // 1. Instant UI
     setStore('cards', id, card);
@@ -204,10 +288,41 @@ export async function addCard(listId: string, title: string) {
     return id;
 }
 
+// Internal helper to restore a card (for Undo of Delete)
+async function restoreCard(card: Card, recordHistory = false) {
+    // Logic same as addCard but with existing ID/Data
+    setStore('cards', card.id, card);
+
+    if (pglite) {
+        await pglite.query(
+            'INSERT INTO cards (id, title, list_id, pos, created_at) VALUES ($1, $2, $3, $4, $5)',
+            [card.id, card.title, card.listId, card.pos, card.createdAt]
+        );
+    }
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'EXECUTE_SQL',
+            sql: 'INSERT INTO cards (id, title, list_id, pos, created_at) VALUES (?, ?, ?, ?, ?)',
+            params: [card.id, card.title, card.listId, card.pos, card.createdAt],
+            clientId,
+        }));
+    }
+}
+
+
 // Delete card
-export async function deleteCard(cardId: string) {
+export async function deleteCard(cardId: string, recordHistory = true) {
     const card = store.cards[cardId];
     if (!card) return;
+
+    // Record history
+    if (recordHistory) {
+        logAction(
+            () => restoreCard(card), // Undo: restore
+            () => deleteCard(cardId, false) // Redo: delete again
+        );
+    }
 
     // 1. Instant UI
     setStore('cards', cardId, undefined!);
@@ -234,11 +349,19 @@ export async function deleteCard(cardId: string) {
 }
 
 // Update card title
-export async function updateCardTitle(cardId: string, title: string) {
+export async function updateCardTitle(cardId: string, title: string, recordHistory = true) {
     const card = store.cards[cardId];
     if (!card) return;
 
     const oldTitle = card.title;
+
+    // Record history
+    if (recordHistory) {
+        logAction(
+            () => updateCardTitle(cardId, oldTitle, false),
+            () => updateCardTitle(cardId, title, false)
+        );
+    }
 
     // 1. Instant UI
     setStore('cards', cardId, 'title', title);
@@ -264,7 +387,7 @@ export async function updateCardTitle(cardId: string, title: string) {
     }
 }
 
-// Add new list
+// Add new list (Undo/Redo not implemented yet for lists to keep it simple)
 export async function addList(title: string) {
     const id = genId();
     const pos = Object.values(store.lists).length;
