@@ -1,7 +1,8 @@
 # Product Requirements Document (PRD): Local-First Trello Clone
 
 ## 1. Executive Summary
-**Product Name:** Trello Sync (Local-First)
+**Product Name:** Trello Sync (Local-First)  
+**Live URL:** https://work.moecapital.com  
 **Goal:** Build the fastest possible Kanban board application that functions perfectly offline and syncs instantly when online.
 **Core Value Proposition:** 0ms latency interactions via optimistic UI and edge-based synchronization.
 

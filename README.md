@@ -2,6 +2,10 @@
 
 A high-performance Kanban board built with **SolidJS**, **PGlite** (Postgres WASM), and **Cloudflare Durable Objects**.
 
+## 🚀 Live Demo
+
+**https://work.moecapital.com**
+
 ## Features
 
 - ⚡ **0ms Latency**: Optimistic UI updates.
