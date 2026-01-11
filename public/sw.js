@@ -14,29 +14,39 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Navigation request? Serve index.html
-    if (event.request.mode === 'navigate') {
-        event.respondWith(
-            caches.match('/index.html').then((response) => {
-                return response || fetch(event.request);
-            })
-        );
-        return;
-    }
-
-    // Stale-while-revalidate for everything else
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            const fetchPromise = fetch(event.request).then((networkResponse) => {
-                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
-                    });
+        (async () => {
+            try {
+                // 1. Navigation request? Serve index.html
+                if (event.request.mode === 'navigate') {
+                    const cachedIndex = await caches.match('/index.html');
+                    if (cachedIndex) return cachedIndex;
+
+                    const networkIndex = await fetch(event.request);
+                    return networkIndex;
                 }
-                return networkResponse;
-            });
-            return cachedResponse || fetchPromise;
-        })
+
+                // 2. Stale-while-revalidate for others
+                const cachedResponse = await caches.match(event.request);
+                const networkFetch = fetch(event.request).then((response) => {
+                    if (response && response.status === 200 && response.type === 'basic') {
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    }
+                    return response;
+                }).catch(() => {
+                    // Network failed? Return valid cache or nothing (let browser handle error)
+                    return cachedResponse;
+                });
+
+                return cachedResponse || await networkFetch;
+
+            } catch (error) {
+                console.error('SW Fetch Error:', error);
+                return fetch(event.request); // Fallback to direct network
+            }
+        })()
     );
 });
