@@ -17,13 +17,16 @@
 ## 3. Functional Requirements
 
 ### 3.1 Board Management
-- **FR-01:** System shall initialize with default lists ("To Do", "In Progress", "Done").
-- **FR-02:** User can create, rename, and delete lists. ~User cannot create/delete lists in MVP (fixed layout).~
+- **FR-01:** System shall initialize with default lists.
+- **FR-02:** User can create, rename, delete, and reorder lists (Drag & Drop).
+- **FR-02B:** User can manage multiple independent boards via Home screen (Routing).
 
 ### 3.2 Card Management
-- **FR-03:** User can create a card with a title.
-- **FR-04:** User can move cards between lists using Drag & Drop.
-- **FR-05:** User can delete cards (implemented in store, UI pending).
+- **FR-03:** User can create a card with title, description, tags, checklists, and due date.
+- **FR-04:** User can move cards between lists using Drag & Drop (Touch supported).
+- **FR-05:** User can delete cards.
+- **FR-05B:** User can search and filter cards by metadata.
+- **FR-05C:** User can undo/redo actions infinitely.
 
 ### 3.3 Synchronization
 - **FR-06:** All actions must reflect immediately in the UI (Optimistic Updates).
@@ -31,11 +34,16 @@
 - **FR-08:** Changes must be synced to Cloudflare Durable Object via WebSocket.
 - **FR-09:** Updates from other clients must be broadcasted and merged in real-time.
 
+### 3.4 Platform & Export
+- **FR-10:** Application is installable as PWA.
+- **FR-11:** User can export board data to JSON.
+- **FR-12:** Application supports Dark Mode.
+
 ## 4. Non-Functional Requirements
-- **NFR-1 (Performance):** Drag & Drop must maintain 60FPS.
+- **NFR-1 (Performance):** Drag & Drop must maintain 60FPS (optimized with requestAnimationFrame).
 - **NFR-2 (Latency):** UI response time must be < 16ms (1 frame) for all local actions.
 - **NFR-3 (Offline First):** Application must be fully functional without internet connection.
-- **NFR-4 (Scalability):** Backend batches writes > 50 req/sec.
+- **NFR-4 (Security):** Zero vulnerability dependencies.
 
 ## 5. Data Models
 
@@ -47,6 +55,10 @@ interface Card {
   listId: string;    // Foreign Key -> List
   pos: number;       // Floating point for sorting
   createdAt: number; // Timestamp
+  description?: string;
+  tags?: string[];
+  checklist?: { id: string; text: string; done: boolean }[];
+  dueDate?: number;
 }
 ```
 
@@ -56,6 +68,7 @@ interface List {
   id: string;
   title: string;
   pos: number;
+  board_id: string;
 }
 ```
 

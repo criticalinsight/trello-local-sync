@@ -12,6 +12,10 @@ A high-performance Kanban board built with **SolidJS**, **PGlite** (Postgres WAS
 - 🔄 **Real-time Sync**: WebSocket-based synchronization via Cloudflare Edge.
 - 📱 **Local-First**: Full offline support using in-browser PostgreSQL (PGlite).
 - 🏃 **Performance**: No Virtual DOM overhead; native drag-and-drop at 60fps.
+- 🏢 **Enterprise Ready**: Multiple boards, workspace isolation.
+- 🎨 **Rich UX**: Dark mode, Drag & Drop lists, Search & Filtering.
+- 📅 **Productivity**: Due dates, Checklists, Tags, JSON Export.
+- 📲 **PWA**: Installable on Desktop/Mobile with Service Worker caching.
 
 ## Architecture
 
