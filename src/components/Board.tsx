@@ -1,5 +1,6 @@
 import { Component, For, createSignal, createMemo } from 'solid-js';
 import { store, moveCard, addCard, deleteCard, updateCardTitle, deleteList, updateListTitle, addList } from '../store';
+import { StatusPill } from './StatusPill';
 import type { Card as CardType, List as ListType } from '../types';
 
 // Icons
@@ -249,11 +250,12 @@ export const Board: Component = () => {
     return (
         <div class="min-h-screen bg-board-bg">
             {/* Board Header */}
-            <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4">
-                <h1 class="text-xl font-bold text-white">Trello Clone</h1>
-                <p class="text-slate-400 text-sm mt-1">
-                    Local-First • 0ms Latency • {store.connected ? '🟢 Synced' : '🔴 Offline'}
-                </p>
+            <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold text-white">Trello Clone</h1>
+                    <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
+                </div>
+                <StatusPill />
             </header>
 
             {/* Lists Container */}
