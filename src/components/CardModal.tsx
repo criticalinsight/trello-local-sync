@@ -1,6 +1,8 @@
+```typescript
 import { Component, createSignal, For, Show } from 'solid-js';
-import { store, updateCardDetails } from '../store';
-import { Card } from '../types';
+import { Card, Comment } from '../types';
+import { store, updateCardDetails, addComment } from '../store';
+import { produce } from 'solid-js/store';
 
 interface CardModalProps {
     cardId: string;
@@ -158,7 +160,7 @@ export const CardModal: Component<CardModalProps> = (props) => {
                                             // But our update logic handles it if undefined.
                                             // Wait, if undefined, keys won't be in JSON.
                                             // We need to explicitly send null if we want to clear column.
-                                            // Type is `dueDate?: number`.
+                                            // Type is `dueDate ?: number`.
                                             // Let's send 0 or null.
                                             // store logic: `if (updates.dueDate !== undefined)`
                                             // So undefined is ignored.
@@ -192,7 +194,7 @@ export const CardModal: Component<CardModalProps> = (props) => {
                                 <div class="w-full bg-slate-700 rounded-full h-2">
                                     <div
                                         class="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                        style={{ width: `${Math.round(((card()!.checklist || []).filter(i => i.done).length / (card()!.checklist || []).length) * 100)}%` }}
+                                        style={{ width: `${ Math.round(((card()!.checklist || []).filter(i => i.done).length / (card()!.checklist || []).length) * 100) }% ` }}
                                     />
                                 </div>
                             </Show>
@@ -207,7 +209,7 @@ export const CardModal: Component<CardModalProps> = (props) => {
                                                 onChange={() => toggleItem(item.id)}
                                                 class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-offset-slate-800"
                                             />
-                                            <span class={`flex-1 text-slate-300 ${item.done ? 'line-through opacity-50' : ''}`}>{item.text}</span>
+                                            <span class={`flex - 1 text - slate - 300 ${ item.done ? 'line-through opacity-50' : '' } `}>{item.text}</span>
                                             <button
                                                 onClick={() => deleteItem(item.id)}
                                                 class="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"

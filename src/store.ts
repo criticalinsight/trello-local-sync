@@ -8,13 +8,10 @@ let socket: WebSocket | null = null;
 let clientId: string = '';
 
 // Create reactive store with default lists for immediate render
-const [store, setStore] = createStore<StoreState>({
-    lists: {
-        'list-1': { id: 'list-1', title: 'To Do', pos: 0 },
-        'list-2': { id: 'list-2', title: 'In Progress', pos: 1 },
-        'list-3': { id: 'list-3', title: 'Done', pos: 2 },
-    },
+export const [store, setStore] = createStore<StoreState>({
+    lists: {},
     cards: {},
+    comments: {}, // New comments state
     connected: false,
     syncing: false,
 });
@@ -94,30 +91,28 @@ async function initPGlite(boardId: string) {
         setStore(produce((s) => {
             // Clear current state first? Or merge?
             // Since we are switching boards, we should likely clear or reset.
-            // But initStore is called once per page load.
+            const listMap: Record<string, List> = {};
+            lists.forEach(l => listMap[l.id] = l);
 
-            s.lists = {};
-            s.cards = {};
+            const cardMap: Record<string, Card> = {};
+            cards.forEach(c => cardMap[c.id] = {
+                ...c,
+                tags: c.tags ? JSON.parse(c.tags as any) : [],
+                checklist: c.checklist ? JSON.parse(c.checklist as any) : [],
+                dueDate: (c as any).due_date
+            });
 
-            for (const list of lists.rows) {
-                s.lists[list.id] = list;
-            }
+            const commentMap: Record<string, Comment> = {};
+            comments.forEach(c => commentMap[c.id] = {
+                ...c,
+                cardId: (c as any).card_id,
+                createdAt: (c as any).created_at
+            });
 
-            for (const card of cards) {
-                s.cards[card.id] = {
-                    id: card.id,
-                    title: card.title,
-                    listId: card.list_id,
-                    pos: card.pos,
-                    createdAt: card.created_at,
-                    description: card.description || '',
-                    tags: card.tags ? JSON.parse(card.tags) : [],
-                    checklist: card.checklist ? JSON.parse(card.checklist) : [],
-                    dueDate: card.due_date,
-                };
-            }
+            s.lists = listMap;
+            s.cards = cardMap;
+            s.comments = commentMap;
         }));
-
         console.log(`✅ PGlite initialized for board ${boardId}`);
     } catch (error) {
         console.error('❌ PGlite initialization failed:', error);

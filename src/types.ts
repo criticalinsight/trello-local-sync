@@ -1,4 +1,11 @@
 // Types for the Trello clone
+export interface Comment {
+    id: string;
+    cardId: string;
+    text: string;
+    createdAt: number;
+}
+
 export interface Card {
     id: string;
     title: string;

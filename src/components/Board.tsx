@@ -4,6 +4,7 @@ import { StatusPill } from './StatusPill';
 import { CardModal } from './CardModal';
 import { ThemeToggle } from './ThemeToggle';
 import { SearchBar } from './SearchBar';
+import { CalendarView } from './CalendarView';
 import type { Card as CardType, List as ListType } from '../types';
 
 // Icons
@@ -352,6 +353,22 @@ export const Board: Component = () => {
                     <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
                 </div>
                 <div class="flex items-center gap-2 sm:gap-4">
+                    {/* View Toggle */}
+                    <div class="flex bg-slate-800 rounded p-1">
+                        <button
+                            onClick={() => setViewMode('board')}
+                            class={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode() === 'board' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            Board
+                        </button>
+                        <button
+                            onClick={() => setViewMode('calendar')}
+                            class={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode() === 'calendar' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            Calendar
+                        </button>
+                    </div>
+
                     <button
                         onClick={handleExport}
                         class="p-3 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 touch-manipulation"
