@@ -3,6 +3,7 @@ export { BoardDO } from './BoardDO';
 
 interface Env {
     BOARD_DO: DurableObjectNamespace;
+    ASSETS: Fetcher;
 }
 
 export default {
@@ -17,7 +18,7 @@ export default {
             return stub.fetch(request);
         }
 
-        // Serve static assets (in production, use Cloudflare Pages or R2)
-        return new Response('Trello Sync Worker', { status: 200 });
+        // Serve static assets from build
+        return env.ASSETS.fetch(request);
     }
 };
