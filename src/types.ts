@@ -1,4 +1,13 @@
-// Types for the Trello clone
+export interface Attachment {
+    id: string;
+    cardId: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+    createdAt: number;
+}
+
 export interface Comment {
     id: string;
     cardId: string;

@@ -1,7 +1,7 @@
 ```typescript
 import { Component, createSignal, For, Show } from 'solid-js';
-import { Card, Comment } from '../types';
-import { store, updateCardDetails, addComment } from '../store';
+import { Card, Comment, Attachment } from '../types';
+import { store, updateCardDetails, addComment, uploadAttachment } from '../store';
 import { produce } from 'solid-js/store';
 
 interface CardModalProps {

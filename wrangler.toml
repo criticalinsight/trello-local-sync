@@ -25,3 +25,7 @@ invocation_logs = true
 [assets]
 directory = "./dist"
 binding = "ASSETS"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "work-media"

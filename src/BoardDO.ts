@@ -180,9 +180,9 @@ export class BoardDO extends DurableObject {
         this.lastFlush = Date.now();
     }
 
-    private executeAndBroadcast(sql: string, params: unknown[], clientId: string, sender: WebSocket) {
+    private async executeAndBroadcast(sql: string, params: unknown[], clientId: string, sender: WebSocket) {
         try {
-            const result = this.ctx.storage.sql.exec(sql, ...params);
+            const result = await this.sql(sql, ...params);
             const rows = [...result.toArray()];
 
             // Broadcast to all OTHER clients (not the sender)
@@ -199,11 +199,17 @@ export class BoardDO extends DurableObject {
         }
     }
 
-    private broadcast(message: string, excludeClientId?: string) {
+    // Helper to execute SQL and ensure it's awaited
+    private async sql(sql: string, ...params: unknown[]) {
+        return await this.ctx.storage.sql.exec(sql, ...params);
+    }
+
+    private broadcast(message: string | object, excludeClientId?: string) {
+        const messageString = typeof message === 'string' ? message : JSON.stringify(message);
         for (const [ws, session] of this.sessions) {
             if (session.id !== excludeClientId) {
                 try {
-                    ws.send(message);
+                    ws.send(messageString);
                 } catch {
                     this.sessions.delete(ws);
                 }
