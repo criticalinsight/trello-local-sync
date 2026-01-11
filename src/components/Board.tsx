@@ -25,7 +25,7 @@ const PlusIcon = () => (
     </svg>
 );
 
-// Card component with drag support and inline editing
+// Card component
 const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => {
     const [isEditing, setIsEditing] = createSignal(false);
 
@@ -80,7 +80,7 @@ const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => 
                     <p class="text-slate-100 text-sm break-words whitespace-pre-wrap">{props.card.title}</p>
                     <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                         <button
-                            class="p-1 text-slate-400 hover:text-blue-400 hover:bg-slate-700 rounded"
+                            class="absolute top-2 right-2 p-2 text-slate-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity rounded touch-manipulation"
                             onClick={(e) => { e.stopPropagation(); props.onOpenModal(); }}
                             title="Edit details"
                         >
@@ -351,18 +351,22 @@ export const Board: Component = () => {
                     <h1 class="text-xl font-bold text-white">Trello Clone</h1>
                     <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
                 </div>
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 sm:gap-4">
                     <button
                         onClick={handleExport}
-                        class="p-2 text-slate-400 hover:text-white rounded hover:bg-slate-700/50"
+                        class="p-3 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 touch-manipulation"
                         title="Export to JSON"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                         </svg>
                     </button>
-                    <SearchBar onSearch={setSearchQuery} />
-                    <ThemeToggle />
+                    <div class="hidden sm:block">
+                        <SearchBar onSearch={setSearchQuery} />
+                    </div>
+                    <div class="scale-110">
+                        <ThemeToggle />
+                    </div>
                     <StatusPill />
                 </div>
             </header>

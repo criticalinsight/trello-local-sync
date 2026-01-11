@@ -2,6 +2,17 @@
 import { render } from 'solid-js/web';
 import { createSignal, onMount, Show } from 'solid-js';
 import { Home } from './components/Home';
+import { polyfill } from "mobile-drag-drop";
+// import "mobile-drag-drop/default.css"; // We'll add custom minimal css or use default if needed
+
+// Initialize Drag & Drop Polyfill for touch devices
+polyfill({
+    dragImageCenterOnTouch: true,
+    forceApply: false, // Only on touch need
+});
+
+// Fix for iOS scrolling while dragging
+window.addEventListener('touchmove', function () { }, { passive: false });
 
 const App = () => {
     // Simple routing state
