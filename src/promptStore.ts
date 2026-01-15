@@ -542,6 +542,8 @@ export async function runAllDrafts() {
 }
 
 export async function runSinglePrompt(promptId: string) {
+    // Immediate visual feedback - card moves to Generating lane right away
+    await moveToGenerating(promptId);
     await moveToQueued(promptId);
     await processExecutionQueue();
 }
