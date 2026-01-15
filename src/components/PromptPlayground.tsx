@@ -9,9 +9,11 @@ import {
     revertToVersion,
     updatePrompt,
     schedulePrompt,
+    configureWorkflow,
 } from '../promptStore';
-import type { PromptVersion, PromptParameters } from '../types';
+import type { PromptVersion, PromptParameters, PromptWorkflow } from '../types';
 import { ScheduleModal } from './ScheduleModal';
+import { WorkflowModal } from './WorkflowModal';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -60,6 +62,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const [hasUnsavedChanges, setHasUnsavedChanges] = createSignal(false);
     const [isRunning, setIsRunning] = createSignal(false);
     const [showSchedule, setShowSchedule] = createSignal(false);
+    const [showWorkflow, setShowWorkflow] = createSignal(false);
 
     // Initialize from current version
     createEffect(() => {
@@ -354,6 +357,15 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             {prompt()?.schedule?.enabled ? 'Scheduled' : 'Schedule'}
                         </button>
                         <button
+                            onClick={() => setShowWorkflow(true)}
+                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${prompt()?.workflow?.enabled
+                                ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
+                                : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
+                                }`}
+                        >
+                            {prompt()?.workflow?.enabled ? 'Workflow' : 'Workflow'}
+                        </button>
+                        <button
                             onClick={handleSave}
                             disabled={!hasUnsavedChanges()}
                             class="px-4 py-2 text-sm font-medium rounded-lg transition-colors
@@ -393,6 +405,15 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     initialEnabled={prompt()?.schedule?.enabled}
                     onClose={() => setShowSchedule(false)}
                     onSave={(cron, enabled) => schedulePrompt(props.promptId, cron, enabled)}
+                />
+            </Show>
+
+            <Show when={showWorkflow()}>
+                <WorkflowModal
+                    promptId={props.promptId}
+                    initialWorkflow={prompt()?.workflow}
+                    onClose={() => setShowWorkflow(false)}
+                    onSave={(workflow) => configureWorkflow(props.promptId, workflow)}
                 />
             </Show>
         </div>
