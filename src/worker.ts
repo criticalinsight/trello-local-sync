@@ -1,6 +1,8 @@
 // Worker entry point for Cloudflare
 export { BoardDO } from './BoardDO';
+export { BoardDO } from './BoardDO';
 export { ResearchDO } from './ResearchDO';
+import { handleTelegramWebhook, registerWebhook } from './telegramBot';
 
 // Model configuration for Interactions API
 const GEMINI_MODELS = [
@@ -20,7 +22,9 @@ interface Env {
     RESEARCH_DO: DurableObjectNamespace;
     ASSETS: Fetcher;
     MEDIA_BUCKET: R2Bucket;
+    MEDIA_BUCKET: R2Bucket;
     GEMINI_API_KEY: string;
+    TELEGRAM_BOT_TOKEN: string;
 }
 
 interface InteractionRequest {
@@ -147,6 +151,16 @@ export default {
                     headers: { 'Content-Type': 'application/json', ...corsHeaders }
                 });
             }
+        }
+
+        // Telegram Webhook
+        if (request.method === 'POST' && url.pathname === '/api/telegram/webhook') {
+            return handleTelegramWebhook(request, env);
+        }
+
+        // Telegram Registration
+        if (request.method === 'GET' && url.pathname === '/api/telegram/register') {
+            return registerWebhook(env, url.host);
         }
 
         // Job Status Route: GET /api/ai/status/:jobId
