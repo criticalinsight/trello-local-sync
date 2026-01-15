@@ -7,7 +7,8 @@ import type {
     PromptStatus,
     PromptParameters,
     PromptBoardMeta,
-    PromptSyncMessage
+    PromptSyncMessage,
+    PromptWorkflow,
 } from './types';
 
 // ============= STATE =============
