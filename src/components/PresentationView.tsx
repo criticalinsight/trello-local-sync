@@ -1,7 +1,8 @@
 
-import { Component, createSignal, createEffect, onMount } from 'solid-js';
+import { Component, createSignal, createEffect, onMount, Show } from 'solid-js';
 import { getCurrentVersion, getPromptsByStatus, promptStore } from '../promptStore';
 import { convertToPresentation, PresentationTheme } from '../presentation/converter';
+import { SkeletonLoader } from './LoadingStates';
 
 interface ViewProps {
     promptId: string;
