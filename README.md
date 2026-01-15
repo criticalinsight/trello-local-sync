@@ -19,12 +19,19 @@ A high-performance AI-powered Kanban board built with **SolidJS**, **PGlite** (P
 - 🔁 **Self-Correcting AI**: Recursive critique loops with automatic feedback injection
 - 📅 **Scheduled Prompts**: Cron-based AI execution
 - ⚡ **Triggered Workflows**: Event-driven prompt automation
+- 📝 **Presentation Mode**: Export AI outputs as documents or slides
 
 ### UX Polish
 - 🎛 **Agent Dashboard**: Real-time status of running agents
 - 📊 **Global Agent Bar**: Persistent progress indicator
 - 🔔 **Snackbar Notifications**: Success/error/info feedback
 - 📱 **Mobile-Adaptive**: Responsive layouts for all devices
+- 🛡 **Error Boundary**: Graceful recovery from runtime errors
+
+### Production Reliability
+- 🔄 **Auto-Updating**: No hard refresh needed after deployments
+- 📦 **Cache Headers**: Immutable hashed assets, no-cache HTML
+- 🧹 **SW Cache Cleanup**: Automatic old cache invalidation
 
 ## Architecture
 
@@ -34,13 +41,14 @@ A high-performance AI-powered Kanban board built with **SolidJS**, **PGlite** (P
 | Store | PGlite (WASM) + Solid Store |
 | Backend | Cloudflare Worker + Durable Object |
 | AI | Gemini Interactions API |
+| CDN | Cloudflare Assets + Service Worker |
 
 ### Bundle Optimization
 | Chunk | Size |
 |-------|------|
-| index.js | 114KB |
-| solid-vendor.js | 13.5KB |
-| pglite.js | 393KB |
+| index.js | 118KB |
+| solid-vendor.js | 14KB |
+| pglite.js | 394KB |
 | ai-service.js | 4.3KB |
 
 ## Getting Started
@@ -61,10 +69,15 @@ Open http://localhost:3000
 ## Deployment
 
 ```bash
+npm run build
 npx wrangler deploy
 ```
 
-> **Security**: Never commit API keys. Use environment variables.
+> **Security**: Never commit API keys. Use `wrangler secret put GEMINI_API_KEY`.
+
+## Roadmap
+
+See [ROADMAP.md](./ROADMAP.md) for current phase and future plans.
 
 ## License
 MIT
