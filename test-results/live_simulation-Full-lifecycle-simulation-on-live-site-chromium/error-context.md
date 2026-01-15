@@ -1,0 +1,50 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - button "Back to Home" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+        - generic [ref=e10]:
+          - heading "Prompt Engineering Board" [level=1] [ref=e11]
+          - paragraph [ref=e12]: 7624fd83...
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: 0 drafts
+          - generic [ref=e16]: 0 queued
+          - generic [ref=e17]: 0 running
+          - generic [ref=e18]: 0 deployed
+        - button "Switch to Light Mode" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - heading "Draft Prompts" [level=2] [ref=e26]
+          - generic [ref=e27]: "0"
+        - button "Add new prompt" [active] [ref=e29] [cursor=pointer]:
+          - img [ref=e30]
+      - generic [ref=e32]:
+        - textbox "Enter prompt title..." [ref=e33]
+        - generic [ref=e34]:
+          - button "Cancel" [ref=e35] [cursor=pointer]
+          - button "Add" [ref=e36] [cursor=pointer]
+      - generic [ref=e38]: Click + to create your first prompt
+    - generic [ref=e39]:
+      - generic [ref=e41]:
+        - heading "Queued" [level=2] [ref=e42]
+        - generic [ref=e43]: "0"
+      - generic [ref=e45]: No prompts yet
+    - generic [ref=e46]:
+      - generic [ref=e48]:
+        - heading "Generating" [level=2] [ref=e49]
+        - generic [ref=e50]: "0"
+      - generic [ref=e52]: No prompts yet
+    - generic [ref=e53]:
+      - generic [ref=e55]:
+        - heading "Deployed" [level=2] [ref=e56]
+        - generic [ref=e57]: "0"
+      - generic [ref=e59]: No prompts yet
+```

@@ -17,7 +17,8 @@ test('Full lifecycle simulation on live site', async ({ page }) => {
     const addBtn = page.getByTitle('Add new prompt');
     await addBtn.click();
 
-    const titleInput = page.locator('input[placeholder="Prompt title..."]');
+    const titleInput = page.locator('input[placeholder="Enter prompt title..."]');
+
     await titleInput.fill('Live End-to-End Simulation');
     await titleInput.press('Enter');
 
