@@ -51,6 +51,15 @@ const defaultParameters: PromptParameters = {
 export async function initPromptPGlite(boardId: string) {
     currentBoardId = boardId;
 
+    // Close previous instance if it exists to prevent handle leaks
+    if (pglite) {
+        try {
+            await pglite.close();
+        } catch (e) {
+            console.warn('[PromptStore] Failed to close previous PGlite instance', e);
+        }
+    }
+
     // Create new PGlite instance for prompts
     pglite = new PGlite(`idb://prompt-board-${boardId}`);
     await pglite.waitReady;
@@ -141,13 +150,13 @@ async function loadPromptsFromDB() {
             };
         }
 
-        for (const row of versionsResult.rows) {
+        for (const row of (versionsResult.rows as any[])) {
             s.versions[row.id] = {
                 ...row,
                 parameters: {
-                    temperature: row.parameters?.temperature ?? 0.7,
-                    topP: row.parameters?.topP ?? 0.9,
-                    maxTokens: row.parameters?.maxTokens ?? 2048,
+                    temperature: row.temperature ?? 0.7,
+                    topP: row.topP ?? 0.9,
+                    maxTokens: row.maxTokens ?? 2048,
                 },
             };
         }
@@ -331,6 +340,26 @@ export async function updateVersion(id: string, updates: Partial<PromptVersion>)
         if (updates.output !== undefined) {
             fields.push(`output = $${idx++}`);
             values.push(updates.output);
+        }
+        if (updates.content !== undefined) {
+            fields.push(`content = $${idx++}`);
+            values.push(updates.content);
+        }
+        if (updates.systemInstructions !== undefined) {
+            fields.push(`system_instructions = $${idx++}`);
+            values.push(updates.systemInstructions);
+        }
+        if (updates.parameters?.temperature !== undefined) {
+            fields.push(`temperature = $${idx++}`);
+            values.push(updates.parameters.temperature);
+        }
+        if (updates.parameters?.topP !== undefined) {
+            fields.push(`top_p = $${idx++}`);
+            values.push(updates.parameters.topP);
+        }
+        if (updates.parameters?.maxTokens !== undefined) {
+            fields.push(`max_tokens = $${idx++}`);
+            values.push(updates.parameters.maxTokens);
         }
         if (updates.executionTime !== undefined) {
             fields.push(`execution_time = $${idx++}`);
