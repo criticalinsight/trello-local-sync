@@ -203,6 +203,11 @@ export async function initPromptPGlite(boardId: string) {
     // Initialize memory store
     const { initMemoryStore } = await import('./memoryStore');
     await initMemoryStore(boardId, pglite);
+
+    // Initialize Sync Manager
+    const { syncManager } = await import('./syncManager');
+    await syncManager.init(pglite, boardId);
+
     console.log('[PromptStore] Initialization complete');
 }
 
