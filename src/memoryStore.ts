@@ -60,8 +60,8 @@ export async function initMemoryStore(boardId: string, pgliteInstance?: PGlite) 
             value TEXT NOT NULL,
             tags TEXT NOT NULL, -- JSON array
             board_id TEXT NOT NULL,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
             usage_count INTEGER DEFAULT 0,
             UNIQUE(board_id, key)
         );
@@ -76,7 +76,7 @@ export async function initMemoryStore(boardId: string, pgliteInstance?: PGlite) 
             relation TEXT NOT NULL,
             weight REAL DEFAULT 1.0,
             board_id TEXT NOT NULL,
-            created_at INTEGER NOT NULL,
+            created_at BIGINT NOT NULL,
             UNIQUE(board_id, source_id, target_id, relation)
         );
     `);
