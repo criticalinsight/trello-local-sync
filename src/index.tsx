@@ -7,6 +7,7 @@ import { PromptBoard } from './components/PromptBoard';
 import { PresentationView } from './components/PresentationView';
 import { AgentDashboard } from './components/AgentDashboard';
 import { SnackbarContainer } from './components/Snackbar';
+import { GlobalAgentBar } from './components/GlobalAgentBar';
 import { initStore } from './store';
 import { initPromptStore } from './promptStore';
 import './index.css';
@@ -119,6 +120,7 @@ const App = () => {
             </Show>
 
             {/* Global UX Components */}
+            <GlobalAgentBar />
             <AgentDashboard />
             <SnackbarContainer />
         </>
