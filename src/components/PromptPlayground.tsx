@@ -232,27 +232,27 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         </Show>
                     </div>
 
-                    </div>
+
 
                     {/* Comparison Control */}
                     <div class="flex items-center gap-3 px-4 border-l border-slate-700 mx-2">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input 
-                                type="checkbox" 
-                                checked={showModelComparison()} 
+                            <input
+                                type="checkbox"
+                                checked={showModelComparison()}
                                 onChange={(e) => setShowModelComparison(e.currentTarget.checked)}
                                 class="w-4 h-4 rounded border-slate-600 text-purple-600 focus:ring-purple-500 bg-slate-700"
                             />
                             <span class="text-sm text-slate-300">Compare Models</span>
                         </label>
-                        
+
                         <Show when={showModelComparison()}>
                             <select
                                 value={comparisonModel()}
                                 onChange={(e) => setComparisonModel(e.currentTarget.value as GeminiModel)}
                                 class="bg-slate-800 border border-slate-600 text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-purple-500"
                             >
-                                <For each={['gemini-3-pro-preview', 'deep-research-pro-preview-12-2025']}> 
+                                <For each={['gemini-3-pro-preview', 'deep-research-pro-preview-12-2025']}>
                                     {(model) => <option value={model}>{model}</option>}
                                 </For>
                             </select>
@@ -360,7 +360,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
 
                     {/* Comparison Panel */}
                     <Show when={showModelComparison()}>
-                         <div class="w-1/3 flex flex-col bg-slate-900 overflow-y-auto border-l border-slate-700">
+                        <div class="w-1/3 flex flex-col bg-slate-900 overflow-y-auto border-l border-slate-700">
                             <div class="p-4 border-b border-slate-700 flex justify-between items-center">
                                 <label class="block text-sm font-medium text-amber-400">Comparison Output</label>
                                 <span class="text-xs text-amber-500/80 px-2 py-1 bg-amber-900/10 rounded border border-amber-900/30">
@@ -385,7 +385,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                         innerHTML={renderMarkdown(comparisonOutput())}
                                     />
                                 </Show>
-                                
+
                                 <Show when={comparisonError()}>
                                     <div class="mt-4 p-4 bg-red-900/20 border border-red-800 rounded-lg">
                                         <p class="text-red-400 text-sm font-medium">Comparison Error</p>
