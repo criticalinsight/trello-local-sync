@@ -63,6 +63,27 @@ describe('MemoryStore (Relational Knowledge Graph)', () => {
         expect(context).toContain('(Related: links_to B)');
     });
 
+    test('getMemoriesForContext filters by intent and clusters relationships', async () => {
+        const id1 = await addNode('Project Alpha', 'Alpha details');
+        const id2 = await addNode('Project Beta', 'Beta details');
+        const id3 = await addNode('Alpha Owner', 'John Doe');
+
+        await addEdge(id1, id3, 'owned_by');
+
+        // Search for "Alpha"
+        const context = getMemoriesForContext(10, 'Tell me about Project Alpha');
+
+        expect(context).toContain('Project Alpha');
+        expect(context).toContain('Alpha Owner'); // Clustered because of edge
+        expect(context).not.toContain('Project Beta'); // Filtered out
+    });
+
+    test('getMemoriesForContext defaults to recent if no matches', async () => {
+        await addNode('Recent Node', 'Value');
+        const context = getMemoriesForContext(10, 'Something non-matching');
+        expect(context).toContain('Recent Node');
+    });
+
     test('deleteNode removes node and associated edges', async () => {
         const id1 = await addNode('A', 'Value A');
         const id2 = await addNode('B', 'Value B');
