@@ -10,6 +10,7 @@ import type {
     PromptSyncMessage,
     PromptWorkflow,
 } from './types';
+import { syncManager } from './syncManager';
 
 // ============= STATE =============
 
@@ -295,6 +296,12 @@ export async function addPrompt(title: string): Promise<string> {
              VALUES ($1, $2, $3, $4, $5, $6)`,
             [id, title, currentBoardId, 'draft', pos, now]
         );
+
+        // Sync
+        await syncManager.enqueue(
+            `INSERT INTO prompts (id, title, board_id, status, pos, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+            [id, title, currentBoardId, 'draft', pos, now]
+        );
     }
 
     // Create initial version
@@ -360,6 +367,14 @@ export async function updatePrompt(id: string, updates: Partial<PromptCard>) {
                 values.push(id);
                 await pglite.query(
                     `UPDATE prompts SET ${fields.join(', ')} WHERE id = $${idx}`,
+                    values
+                );
+
+                // Sync (Convert $n to ?)
+                // Note: values array matches order.
+                const syncFields = fields.map(f => f.split('=')[0] + '= ?');
+                await syncManager.enqueue(
+                    `UPDATE prompts SET ${syncFields.join(', ')} WHERE id = ?`,
                     values
                 );
             }
