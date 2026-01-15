@@ -562,6 +562,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     onSave={(workflow) => configureWorkflow(props.promptId, workflow)}
                 />
             </Show>
+
+            <TemplateModal
+                isOpen={showTemplates()}
+                onClose={() => setShowTemplates(false)}
+                onSelect={handleLoadTemplate}
+            />
         </div>
     );
 };
