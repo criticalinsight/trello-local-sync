@@ -18,10 +18,11 @@ def run_command(command, check=True):
         return e.stdout, e.stderr, e.returncode
 
 def call_llm(prompt, model=PRIMARY_MODEL):
-    stdout, stderr, code = run_command(f"{LLM_PATH} -m {model} '{prompt}'", check=False)
+    # Use -m to specify the model explicitly using the GeminiPro source in llm-gemini
+    stdout, stderr, code = run_command(f"{LLM_PATH} -m {model} \"{prompt}\"", check=False)
     if code != 0:
         if "429" in stderr or "RESOURCE_EXHAUSTED" in stderr:
-            print("Rate limit hit (429).")
+            print(f"Rate limit hit (429) for model {model}.")
             return "429", stderr
         return None, stderr
     return stdout, None
@@ -42,35 +43,58 @@ def main():
         print("No active tasks found in TASKS.md.")
         return
 
-    # Call LLM for next action
-    prompt = f"You are Ralph, an autonomous developer. Based on the following TASKS.md, what is the next single technical step to take? Provide ONLY the shell command to execute.\n\nTASKS.md:\n{tasks}"
+    # Gather context: File tree
+    file_tree, _, _ = run_command("ls -R | grep -v node_modules | grep -v .git | head -n 50")
     
-    output, error = call_llm(prompt)
+    # Construct a robust prompt
+    prompt = f"""You are Ralph, an autonomous senior developer.
+Current Tasks:
+{tasks}
+
+Environment Context (File Tree Snippet):
+{file_tree}
+
+Goal: Identify the next single, low-risk technical step to move the project forward.
+Requirement: Provide ONLY the raw shell command to execute. No explanations, no markdown blocks.
+"""
+    
+    # Clean prompt for shell execution (avoid breaking quotes)
+    safe_prompt = prompt.replace('"', '\\"').replace("'", "'\\''")
+
+    output, error = call_llm(safe_prompt, model=PRIMARY_MODEL)
     
     if output == "429":
-        print("Rate limit detected. Signaling 1-hour sleep.")
+        print("Primary model hit rate limit. Signaling 1-hour sleep.")
         sys.exit(42)  # Special exit code for 429
         
-    if not output:
-        print(f"Error calling primary model: {error}")
-        print("Trying fallback model...")
-        output, error = call_llm(prompt, model=FALLBACK_MODEL)
+    if not output or not output.strip():
+        print(f"Error calling primary model ({PRIMARY_MODEL}): {error}")
+        print(f"Attempting fallback to {FALLBACK_MODEL}...")
+        output, error = call_llm(safe_prompt, model=FALLBACK_MODEL)
         
-    if not output:
+    if output == "429":
+        print("Fallback model also hit rate limit. Signaling 1-hour sleep.")
+        sys.exit(42)
+
+    if not output or not output.strip():
         print(f"Fallback failed: {error}")
         return
 
-    command = output.strip().strip('`')
+    command = output.strip().split('\n')[0].strip('`')
+    if not command:
+        print("LLM returned an empty command.")
+        return
+
     print(f"Executing: {command}")
     
     # Execute the command
     out, err, code = run_command(command, check=False)
-    print(out)
+    if out:
+        print(f"STDOUT:\n{out}")
     if err:
-        print(f"Error output: {err}")
+        print(f"STDERR:\n{err}")
 
-    # Log completion or progress (this would usually be more sophisticated)
-    print("Iteration complete.")
+    print(f"Iteration complete with exit code {code}.")
 
 if __name__ == "__main__":
     main()
