@@ -184,6 +184,7 @@ export class SyncManager {
                 temperature REAL DEFAULT 0.7,
                 top_p REAL DEFAULT 0.9,
                 max_tokens INTEGER DEFAULT 2048,
+                model TEXT,
                 output TEXT,
                 created_at BIGINT NOT NULL,
                 execution_time INTEGER,
@@ -193,7 +194,9 @@ export class SyncManager {
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
                 created_at BIGINT NOT NULL
-            )`
+            )`,
+            // Migration for existing tables: (Will fail safely if column exists)
+            `ALTER TABLE prompt_versions ADD COLUMN model TEXT`
         ];
 
         tables.forEach(sql => {
