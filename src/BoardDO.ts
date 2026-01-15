@@ -722,7 +722,7 @@ export class BoardDO extends DurableObject<Env> {
 
             // Use Interactions API endpoint (same as worker.ts)
             const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/interactions';
-            const model = params.model || 'gemini-2.0-flash';
+            const model = params.model || 'gemini-2.5-flash';
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
