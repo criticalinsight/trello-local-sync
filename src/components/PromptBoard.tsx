@@ -12,7 +12,6 @@ import type { PromptCard as PromptCardType, PromptStatus } from '../types';
 import { PromptCard } from './PromptCard';
 import { PromptPlayground } from './PromptPlayground';
 import { ThemeToggle } from './ThemeToggle';
-import { onMount } from 'solid-js';
 
 // Column configuration
 const columns: { status: PromptStatus; title: string; color: string; headerAction?: 'add' | 'runAll' }[] = [
