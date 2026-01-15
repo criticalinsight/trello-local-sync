@@ -45,6 +45,11 @@ export class BoardDO extends DurableObject {
       
       CREATE INDEX IF NOT EXISTS idx_cards_list ON cards(list_id);
       CREATE INDEX IF NOT EXISTS idx_cards_pos ON cards(pos);
+      
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
     `);
 
         // Migration for existing databases
