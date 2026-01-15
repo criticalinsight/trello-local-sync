@@ -43,7 +43,8 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                     "- `/new [title]` - Create a draft\n" +
                     "- `/list` - View recent drafts\n" +
                     "- `/run [id]` - Execute a prompt\n" +
-                    "- `/latest` - See most recent output\n" +
+                    "- `/search [query]` - Find prompts\n" +
+                    "- `/stats` - Board analytics\n" +
                     "- `/status` - View board health"
                 );
             } else if (cmd === '/help') {
@@ -55,11 +56,17 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                     "- `/list` - List recent drafts\n\n" +
                     "🔍 **Query:**\n" +
                     "- `/status` - Board summary\n" +
+                    "- `/search [query]` - Fuzzy search\n" +
+                    "- `/tags` - List all tags\n" +
+                    "- `/tag [name]` - Filter by tag\n" +
                     "- `/latest` - Last generated result\n" +
-                    "- `/ping` - System check\n\n" +
+                    "- `/stats` - Performance analytics\n\n" +
                     "🎮 **Control:**\n" +
                     "- `/run [id]` - Trigger execution\n" +
-                    "- `/retry [id]` - Re-run a failed prompt"
+                    "- `/assign [id] [model]` - Switch model\n" +
+                    "- `/agents` - List available models\n" +
+                    "- `/refine [id]` - AI Improvement\n" +
+                    "- `/retry [id]` - Re-run failed"
                 );
             } else if (cmd === '/ping') {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🏓 Pong! Webhook is active.");
@@ -79,6 +86,18 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleRefinePrompt(chatId, args[0], env);
             } else if (cmd === '/logs') {
                 await handleLogs(chatId, env);
+            } else if (cmd === '/search') {
+                await handleSearch(chatId, args.join(' '), env);
+            } else if (cmd === '/tags') {
+                await handleTags(chatId, env);
+            } else if (cmd === '/tag') {
+                await handleTagFilter(chatId, args[0], env);
+            } else if (cmd === '/stats') {
+                await handleStats(chatId, env);
+            } else if (cmd === '/agents') {
+                await handleAgents(chatId, env);
+            } else if (cmd === '/assign') {
+                await handleAssign(chatId, args[0], args[1], env);
             } else {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "❓ Unknown command. Try /help.");
             }
