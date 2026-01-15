@@ -69,6 +69,8 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleRunPrompt(chatId, args[0], env);
             } else if (cmd === '/latest') {
                 await handleLatest(chatId, env);
+            } else if (cmd === '/retry') {
+                await handleRunPrompt(chatId, args[0], env);
             } else {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "❓ Unknown command. Try /help.");
             }
