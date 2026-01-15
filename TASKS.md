@@ -1,10 +1,9 @@
 # Ralph Tasks
 
 ## Active Task
-- [ ] Initialize Ralph Autonomous Loop (`ralph.sh` and `ralph_driver.py`)
+- [ ] Implement Persistent Memory System (from ROADMAP)
 
 ## Backlog
-- [ ] Implement Persistent Memory System (from ROADMAP)
 - [ ] Context Injection Logic
 - [ ] Scheduled Prompts (Cron)
 
