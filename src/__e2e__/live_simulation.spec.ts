@@ -4,7 +4,8 @@ test('Full lifecycle simulation on live site', async ({ page }) => {
     // Step 1: Navigate to the live site
     console.log('Navigating to live site...');
     await page.goto('https://work.moecapital.com');
-    await expect(page).toHaveTitle(/Local-First Workspace/i);
+    await expect(page).toHaveTitle('Work');
+
 
     // Step 2: Create a new Prompt Board
     console.log('Creating new Prompt Board...');
