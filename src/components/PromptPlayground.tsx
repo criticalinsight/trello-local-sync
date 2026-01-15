@@ -65,6 +65,17 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const [isRunning, setIsRunning] = createSignal(false);
     const [showSchedule, setShowSchedule] = createSignal(false);
     const [showWorkflow, setShowWorkflow] = createSignal(false);
+    const [showTemplates, setShowTemplates] = createSignal(false);
+
+    const handleLoadTemplate = (template: PromptTemplate) => {
+        setContent(template.content);
+        if (template.systemInstructions) {
+            setSystemInstructions(template.systemInstructions);
+        }
+        setHasUnsavedChanges(true);
+        setShowTemplates(false);
+        showSnackbar({ message: `Loaded template: ${template.trigger}`, type: 'success' });
+    };
 
     // Version history state
     const [showVersionPanel, setShowVersionPanel] = createSignal(false);
