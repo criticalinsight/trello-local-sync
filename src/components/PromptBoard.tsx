@@ -1,4 +1,4 @@
-import { Component, For, createSignal, Show } from 'solid-js';
+import { Component, For, createSignal, Show, createEffect, onMount } from 'solid-js';
 import {
     promptStore,
     getPromptsByStatus,
@@ -54,9 +54,17 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
     const [dragOverStatus, setDragOverStatus] = createSignal<PromptStatus | null>(null);
     const [isLoading, setIsLoading] = createSignal(true);
 
-    onMount(async () => {
-        // Initialize store from DB
-        await initPromptStore(props.boardId);
+    onMount(() => {
+        // Initial setup
+    });
+
+    // Re-initialize when boardId changes
+    createEffect(async () => {
+        const id = props.boardId;
+        if (!id) return;
+
+        setIsLoading(true);
+        await initPromptStore(id);
         setIsLoading(false);
     });
 

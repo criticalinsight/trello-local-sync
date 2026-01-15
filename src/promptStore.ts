@@ -106,6 +106,14 @@ export async function initPromptPGlite(boardId: string) {
         );
     `);
 
+    // Ensure this board metadata exists
+    await pglite.query(
+        `INSERT INTO prompt_boards (id, title, created_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT(id) DO NOTHING`,
+        [boardId, 'New Prompt Board', Date.now()]
+    );
+
     // Load existing data
     await loadPromptsFromDB();
 
