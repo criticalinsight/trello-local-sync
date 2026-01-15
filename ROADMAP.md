@@ -19,9 +19,13 @@ timeline
     Phase 4 : Automation & Integration (Complete) : Scheduled Prompts (Cron)
             : Triggered Workflows
     Phase 5 : Knowledge & Visuals (Skipped)
-    Phase 6 : Ecosystem & Analytics : SDK/API Access
-            : A/B Test Variants
-            : Performance Analytics
+    Phase 6 : Strategic Scale (Skipped)
+    Phase 7 : Autonomous Agents : Multi-Agent Swarms
+             : Tool-Calling (Local Shell/API)
+             : Self-Correcting Workflows
+    Phase 8 : Decentralized Intelligence : Peer-to-Peer Sync (P2P)
+             : Privacy-First Local LLMs
+             : Zero-Knowledge Knowledge Graphs
 ```
 
 ## 3. Detailed Development Tracks
@@ -39,11 +43,19 @@ timeline
 - [ ] **Presentation Mode:** Convert AI outputs directly into slide decks or structured documents.
 - [ ] **Multimodal Visuals:** Integrated image generation (Imagen) and diagram creation (Mermaid).
 
-### 🚀 Phase 6: Strategic Scale
-**Goal:** Open the platform for developers and enterprise optimization.
-- [ ] **Work SDK:** Programmatic access to boards and agents for external application integration.
-- [ ] **A/B Testing:** Side-by-side comparison of prompt variants with quality score tracking.
-- [ ] **Cost Dashboard:** Real-time visibility into token usage and compute costs across projects.
+### ⏭ Phase 6: Strategic Scale (Skipped)
+
+### 🤖 Phase 7: Autonomous Agents (New Focus)
+**Goal:** Transition from user-triggered prompts to self-driving agent swarms.
+- [ ] **Multi-Agent Orchestration:** Prompts that can spawn and coordinate sub-prompts for complex research.
+- [ ] **Native Tool Use:** AI agents with the ability to execute local shell commands or call external APIs autonomously.
+- [ ] **Recursive Self-Correction:** Feedback loops where AI evaluates its own output against constraints before final delivery.
+
+### 🌐 Phase 8: Decentralized Intelligence
+**Goal:** Remove the central server while maintaining global collaborative intelligence.
+- [ ] **P2P Sync Protocol:** Direct list-to-list synchronization using Yjs or Automerge without intermediate Durable Objects.
+- [ ] **Local-LLM Native:** First-class support for running quantized models (Llama3/Gemma) directly in the browser via WebGPU.
+- [ ] **Zero-Knowledge Context:** Encrypted knowledge graphs where the AI processes data locally, ensuring 100% data sovereignty.
 
 ## 4. Current Progress (KPIs)
 
