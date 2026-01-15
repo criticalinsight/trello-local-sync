@@ -15,6 +15,7 @@ import type { PromptVersion, PromptParameters, PromptWorkflow } from '../types';
 import { ScheduleModal } from './ScheduleModal';
 import { WorkflowModal } from './WorkflowModal';
 import { showSnackbar } from './Snackbar';
+import { PROMPT_TEMPLATES, type PromptTemplate } from '../data/templates';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
