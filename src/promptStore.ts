@@ -129,6 +129,18 @@ export async function initPromptPGlite(boardId: string) {
         );
     `);
 
+    // Create mutation queue table for offline sync
+    await pglite.exec(`
+        CREATE TABLE IF NOT EXISTS mutation_queue (
+            id TEXT PRIMARY KEY,
+            board_id TEXT NOT NULL,
+            type TEXT NOT NULL,
+            data JSON NOT NULL,
+            created_at BIGINT NOT NULL,
+            synced INTEGER DEFAULT 0
+        );
+    `);
+
     // Migration: Add columns if they don't exist
     try {
         await pglite.exec(`ALTER TABLE prompts ADD COLUMN schedule_json TEXT;`);
