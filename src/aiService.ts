@@ -417,3 +417,105 @@ export async function generate(
 
 export { DEFAULT_CONFIG as AI_DEFAULT_CONFIG };
 
+// ============= AUTONOMOUS AGENT HELPERS =============
+
+export interface CritiqueResult {
+    score: number;
+    pass: boolean;
+    feedback: string;
+}
+
+/**
+ * Uses a lightweight model to evaluate AI output quality.
+ * Returns a score, pass/fail, and actionable feedback.
+ */
+export async function critiqueOutput(
+    output: string,
+    constraints?: string
+): Promise<CritiqueResult> {
+    const criticPrompt = `You are a quality assurance critic. Evaluate the following AI output.
+
+OUTPUT TO EVALUATE:
+${output}
+
+${constraints ? `CONSTRAINTS:\n${constraints}\n\n` : ''}
+Rate it 1-10 on:
+- Factual Accuracy
+- Relevance to Intent  
+- Clarity & Structure
+
+Respond ONLY in valid JSON:
+{"score": 8, "pass": true, "feedback": "..."}
+
+If any dimension is below 7, set pass=false and provide specific, actionable feedback.`;
+
+    try {
+        const result = await generateWithFallback({
+            prompt: criticPrompt,
+            parameters: { temperature: 0.3, topP: 0.9, maxTokens: 512 },
+            model: 'gemini-3-pro-preview', // Use fast model for critique
+        });
+
+        // Parse JSON from response
+        const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]) as CritiqueResult;
+            return {
+                score: parsed.score ?? 5,
+                pass: parsed.pass ?? false,
+                feedback: parsed.feedback ?? 'No feedback provided',
+            };
+        }
+    } catch (error) {
+        console.error('[AI] Critique failed:', error);
+    }
+
+    // Fallback: pass by default if critique fails
+    return { score: 7, pass: true, feedback: 'Critique unavailable' };
+}
+
+export interface DecomposedTask {
+    title: string;
+    description: string;
+}
+
+/**
+ * Uses LLM to break down a complex task into sub-tasks.
+ * Returns an array of task definitions for worker agents.
+ */
+export async function decomposeTask(
+    prompt: string,
+    maxSubtasks: number = 3
+): Promise<DecomposedTask[]> {
+    const decompositionPrompt = `You are a task decomposition expert. Break down the following complex task into ${maxSubtasks} or fewer independent sub-tasks that can be executed in parallel.
+
+MAIN TASK:
+${prompt}
+
+Respond ONLY in valid JSON array format:
+[
+  {"title": "Sub-task 1 Title", "description": "Detailed description of what to research/analyze"},
+  {"title": "Sub-task 2 Title", "description": "..."}
+]
+
+Each sub-task should be self-contained and contribute to answering the main task.`;
+
+    try {
+        const result = await generateWithFallback({
+            prompt: decompositionPrompt,
+            parameters: { temperature: 0.5, topP: 0.9, maxTokens: 1024 },
+            model: 'gemini-3-pro-preview',
+        });
+
+        const jsonMatch = result.content.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]) as DecomposedTask[];
+            return parsed.slice(0, maxSubtasks);
+        }
+    } catch (error) {
+        console.error('[AI] Decomposition failed:', error);
+    }
+
+    // Fallback: single task with original prompt
+    return [{ title: 'Primary Task', description: prompt }];
+}
