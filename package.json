@@ -12,6 +12,8 @@
     },
     "dependencies": {
         "@electric-sql/pglite": "^0.2.0",
+        "@types/diff": "^7.0.2",
+        "diff": "^8.0.3",
         "mobile-drag-drop": "^3.0.0-rc.0",
         "solid-js": "^1.8.0"
     },
