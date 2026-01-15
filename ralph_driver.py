@@ -3,6 +3,9 @@ import subprocess
 import time
 import sys
 
+# Ensure sys.stdin is not used in background
+sys.stdin = open(os.devnull, 'r')
+
 # Configuration
 PRIMARY_MODEL = "gemini-3-pro-preview"
 FALLBACK_MODEL = "gemini-3-flash-preview"
