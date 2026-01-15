@@ -288,7 +288,7 @@ export function getMemoriesForContext(limit = 10, query?: string): string {
             .filter(k => k.length > 2); // Filter out short stop-words
 
         if (keywords.length > 0) {
-            // 1. Find directly matching nodes
+            // 1. Find directly matching nodes with scores
             const matches = Object.values(memoryStore.nodes).map(node => {
                 let score = 0;
                 const nodeText = `${node.key} ${node.value} ${node.tags.join(' ')}`.toLowerCase();
@@ -298,27 +298,37 @@ export function getMemoriesForContext(limit = 10, query?: string): string {
                     if (node.key.toLowerCase().includes(kw)) score += 2; // Primary key match weight
                 }
                 return { node, score };
-            }).filter(m => m.score > 0);
+            })
+                .filter(m => m.score > 0)
+                .sort((a, b) => b.score - a.score);
 
-            // 2. Traversal: Find neighbors of matches
-            const clusters = new Set<string>();
-            for (const match of matches) {
-                clusters.add(match.node.id);
+            if (matches.length > 0) {
+                // Determine a threshold (e.g., at least 50% of the max score)
+                const maxScore = matches[0].score;
+                const threshold = Math.max(2, maxScore * 0.5); // Minimum score of 2 to avoid weak matches like stop-words
 
-                // Add first-degree connections
-                const relatedIds = memoryStore.edges
-                    .filter(e => e.sourceId === match.node.id || e.targetId === match.node.id)
-                    .map(e => e.sourceId === match.node.id ? e.targetId : e.sourceId);
+                const highConfidenceMatches = matches.filter(m => m.score >= threshold);
 
-                for (const id of relatedIds) clusters.add(id);
+                // 2. Traversal: Find neighbors of high-confidence matches
+                const clusters = new Set<string>();
+                for (const match of highConfidenceMatches) {
+                    clusters.add(match.node.id);
+
+                    // Add first-degree connections
+                    const relatedIds = memoryStore.edges
+                        .filter(e => e.sourceId === match.node.id || e.targetId === match.node.id)
+                        .map(e => e.sourceId === match.node.id ? e.targetId : e.sourceId);
+
+                    for (const id of relatedIds) clusters.add(id);
+                }
+
+                // 3. Final collection, sorted by recency among the relevant set
+                targetNodes = Array.from(clusters)
+                    .map(id => memoryStore.nodes[id])
+                    .filter(Boolean)
+                    .sort((a, b) => b.updatedAt - a.updatedAt)
+                    .slice(0, limit);
             }
-
-            // 3. Final collection, sorted by recency among the relevant set
-            targetNodes = Array.from(clusters)
-                .map(id => memoryStore.nodes[id])
-                .filter(Boolean)
-                .sort((a, b) => b.updatedAt - a.updatedAt)
-                .slice(0, limit);
         }
     }
 
