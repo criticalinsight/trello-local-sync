@@ -276,18 +276,63 @@ export const searchMemories = searchNodes;
 
 /**
  * Retrieves a context string for the AI, prioritizing recently updated and related nodes.
+ * If a query is provided, it uses keyword matching and relationship traversal.
  */
-export function getMemoriesForContext(limit = 10): string {
-    // Current simple strategy: most recent nodes
-    // TODO: Evolve to use relationship clusters/weights
-    const topNodes = Object.values(memoryStore.nodes)
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, limit);
+export function getMemoriesForContext(limit = 10, query?: string): string {
+    let targetNodes: Node[] = [];
 
-    if (topNodes.length === 0) return '';
+    if (query && query.trim()) {
+        const keywords = query.toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .split(/\s+/)
+            .filter(k => k.length > 2); // Filter out short stop-words
 
-    // Build context with simple relationship hints if available
-    return topNodes
+        if (keywords.length > 0) {
+            // 1. Find directly matching nodes
+            const matches = Object.values(memoryStore.nodes).map(node => {
+                let score = 0;
+                const nodeText = `${node.key} ${node.value} ${node.tags.join(' ')}`.toLowerCase();
+
+                for (const kw of keywords) {
+                    if (nodeText.includes(kw)) score += 1;
+                    if (node.key.toLowerCase().includes(kw)) score += 2; // Primary key match weight
+                }
+                return { node, score };
+            }).filter(m => m.score > 0);
+
+            // 2. Traversal: Find neighbors of matches
+            const clusters = new Set<string>();
+            for (const match of matches) {
+                clusters.add(match.node.id);
+
+                // Add first-degree connections
+                const relatedIds = memoryStore.edges
+                    .filter(e => e.sourceId === match.node.id || e.targetId === match.node.id)
+                    .map(e => e.sourceId === match.node.id ? e.targetId : e.sourceId);
+
+                for (const id of relatedIds) clusters.add(id);
+            }
+
+            // 3. Final collection, sorted by recency among the relevant set
+            targetNodes = Array.from(clusters)
+                .map(id => memoryStore.nodes[id])
+                .filter(Boolean)
+                .sort((a, b) => b.updatedAt - a.updatedAt)
+                .slice(0, limit);
+        }
+    }
+
+    // Default to most recent if no query or no matches
+    if (targetNodes.length === 0) {
+        targetNodes = Object.values(memoryStore.nodes)
+            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .slice(0, limit);
+    }
+
+    if (targetNodes.length === 0) return '';
+
+    // Build context with simple relationship hints
+    return targetNodes
         .map(node => {
             const contextLine = `[MEMORY: ${node.key}] ${node.value}`;
 
