@@ -351,50 +351,72 @@ export class BoardDO extends DurableObject {
         console.log(`[Scheduler] Processing ${tasks.length} tasks`);
 
         for (const task of tasks) {
-            try {
-                // Execute Prompt
-                const params = JSON.parse(task.parameters);
+            await this.executeTask(task);
+        }
+    }
 
-                // We need to call the AI service. 
-                // Since 'aiService.ts' is likely not compatible with DO environment directly (imports config etc),
-                // we should ideally fetch the worker's own API or use the binding if possible.
-                // Re-using the Worker's Interaction API route via internal fetch.
+    private async executeTask(task: any) {
+        try {
+            const params = JSON.parse(task.parameters);
+            console.log(`[BoardDO] Executing task: ${task.id}`);
 
-                // Construct internal request to own worker
-                const response = await fetch('http://127.0.0.1/api/ai/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        input: task.prompt_content,
-                        generationConfig: {
-                            temperature: params.temperature,
-                            topP: params.topP,
-                            maxOutputTokens: params.maxTokens
-                        }
-                    })
-                });
+            const response = await fetch('http://127.0.0.1/api/ai/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input: task.prompt_content,
+                    generationConfig: {
+                        temperature: params.temperature,
+                        topP: params.topP,
+                        maxOutputTokens: params.maxTokens
+                    }
+                })
+            });
 
-                const result = await response.json() as any;
-                const output = result.text || result.content || JSON.stringify(result);
+            if (!response.ok) throw new Error(`AI Service Error: ${response.status}`);
 
-                // Log Result
-                const logId = crypto.randomUUID();
-                this.ctx.storage.sql.exec(`
-                    INSERT INTO task_log (id, task_id, output, executed_at, duration, status)
-                    VALUES (?, ?, ?, ?, ?, 'success')
-                `, logId, task.id, output, Date.now(), result.executionTime || 0);
+            const result = await response.json() as any;
+            const output = result.text || result.content || JSON.stringify(result);
+            const now = Date.now();
 
-                // Update Next Run (Simple +1 minute for MVP since we lack Cron parser)
+            // 1. Log Result
+            const logId = crypto.randomUUID();
+            this.ctx.storage.sql.exec(`
+                INSERT INTO task_log (id, task_id, output, executed_at, duration, status)
+                VALUES (?, ?, ?, ?, ?, 'success')
+            `, logId, task.id, output, now, result.executionTime || 0);
+
+            // 2. Update Prompt Version with output
+            this.ctx.storage.sql.exec(`
+                UPDATE prompt_versions SET output = ?, execution_time = ? WHERE id = ?
+            `, output, result.executionTime || 0, task.current_version_id);
+
+            // 3. Update Prompt Status to deployed/done
+            this.ctx.storage.sql.exec(`
+                UPDATE prompts SET status = 'deployed', deployed_at = ? WHERE id = ?
+            `, now, task.id);
+
+            // 4. Update Scheduler Next Run (if it's a scheduled task)
+            if (task.cron) {
                 const nextRun = now + 60000;
                 this.ctx.storage.sql.exec(`
                     UPDATE scheduled_tasks SET last_run = ?, next_run = ? WHERE id = ?
                 `, now, nextRun, task.id);
+            }
 
-            } catch (error) {
-                console.error(`[Scheduler] Task ${task.id} failed:`, error);
+            console.log(`[BoardDO] Task complete: ${task.id}`);
+
+        } catch (error) {
+            console.error(`[BoardDO] Task ${task.id} failed:`, error);
+            // Move back to error status
+            this.ctx.storage.sql.exec(`
+                UPDATE prompts SET status = 'error' WHERE id = ?
+            `, task.id);
+
+            if (task.cron) {
                 this.ctx.storage.sql.exec(`
                     UPDATE scheduled_tasks SET next_run = ? WHERE id = ?
-                `, now + 60000, task.id); // Retry in 1 min
+                `, Date.now() + 60000, task.id);
             }
         }
     }
