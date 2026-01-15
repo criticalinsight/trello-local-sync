@@ -1,7 +1,7 @@
 # Strategic Roadmap: Work (Local-First AI Engine)
 
 ## Vision
-Build the world's most responsive, reliable, and intelligent productivity engine with local-first architecture and agentic AI.
+Build the world's most responsive, reliable, and intelligent productivity engine.
 
 ## Timeline
 ```mermaid
@@ -9,33 +9,34 @@ timeline
     title Project Journey
     Phase 1-4 : Foundation to Automation (Complete)
     Phase 7 : Autonomous Agents (Complete)
-    Phase 8 : UX Polish (Complete)
-    Phase 9 : Observability & Polish (Complete)
+    Phase 8-9 : UX Polish & Observability (Complete)
+    Phase 10 : Production Reliability (Current)
 ```
 
-## Completed Phases
+## Completed Phases ✅
+- Phase 7: Autonomous Agents (Multi-agent swarms, self-correction)
+- Phase 8: UX Polish (Agent Dashboard, Snackbars, Animations)
+- Phase 9: Observability (114KB bundle, Global Agent Bar, Mobile CSS)
 
-### Phase 7: Autonomous Agents ✅
-- Multi-Agent Orchestration (Coordinator/Worker swarms)
-- Recursive Self-Correction (Critique loop)
-- `decomposeAndDelegate()`, `synthesizeFromWorkers()`, `runWithCritique()`
+---
 
-### Phase 8: UX Polish ✅
-- Agent Status Dashboard
-- Snackbar notifications
-- Micro-animations (slide-up, progress, modal-in)
+## Phase 10: Production Reliability (Current)
 
-### Phase 9: Observability & Polish ✅
-- **Code Chunking**: Main bundle 114KB (down from 535KB)
-- **Global Agent Bar**: Persistent progress at top
-- **Interactive Loading**: StreamingText, SkeletonLoader
-- **Mobile-Adaptive CSS**: Responsive layouts
+### 🚨 P0 - Critical
+| Issue | Solution |
+|-------|----------|
+| **404 on chunks** | Build integrity check before deploy |
+| **Silent failures** | Error boundary for module loads |
 
-## Bundle Analysis
-| Chunk | Size |
-|-------|------|
-| index.js | 114KB |
-| solid-vendor.js | 13.5KB |
-| pglite.js | 393KB |
-| ai-service.js | 4.3KB |
-| memory-store.js | 4.7KB |
+### ⚡ P1 - Important
+| Feature | Description |
+|---------|-------------|
+| Visible-first Playground | Prompt field visible without scrolling |
+| Immediate lane transition | Card moves to Generating on run start |
+| Integer overflow fix | Timestamps as TEXT in PGlite |
+
+### 💅 P2 - Polish
+| Feature | Description |
+|---------|-------------|
+| Presentation loading | Skeleton when generating |
+| Progress in Global Bar | Show PGlite background ops |
