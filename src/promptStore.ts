@@ -120,8 +120,8 @@ export async function initPromptPGlite(boardId: string) {
             status TEXT DEFAULT 'draft',
             current_version_id TEXT,
             pos REAL NOT NULL,
-            created_at INTEGER NOT NULL,
-            deployed_at INTEGER,
+            created_at BIGINT NOT NULL,
+            deployed_at BIGINT,
             starred INTEGER DEFAULT 0,
             archived INTEGER DEFAULT 0,
             schedule_json TEXT,
@@ -156,7 +156,7 @@ export async function initPromptPGlite(boardId: string) {
             top_p REAL DEFAULT 0.9,
             max_tokens INTEGER DEFAULT 2048,
             output TEXT,
-            created_at INTEGER NOT NULL,
+            created_at BIGINT NOT NULL,
             execution_time INTEGER,
             error TEXT
         );
@@ -167,7 +167,7 @@ export async function initPromptPGlite(boardId: string) {
         CREATE TABLE IF NOT EXISTS prompt_boards (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
-            created_at INTEGER NOT NULL
+            created_at BIGINT NOT NULL
         );
     `);
 
