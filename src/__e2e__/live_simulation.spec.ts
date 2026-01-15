@@ -38,15 +38,18 @@ test('Full lifecycle simulation on live site', async ({ page }) => {
     // Step 7: Observe transitions thru phases
     console.log('Monitoring status transitions...');
 
-    // Wait for 'Generating' status (pulses)
-    await expect(page.locator('text=Generating')).toBeVisible({ timeout: 15000 });
+    // Wait for 'Generating' status (pulses) in the card badge
+    const generatingBadge = page.locator('.animate-pulse').filter({ hasText: 'Generating' });
+    await expect(generatingBadge).toBeVisible({ timeout: 15000 });
     await page.screenshot({ path: 'lifecycle-generating.png' });
     console.log('Phase: Generating');
 
-    // Wait for 'Deployed' status
-    await expect(page.locator('text=Deployed')).toBeVisible({ timeout: 120000 }); // Longer timeout for AI
+    // Wait for 'Deployed' status in the card badge
+    const deployedBadge = page.locator('.bg-emerald-600').filter({ hasText: 'Deployed' });
+    await expect(deployedBadge).toBeVisible({ timeout: 180000 }); // 3 mins for deep research if selected
     await page.screenshot({ path: 'lifecycle-deployed.png' });
     console.log('Phase: Deployed');
+
 
     // Step 8: Final visual check
     const output = page.locator('.prose'); // Markdown output container
