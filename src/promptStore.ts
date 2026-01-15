@@ -258,9 +258,9 @@ async function loadPromptsFromDB() {
             s.versions[row.id] = {
                 ...row,
                 parameters: {
-                    temperature: row.temperature,
-                    topP: row.topP,
-                    maxTokens: row.maxTokens,
+                    temperature: row.temperature ?? 0.7,
+                    topP: row.topP ?? 0.9,
+                    maxTokens: row.maxTokens ?? 2048,
                     model: row.model
                 }
             };
