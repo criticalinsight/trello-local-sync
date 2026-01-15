@@ -677,6 +677,18 @@ export async function schedulePrompt(
         if (!response.ok) {
             throw new Error('Failed to schedule prompt on server');
         }
+
+        export async function configureWorkflow(
+            promptId: string,
+            workflow: PromptWorkflow
+        ) {
+            const prompt = promptStore.prompts[promptId];
+            if (!prompt) return;
+
+            // Update locally (state and DB)
+            await updatePrompt(promptId, { workflow });
+        }
+
     } catch (error) {
         console.error('Schedule sync failed:', error);
     }
