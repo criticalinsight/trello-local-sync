@@ -8,6 +8,7 @@ import { PresentationView } from './components/PresentationView';
 import { AgentDashboard } from './components/AgentDashboard';
 import { SnackbarContainer } from './components/Snackbar';
 import { GlobalAgentBar } from './components/GlobalAgentBar';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { initStore } from './store';
 import { initPromptStore } from './promptStore';
 import './index.css';
