@@ -31,28 +31,31 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
             const chatId = update.message.chat.id;
             const text = update.message.text;
 
-            // Command switch
             const [cmd, ...args] = text.split(' ');
 
             if (cmd === '/start') {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId,
                     "👋 **Welcome to Gemini Ops!**\n\nI am your mobile command center for AI prompt engineering.\n\n" +
                     "🚀 **Quick Start:**\n" +
-                    "- `/new [title]` - Create a new prompt draft\n" +
-                    "- `/status` - View board health\n" +
-                    "- `/help` - See full list of capabilities"
+                    "- `/new [title]` - Create a draft\n" +
+                    "- `/list` - View recent drafts\n" +
+                    "- `/run [id]` - Execute a prompt\n" +
+                    "- `/latest` - See most recent output\n" +
+                    "- `/status` - View board health"
                 );
             } else if (cmd === '/help') {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId,
                     "🛠 **Available Commands:**\n\n" +
                     "📥 **Capture:**\n" +
-                    "- `/new [title]` - Create a draft\n\n" +
+                    "- `/new [title]` - Create a draft\n" +
+                    "- `/list` - List recent drafts\n\n" +
                     "🔍 **Query:**\n" +
-                    "- `/status` - Summary of all cards\n" +
-                    "- `/ping` - Check system health\n\n" +
-                    "🎮 **Control (Coming Soon):**\n" +
-                    "- `/runall` - Batch execute drafts\n" +
-                    "- `/latest` - Fetch last output"
+                    "- `/status` - Board summary\n" +
+                    "- `/latest` - Last generated result\n" +
+                    "- `/ping` - System check\n\n" +
+                    "🎮 **Control:**\n" +
+                    "- `/run [id]` - Trigger execution\n" +
+                    "- `/retry [id]` - Re-run a failed prompt"
                 );
             } else if (cmd === '/ping') {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🏓 Pong! Webhook is active.");
@@ -60,6 +63,12 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleStatus(chatId, env);
             } else if (cmd === '/new') {
                 await handleNewPrompt(chatId, args.join(' '), env);
+            } else if (cmd === '/list') {
+                await handleList(chatId, env);
+            } else if (cmd === '/run') {
+                await handleRunPrompt(chatId, args[0], env);
+            } else if (cmd === '/latest') {
+                await handleLatest(chatId, env);
             } else {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "❓ Unknown command. Try /help.");
             }
@@ -93,7 +102,66 @@ async function handleStatus(chatId: number, env: Env) {
         });
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, report);
     } else {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "📊 **Board Status:** Empty. Create your first draft with `/new`!");
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "📊 **Board Status:** Empty.");
+    }
+}
+
+async function handleList(chatId: number, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: "SELECT id, title FROM prompts WHERE status = 'draft' ORDER BY created_at DESC LIMIT 5"
+        })
+    });
+
+    const data = await response.json() as { result: any[] };
+    if (data.result && data.result.length > 0) {
+        let list = "📝 **Recent Drafts:**\n\n";
+        data.result.forEach(row => {
+            list += `• ${row.title}\nID: \`${row.id}\`\n\n`;
+        });
+        list += "Copy an ID and use `/run [id]` to execute.";
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, list);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "📝 No drafts found. Create one with `/new`.");
+    }
+}
+
+async function handleRunPrompt(chatId: number, promptId: string, env: Env) {
+    if (!promptId) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Please provide a Prompt ID. Example: `/run [id]`");
+        return;
+    }
+
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promptId })
+    });
+
+    if (response.status === 202) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🚀 **Execution Started!**\n\nThe AI is generating a response. I will notify you when it's done (once notification logic is added). For now, use `/latest` to check back.");
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `❌ **Failed to start run.** Status: ${response.status}`);
+    }
+}
+
+async function handleLatest(chatId: number, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/latest');
+    const data = await response.json() as { result: any };
+
+    if (data.result) {
+        const { title, output, created_at } = data.result;
+        const msg = `✨ **Latest Output:** ${title}\n` +
+            `📅 ${new Date(created_at).toLocaleString()}\n\n` +
+            `${output.substring(0, 3000)}${output.length > 3000 ? '...' : ''}`;
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🔍 No generated outputs found yet.");
     }
 }
 
@@ -104,7 +172,6 @@ async function handleNewPrompt(chatId: number, titleText: string, env: Env) {
     const now = Date.now();
     const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
 
-    // 1. Insert Prompt
     await stub.fetch('http://do/api/sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,7 +182,6 @@ async function handleNewPrompt(chatId: number, titleText: string, env: Env) {
         })
     });
 
-    // 2. Insert Initial Version
     await stub.fetch('http://do/api/sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,7 +192,6 @@ async function handleNewPrompt(chatId: number, titleText: string, env: Env) {
         })
     });
 
-    // 3. Update prompt with version
     await stub.fetch('http://do/api/sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
