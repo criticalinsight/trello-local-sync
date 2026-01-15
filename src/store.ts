@@ -85,7 +85,9 @@ async function initPGlite(boardId: string) {
             // Default NULL board_id (legacy data) to 'default' if we are loading 'default' board
             // Or update all nulls to 'default' once
             await pglite.exec("UPDATE lists SET board_id = 'default' WHERE board_id IS NULL");
-        } catch (e) {}
+        } catch (e) {
+            // No migrations needed
+        }
 
         // Load existing cards for this board
         // JOIN lists to filter cards by board_id? Or just load all cards and filter in memory?
@@ -109,32 +111,32 @@ async function initPGlite(boardId: string) {
             const cardMap: Record<string, Card> = {};
             cards.forEach(
                 (c) =>
-                    (cardMap[c.id] = {
-                        ...c,
-                        tags: c.tags ? JSON.parse(c.tags as any) : [],
-                        checklist: c.checklist ? JSON.parse(c.checklist as any) : [],
-                        dueDate: (c as any).due_date,
-                    }),
+                (cardMap[c.id] = {
+                    ...c,
+                    tags: c.tags ? JSON.parse(c.tags as any) : [],
+                    checklist: c.checklist ? JSON.parse(c.checklist as any) : [],
+                    dueDate: (c as any).due_date,
+                }),
             );
 
             const commentMap: Record<string, Comment> = {};
             comments.forEach(
                 (c) =>
-                    (commentMap[c.id] = {
-                        ...c,
-                        cardId: (c as any).card_id,
-                        createdAt: (c as any).created_at,
-                    }),
+                (commentMap[c.id] = {
+                    ...c,
+                    cardId: (c as any).card_id,
+                    createdAt: (c as any).created_at,
+                }),
             );
 
             const attachmentMap: Record<string, Attachment> = {};
             attachments.forEach(
                 (a) =>
-                    (attachmentMap[a.id] = {
-                        ...a,
-                        cardId: (a as any).card_id,
-                        createdAt: (a as any).created_at,
-                    }),
+                (attachmentMap[a.id] = {
+                    ...a,
+                    cardId: (a as any).card_id,
+                    createdAt: (a as any).created_at,
+                }),
             );
 
             setStore({
@@ -235,7 +237,9 @@ const redoStack: Array<() => Promise<void>> = [];
 function addToHistory(undoAction: () => Promise<void>) {
     undoStack.push(undoAction);
     // Limit stack size if needed, e.g., 50 items
-    if (undoStack.length > 50) undoStack.shift();
+    if (undoStack.length > 50) {
+        undoStack.shift();
+    }
     // Clear redo stack on new action
     redoStack.length = 0;
 }
@@ -289,7 +293,9 @@ export async function performRedo() {
 // Wrapper for actions to log history (internal use)
 function logAction(undo: () => Promise<void>, redo: () => Promise<void>) {
     history.undo.push({ undo, redo });
-    if (history.undo.length > 50) history.undo.shift();
+    if (history.undo.length > 50) {
+        history.undo.shift();
+    }
     history.redo = []; // Clear redo stack
 }
 

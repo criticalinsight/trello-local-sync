@@ -1,16 +1,12 @@
 import { DurableObject } from 'cloudflare:workers';
 import { sendNotification } from './telegramBot';
-
-interface Env {
-    BOARD_DO: DurableObjectNamespace;
-    TELEGRAM_BOT_TOKEN: string;
-}
+import { Env } from './types';
 
 // Batch threshold - writes are batched if >50 requests/sec
 const BATCH_THRESHOLD = 50;
 const BATCH_WINDOW_MS = 1000;
 
-export class BoardDO extends DurableObject {
+export class BoardDO extends DurableObject<Env> {
     private sessions: Map<WebSocket, { id: string }> = new Map();
     private writeQueue: Array<{ sql: string; params: unknown[]; clientId: string }> = [];
     private lastFlush: number = Date.now();
@@ -96,16 +92,16 @@ export class BoardDO extends DurableObject {
             // Quick & dirty for this implementation: separate try/catches
             try {
                 this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN description TEXT');
-            } catch {}
+            } catch { }
             try {
                 this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN tags JSON');
-            } catch {}
+            } catch { }
             try {
                 this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN checklist JSON');
-            } catch {}
+            } catch { }
             try {
                 this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN due_date INTEGER');
-            } catch {}
+            } catch { }
         } catch (e) {
             console.warn('Migration warning:', e);
         }
@@ -362,7 +358,7 @@ export class BoardDO extends DurableObject {
                 try {
                     const tags = JSON.parse(row.tags || '[]');
                     tags.forEach((t: string) => allTags.add(t));
-                } catch (e) {}
+                } catch (e) { }
             });
             return Response.json({ success: true, tags: Array.from(allTags) });
         }
@@ -732,10 +728,11 @@ export class BoardDO extends DurableObject {
 
             // Notify via Telegram
             if (this.env.TELEGRAM_BOT_TOKEN) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
                 await sendNotification(
                     this.env.TELEGRAM_BOT_TOKEN,
                     this.env as any,
-                    `❌ **Job Failed!**\n\nPrompt: ${task.id}\nError: ${error.message}`,
+                    `❌ **Job Failed!**\n\nPrompt: ${task.id}\nError: ${errorMsg}`,
                 );
             }
         }

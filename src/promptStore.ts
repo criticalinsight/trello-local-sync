@@ -7,7 +7,6 @@ import type {
     PromptStatus,
     PromptParameters,
     PromptBoardMeta,
-    PromptSyncMessage,
     PromptWorkflow,
 } from './types';
 import { generateTags } from './utils/autoTagger';
@@ -35,8 +34,8 @@ export const [promptStore, setPromptStore] = createStore<PromptStoreState>({
 
 // Database and WebSocket references
 let pglite: PGlite | null = null;
-let socket: WebSocket | null = null;
-let clientId: string = '';
+// let socket: WebSocket | null = null;
+// let clientId: string = '';
 let currentBoardId: string = '';
 
 // ============= UTILITIES =============
@@ -726,7 +725,7 @@ export async function moveToDraft(promptId: string) {
 // ============= BATCH EXECUTION =============
 
 const CONCURRENT_LIMIT = 5;
-const STAGGER_MS = 100;
+// const STAGGER_MS = 100;
 let activeCount = 0;
 
 export async function runAllDrafts() {
@@ -790,7 +789,7 @@ async function executePrompt(promptId: string) {
     try {
         await moveToGenerating(promptId);
 
-        const startTime = Date.now();
+        // const startTime = Date.now();
 
         // Import AI service and memory store
         const { generateWithFallback } = await import('./aiService');
@@ -927,7 +926,7 @@ export async function configureWorkflow(promptId: string, workflow: PromptWorkfl
 
 // ============= AUTONOMOUS AGENT ORCHESTRATION =============
 
-import type { CritiqueConfig, AgentMode } from './types';
+// import type { CritiqueConfig, AgentMode } from './types';
 
 /**
  * Decomposes a coordinator prompt into worker sub-tasks and runs them in parallel.

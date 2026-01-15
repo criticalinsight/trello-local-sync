@@ -16,14 +16,7 @@ const MODEL_CONFIG: Record<GeminiModel, { isAgent: boolean; requiresBackground: 
     'gemini-3-pro-preview': { isAgent: false, requiresBackground: false },
 };
 
-interface Env {
-    BOARD_DO: DurableObjectNamespace;
-    RESEARCH_DO: DurableObjectNamespace;
-    ASSETS: Fetcher;
-    MEDIA_BUCKET: R2Bucket;
-    GEMINI_API_KEY: string;
-    TELEGRAM_BOT_TOKEN: string;
-}
+import { Env } from './types';
 
 interface InteractionRequest {
     model?: string;

@@ -15,7 +15,7 @@ vi.mock('@electric-sql/pglite', () => {
 });
 
 // Mock fetch for AI Service
-global.fetch = vi.fn();
+vi.stubGlobal('fetch', vi.fn());
 
 describe('Memory System Integration', () => {
     beforeEach(() => {
@@ -50,7 +50,7 @@ describe('Memory System Integration', () => {
             ],
         };
 
-        (global.fetch as any).mockResolvedValue({
+        (fetch as any).mockResolvedValue({
             ok: true,
             json: () => Promise.resolve(mockResponse),
         });

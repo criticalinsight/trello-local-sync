@@ -160,7 +160,7 @@ const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => 
                                         <span
                                             class="w-2 h-2 rounded-full bg-blue-500"
                                             title={t}
-                                        ></span>
+                                         />
                                     )}
                                 </For>
                             </span>

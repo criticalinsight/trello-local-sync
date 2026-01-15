@@ -143,3 +143,14 @@ export type PromptSyncMessage =
     | { type: 'VERSION_UPDATE'; version: PromptVersion; clientId: string }
     | { type: 'PROMPT_DELETE'; promptId: string; clientId: string }
     | { type: 'SYNC_PROMPTS'; prompts: PromptCard[]; versions: PromptVersion[] };
+
+// ============= CLOUDFLARE ENVIRONMENT =============
+
+export interface Env {
+    BOARD_DO: DurableObjectNamespace;
+    RESEARCH_DO: DurableObjectNamespace;
+    ASSETS: Fetcher;
+    MEDIA_BUCKET: R2Bucket;
+    GEMINI_API_KEY: string;
+    TELEGRAM_BOT_TOKEN: string;
+}

@@ -1,4 +1,4 @@
-import { Component, createSignal, createEffect, Show, For, onMount, onCleanup } from 'solid-js';
+import { Component, createSignal, createEffect, createMemo, Show, For, onMount, onCleanup } from 'solid-js';
 import {
     promptStore,
     getCurrentVersion,
@@ -95,7 +95,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
         }
         setHasUnsavedChanges(true);
         setShowTemplates(false);
-        showSnackbar({ message: `Loaded template: ${template.trigger}`, type: 'success' });
+        showSnackbar(`Loaded template: ${template.trigger}`, 'success');
     };
 
     // Version history state
@@ -226,13 +226,11 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     };
 
     // Token and Cost Estimation
-    const stats = createEffect(() => {
+    const stats = createMemo(() => {
         const promptContent = content();
-        const systemContent = systemInstructions();
-        const params = getParams();
         const model = currentVersion()?.parameters?.model || 'gemini-1.5-pro'; // Default model for estimation
 
-        const tokens = estimateTokens(promptContent, systemContent);
+        const tokens = estimateTokens(promptContent);
         const cost = estimateCost(tokens, model);
         return { tokens, cost };
     });
@@ -267,12 +265,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                         r="10"
                                         stroke="currentColor"
                                         stroke-width="4"
-                                    ></circle>
+                                     />
                                     <path
                                         class="opacity-75"
                                         fill="currentColor"
                                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                    ></path>
+                                     />
                                 </svg>
                                 Running
                             </span>
@@ -518,12 +516,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                                 r="10"
                                                 stroke="currentColor"
                                                 stroke-width="4"
-                                            ></circle>
+                                             />
                                             <path
                                                 class="opacity-75"
                                                 fill="currentColor"
                                                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                            ></path>
+                                             />
                                         </svg>
                                         <span class="text-xs animate-pulse">Comparing...</span>
                                     </div>
@@ -679,15 +677,14 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                                     setCompareVersionId(version.id);
                                                 }}
                                                 title={`v${versions().length - 7 + index()} - ${new Date(version.createdAt).toLocaleTimeString()}${hasOutput() ? ' ✓' : ''}`}
-                                                class={`w-2.5 h-2.5 rounded-full transition-all ${
-                                                    isCompare()
-                                                        ? 'bg-amber-500 ring-2 ring-amber-400/50'
-                                                        : isCurrent()
-                                                          ? 'bg-purple-500 ring-2 ring-purple-400/50'
-                                                          : hasOutput()
+                                                class={`w-2.5 h-2.5 rounded-full transition-all ${isCompare()
+                                                    ? 'bg-amber-500 ring-2 ring-amber-400/50'
+                                                    : isCurrent()
+                                                        ? 'bg-purple-500 ring-2 ring-purple-400/50'
+                                                        : hasOutput()
                                                             ? 'bg-emerald-500/60 hover:bg-emerald-400'
                                                             : 'bg-slate-700 hover:bg-slate-600'
-                                                }`}
+                                                    }`}
                                             />
                                         );
                                     }}
@@ -699,11 +696,10 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             <Show when={versions().length > 1}>
                                 <button
                                     onClick={() => setCompareMode(!compareMode())}
-                                    class={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                                        compareMode()
-                                            ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50'
-                                            : 'bg-slate-700 text-slate-400 hover:text-white border border-slate-600'
-                                    }`}
+                                    class={`px-2 py-1 text-xs font-medium rounded transition-colors ${compareMode()
+                                        ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50'
+                                        : 'bg-slate-700 text-slate-400 hover:text-white border border-slate-600'
+                                        }`}
                                 >
                                     {compareMode() ? 'Exit Compare' : 'Compare'}
                                 </button>
@@ -735,13 +731,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                                         ? setCompareVersionId(version.id)
                                                         : handleRevert(version.id)
                                                 }
-                                                class={`p-2 rounded-lg text-left transition-all border ${
-                                                    isCompare()
-                                                        ? 'bg-amber-900/30 border-amber-500/50'
-                                                        : isCurrent()
-                                                          ? 'bg-purple-900/30 border-purple-500/50'
-                                                          : 'bg-slate-800 border-slate-700 hover:border-slate-600'
-                                                }`}
+                                                class={`p-2 rounded-lg text-left transition-all border ${isCompare()
+                                                    ? 'bg-amber-900/30 border-amber-500/50'
+                                                    : isCurrent()
+                                                        ? 'bg-purple-900/30 border-purple-500/50'
+                                                        : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                                                    }`}
                                             >
                                                 <div class="flex items-center justify-between mb-1">
                                                     <span class="text-xs font-medium text-white">
@@ -767,7 +762,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                                 </div>
                                                 <Show when={version.output}>
                                                     <div class="text-xs text-slate-400 truncate mt-1">
-                                                        {version.output.slice(0, 40)}...
+                                                        {version.output?.slice(0, 40)}...
                                                     </div>
                                                 </Show>
                                             </button>
@@ -833,21 +828,19 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         </button>
                         <button
                             onClick={() => setShowSchedule(true)}
-                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${
-                                prompt()?.schedule?.enabled
-                                    ? 'bg-amber-900/30 border-amber-500/50 text-amber-200 hover:bg-amber-900/50'
-                                    : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
-                            }`}
+                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${prompt()?.schedule?.enabled
+                                ? 'bg-amber-900/30 border-amber-500/50 text-amber-200 hover:bg-amber-900/50'
+                                : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
+                                }`}
                         >
                             {prompt()?.schedule?.enabled ? 'Scheduled' : 'Schedule'}
                         </button>
                         <button
                             onClick={() => setShowWorkflow(true)}
-                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${
-                                prompt()?.workflow?.enabled
-                                    ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
-                                    : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
-                            }`}
+                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${prompt()?.workflow?.enabled
+                                ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
+                                : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
+                                }`}
                         >
                             {prompt()?.workflow?.enabled ? 'Workflow' : 'Workflow'}
                         </button>
@@ -881,12 +874,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                         r="10"
                                         stroke="currentColor"
                                         stroke-width="4"
-                                    ></circle>
+                                     />
                                     <path
                                         class="opacity-75"
                                         fill="currentColor"
                                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                    ></path>
+                                     />
                                 </svg>
                             </Show>
                             <Show when={!(isRunning() || prompt()?.status === 'generating')}>

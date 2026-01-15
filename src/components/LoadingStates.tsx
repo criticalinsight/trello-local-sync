@@ -27,10 +27,10 @@ export const StreamingText: Component<StreamingTextProps> = (props) => {
 /**
  * SkeletonLoader - Placeholder for loading content.
  */
-export const SkeletonLoader: Component<{ lines?: number }> = (props) => {
+export const SkeletonLoader: Component<{ lines?: number; class?: string }> = (props) => {
     const lines = props.lines || 3;
     return (
-        <div class="space-y-3 animate-pulse">
+        <div class={`space-y-3 animate-pulse ${props.class || ''}`}>
             {Array.from({ length: lines }).map((_, i) => (
                 <div
                     class={`h-4 bg-slate-700/50 rounded ${i === lines - 1 ? 'w-2/3' : 'w-full'}`}
@@ -57,13 +57,12 @@ export const AgentStageIndicator: Component<{ stage?: string }> = (props) => {
                         class={`flex items-center gap-1 ${i <= currentIndex ? 'text-purple-400' : ''}`}
                     >
                         <div
-                            class={`w-1.5 h-1.5 rounded-full ${
-                                i < currentIndex
+                            class={`w-1.5 h-1.5 rounded-full ${i < currentIndex
                                     ? 'bg-emerald-500'
                                     : i === currentIndex
-                                      ? 'bg-purple-500 animate-pulse'
-                                      : 'bg-slate-600'
-                            }`}
+                                        ? 'bg-purple-500 animate-pulse'
+                                        : 'bg-slate-600'
+                                }`}
                         />
                         <span>{stage}</span>
                     </div>

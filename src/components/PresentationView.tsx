@@ -145,7 +145,7 @@ export const PresentationView: Component<ViewProps> = (props) => {
                     <div class="absolute inset-0 flex flex-col items-center justify-center p-8 bg-white">
                         <div class="w-full max-w-2xl space-y-4">
                             <div class="flex items-center gap-3 mb-6">
-                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
                                 <span class="text-slate-600 font-medium">
                                     Generating content...
                                 </span>
@@ -160,7 +160,7 @@ export const PresentationView: Component<ViewProps> = (props) => {
                 <Show when={promptStore.prompts[props.promptId]?.status !== 'generating'}>
                     {loading() ? (
                         <div class="absolute inset-0 flex items-center justify-center">
-                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
                         </div>
                     ) : (
                         <iframe

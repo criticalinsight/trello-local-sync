@@ -1,4 +1,4 @@
-import { Component, createMemo } from 'solid-js';
+import { Component, createMemo, For } from 'solid-js';
 import { promptStore } from '../promptStore';
 
 export const AnalyticsView: Component = () => {
@@ -128,9 +128,8 @@ export const AnalyticsView: Component = () => {
                 <div class="bg-slate-800/80 backdrop-blur border border-slate-700 p-6 rounded-2xl shadow-lg">
                     <h3 class="text-xl font-semibold text-white mb-6">Model Distribution</h3>
                     <div class="space-y-4">
-                        {Object.entries(stats().byModel)
-                            .sort(([, a], [, b]) => b - a)
-                            .map(([model, count]) => (
+                        <For each={Object.entries(stats().byModel)
+                            .sort(([, a], [, b]) => b - a)}>{([model, count]) => (
                                 <div>
                                     <div class="flex items-center justify-between mb-1">
                                         <span class="text-sm text-slate-300 font-medium">
@@ -147,7 +146,7 @@ export const AnalyticsView: Component = () => {
                                         />
                                     </div>
                                 </div>
-                            ))}
+                            )}</For>
                     </div>
                 </div>
 

@@ -121,7 +121,7 @@ export const CalendarView: Component<CalendarViewProps> = (props) => {
             <div class="grid grid-cols-7 grid-rows-6 gap-1 flex-1 min-h-0">
                 {/* Empty cells for start of month */}
                 <For each={Array(getFirstDayOfMonth(currentDate()))}>
-                    {() => <div class="bg-slate-800/30 rounded border border-slate-700/50"></div>}
+                    {() => <div class="bg-slate-800/30 rounded border border-slate-700/50" />}
                 </For>
 
                 {/* Days */}
