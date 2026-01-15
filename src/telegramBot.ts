@@ -20,6 +20,8 @@ interface TelegramUpdate {
         };
         date: number;
         text?: string;
+        photo?: Array<{ file_id: string; file_size: number }>;
+        document?: { file_id: string; file_name?: string; mime_type?: string };
     };
 }
 
@@ -75,6 +77,16 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleRunPrompt(chatId, args[0], env);
             } else {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "❓ Unknown command. Try /help.");
+            }
+        } else if (update.message && (update.message.photo || update.message.document)) {
+            const chatId = update.message.chat.id;
+            const caption = update.message.text || "";
+
+            if (update.message.photo) {
+                const photo = update.message.photo[update.message.photo.length - 1]; // Get largest size
+                await handleImageCapture(chatId, photo.file_id, caption, env);
+            } else if (update.message.document) {
+                await handleDocumentCapture(chatId, update.message.document.file_id, update.message.document.file_name || "Doc", caption, env);
             }
         }
 
@@ -206,6 +218,99 @@ async function handleNewPrompt(chatId: number, titleText: string, env: Env) {
     });
 
     await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `📝 **Draft Created!**\n\nTitle: ${title}\nID: \`${id}\``);
+}
+
+async function handleImageCapture(chatId: number, fileId: string, caption: string, env: Env) {
+    const title = `📸 Image Capture: ${caption.substring(0, 20) || 'Untitled'}`;
+    const fileUrl = await getTelegramFileUrl(env.TELEGRAM_BOT_TOKEN, fileId);
+    const id = crypto.randomUUID();
+    const versionId = crypto.randomUUID();
+    const now = Date.now();
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `INSERT INTO prompts (id, title, board_id, status, pos, created_at, tags) 
+                  VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            params: [id, title, 'default', 'draft', now, now, '["image", "multimodal"]']
+        })
+    });
+
+    const content = `[Image: ${fileUrl}]\n\nAnalyze this image: ${caption || 'Describe what you see.'}`;
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at) 
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            params: [versionId, id, content, '', 0.7, 1, 2048, 'gemini-1.5-pro', now]
+        })
+    });
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `UPDATE prompts SET current_version_id = $1 WHERE id = $2`,
+            params: [versionId, id]
+        })
+    });
+
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `📸 **Image Draft Created!**\n\nI've saved the image URL to the prompt content. Use \`/run ${id}\` to analyze.`);
+}
+
+async function handleDocumentCapture(chatId: number, fileId: string, fileName: string, caption: string, env: Env) {
+    const title = `📄 Doc Capture: ${fileName}`;
+    const fileUrl = await getTelegramFileUrl(env.TELEGRAM_BOT_TOKEN, fileId);
+    const id = crypto.randomUUID();
+    const versionId = crypto.randomUUID();
+    const now = Date.now();
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `INSERT INTO prompts (id, title, board_id, status, pos, created_at, tags) 
+                  VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            params: [id, title, 'default', 'draft', now, now, '["document"]']
+        })
+    });
+
+    const content = `[File: ${fileName} (${fileUrl})]\n\nContext/Instruction: ${caption || 'Please summarize or analyze this document.'}`;
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at) 
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            params: [versionId, id, content, '', 0.7, 1, 2048, 'gemini-1.5-pro', now]
+        })
+    });
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `UPDATE prompts SET current_version_id = $1 WHERE id = $2`,
+            params: [versionId, id]
+        })
+    });
+
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `📄 **Document Draft Created!**\n\nFilename: ${fileName}\nUse \`/run ${id}\` to summarize.`);
+}
+
+async function getTelegramFileUrl(token: string, fileId: string): Promise<string> {
+    const response = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
+    const data = await response.json() as any;
+    if (data.ok) {
+        return `https://api.telegram.org/file/bot${token}/${data.result.file_path}`;
+    }
+    return `[Error retrieving file: ${fileId}]`;
 }
 
 export async function registerWebhook(env: Env, host: string): Promise<Response> {
