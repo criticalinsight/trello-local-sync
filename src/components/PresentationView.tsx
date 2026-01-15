@@ -130,18 +130,35 @@ export const PresentationView: Component<ViewProps> = (props) => {
 
             {/* Preview */}
             <div class="flex-1 bg-slate-50 overflow-hidden relative">
-                {loading() ? (
-                    <div class="absolute inset-0 flex items-center justify-center">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <Show when={promptStore.prompts[props.promptId]?.status === 'generating'}>
+                    {/* Skeleton loader while generating */}
+                    <div class="absolute inset-0 flex flex-col items-center justify-center p-8 bg-white">
+                        <div class="w-full max-w-2xl space-y-4">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <span class="text-slate-600 font-medium">Generating content...</span>
+                            </div>
+                            <SkeletonLoader lines={1} class="h-8 w-3/4" />
+                            <SkeletonLoader lines={3} />
+                            <SkeletonLoader lines={2} class="w-5/6" />
+                            <SkeletonLoader lines={4} />
+                        </div>
                     </div>
-                ) : (
-                    <iframe
-                        srcdoc={html()}
-                        class="w-full h-full border-none"
-                        title="Presentation Preview"
-                        sandbox="allow-same-origin allow-scripts"
-                    />
-                )}
+                </Show>
+                <Show when={promptStore.prompts[props.promptId]?.status !== 'generating'}>
+                    {loading() ? (
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        </div>
+                    ) : (
+                        <iframe
+                            srcdoc={html()}
+                            class="w-full h-full border-none"
+                            title="Presentation Preview"
+                            sandbox="allow-same-origin allow-scripts"
+                        />
+                    )}
+                </Show>
             </div>
         </div>
     );
