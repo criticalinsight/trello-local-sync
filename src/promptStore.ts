@@ -49,20 +49,34 @@ const defaultParameters: PromptParameters = {
 // ============= DATABASE INITIALIZATION =============
 
 export async function initPromptPGlite(boardId: string) {
+    if (pglite && currentBoardId === boardId) {
+        console.log(`[PromptStore] PGlite already initialized for board: ${boardId}`);
+        return;
+    }
+
+    console.log(`[PromptStore] Initializing PGlite for board: ${boardId}`);
     currentBoardId = boardId;
 
     // Close previous instance if it exists to prevent handle leaks
     if (pglite) {
         try {
+            console.log('[PromptStore] Closing previous instance...');
             await pglite.close();
+            pglite = null;
         } catch (e) {
             console.warn('[PromptStore] Failed to close previous PGlite instance', e);
         }
     }
 
-    // Create new PGlite instance for prompts
-    pglite = new PGlite(`idb://prompt-board-${boardId}`);
-    await pglite.waitReady;
+    try {
+        // Create new PGlite instance for prompts
+        pglite = new PGlite(`idb://prompt-board-${boardId}`);
+        await pglite.waitReady;
+        console.log('[PromptStore] PGlite ready');
+    } catch (e) {
+        console.error('[PromptStore] PGlite failed to initialize', e);
+        throw e;
+    }
 
     // Create prompts table
     await pglite.exec(`
@@ -107,19 +121,26 @@ export async function initPromptPGlite(boardId: string) {
     `);
 
     // Ensure this board metadata exists
-    await pglite.query(
-        `INSERT INTO prompt_boards (id, title, created_at)
-         VALUES ($1, $2, $3)
-         ON CONFLICT(id) DO NOTHING`,
-        [boardId, 'New Prompt Board', Date.now()]
-    );
+    try {
+        await pglite.query(
+            `INSERT INTO prompt_boards (id, title, created_at)
+             VALUES ($1, $2, $3)
+             ON CONFLICT(id) DO NOTHING`,
+            [boardId, 'New Prompt Board', Date.now()]
+        );
+    } catch (e) {
+        console.warn('[PromptStore] Meta entry failed (non-critical)', e);
+    }
 
     // Load existing data
+    console.log('[PromptStore] Loading prompts from DB...');
     await loadPromptsFromDB();
+    console.log('[PromptStore] Prompts loaded');
 
     // Initialize memory store
     const { initMemoryStore } = await import('./memoryStore');
     await initMemoryStore(boardId, pglite);
+    console.log('[PromptStore] Initialization complete');
 }
 
 async function loadPromptsFromDB() {

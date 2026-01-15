@@ -60,11 +60,18 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
     // Re-initialize when boardId changes
     createEffect(async () => {
         const id = props.boardId;
+        console.log(`[PromptBoard] boardId changed: ${id}`);
         if (!id) return;
 
-        setIsLoading(true);
-        await initPromptStore(id);
-        setIsLoading(false);
+        try {
+            setIsLoading(true);
+            await initPromptStore(id);
+            console.log(`[PromptBoard] initPromptStore complete for ${id}`);
+        } catch (err) {
+            console.error('[PromptBoard] Failed to load board:', err);
+        } finally {
+            setIsLoading(false);
+        }
     });
 
     // Get prompts grouped by status
