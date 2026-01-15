@@ -3,7 +3,7 @@ import { createStore, produce } from 'solid-js/store';
 
 // ============= TYPES =============
 
-export interface Memory {
+export interface Node {
     id: string;
     key: string;       // Unique key/topic
     value: string;     // The fact/memory content
@@ -13,15 +13,26 @@ export interface Memory {
     usageCount: number;
 }
 
+export interface Edge {
+    id: string;
+    sourceId: string;
+    targetId: string;
+    relation: string;  // e.g., 'related_to', 'part_of', 'defined_by'
+    weight: number;    // Strength of relationship
+    createdAt: number;
+}
+
 export interface MemoryStoreState {
-    memories: Record<string, Memory>;
+    nodes: Record<string, Node>;
+    edges: Edge[];
     initialized: boolean;
 }
 
 // ============= STATE =============
 
 export const [memoryStore, setMemoryStore] = createStore<MemoryStoreState>({
-    memories: {},
+    nodes: {},
+    edges: [],
     initialized: false,
 });
 
@@ -41,9 +52,9 @@ export async function initMemoryStore(boardId: string, pgliteInstance?: PGlite) 
         await pglite.waitReady;
     }
 
-    // Create memory table
+    // Create nodes table (migrating from memories if exists)
     await pglite.query(`
-        CREATE TABLE IF NOT EXISTS memories (
+        CREATE TABLE IF NOT EXISTS nodes (
             id TEXT PRIMARY KEY,
             key TEXT NOT NULL,
             value TEXT NOT NULL,
@@ -56,8 +67,36 @@ export async function initMemoryStore(boardId: string, pgliteInstance?: PGlite) 
         );
     `);
 
-    // Create vector table for future RAG (optional placeholder)
-    // await pglite.query(`CREATE TABLE IF NOT EXISTS memory_vectors (...)`);
+    // Create edges table
+    await pglite.query(`
+        CREATE TABLE IF NOT EXISTS edges (
+            id TEXT PRIMARY KEY,
+            source_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+            target_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+            relation TEXT NOT NULL,
+            weight REAL DEFAULT 1.0,
+            board_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            UNIQUE(board_id, source_id, target_id, relation)
+        );
+    `);
+
+    // Migration logic: if old memories table exists, move data to nodes
+    try {
+        const tableCheck = await pglite.query(`SELECT 1 FROM memories LIMIT 1;`);
+        if (tableCheck.rows.length >= 0) {
+            console.log('[Memory] Migrating legacy memories to nodes...');
+            await pglite.query(`
+                INSERT INTO nodes (id, key, value, tags, board_id, created_at, updated_at, usage_count)
+                SELECT id, key, value, tags, board_id, created_at, updated_at, usage_count
+                FROM memories
+                ON CONFLICT DO NOTHING;
+            `);
+            await pglite.query(`DROP TABLE IF EXISTS memories;`);
+        }
+    } catch (e) {
+        // Table probably doesn't exist, which is fine
+    }
 
     await loadMemories();
 
