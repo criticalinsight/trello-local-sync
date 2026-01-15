@@ -444,6 +444,35 @@ export async function deletePrompt(id: string) {
     }
 }
 
+export async function deletePromptsByStatus(status: PromptStatus) {
+    const promptsToDelete = Object.values(promptStore.prompts).filter(p => p.status === status);
+    if (promptsToDelete.length === 0) return;
+
+    // Remove from store
+    setPromptStore(produce((s) => {
+        promptsToDelete.forEach(p => {
+            // Delete associated versions
+            Object.keys(s.versions)
+                .filter(vId => s.versions[vId].promptId === p.id)
+                .forEach(vId => delete s.versions[vId]);
+            delete s.prompts[p.id];
+        });
+    }));
+
+    // Delete from DB (Batch)
+    if (pglite) {
+        await pglite.query(`DELETE FROM prompt_versions WHERE prompt_id IN (SELECT id FROM prompts WHERE status = $1)`, [status]);
+        await pglite.query(`DELETE FROM prompts WHERE status = $1`, [status]);
+
+        // Sync (Batched where possible, or iterative)
+        // Simple logic: delete versions by subquery logic isn't easily supported by simple syncManager unless we execute exact SQL
+        // Let's iterate for safety in sync queue for now, or use the logic if supported by downstream.
+        // Assuming syncManager replays SQL on sqlite.
+        await syncManager.enqueue(`DELETE FROM prompt_versions WHERE prompt_id IN (SELECT id FROM prompts WHERE status = ?)`, [status]);
+        await syncManager.enqueue(`DELETE FROM prompts WHERE status = ?`, [status]);
+    }
+}
+
 // ============= VERSION MANAGEMENT =============
 
 export async function createVersion(
