@@ -163,7 +163,8 @@ async function handleRunPrompt(chatId: number, promptId: string, env: Env) {
     });
 
     if (response.status === 202) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🚀 **Execution Started!**\n\nThe AI is generating a response. I will notify you when it's done (once notification logic is added). For now, use `/latest` to check back.");
+        await logActivity(env, 'run_started', promptId, `User triggered run via Telegram`);
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🚀 **Execution Started!**\n\nThe AI is generating a response. I will notify you when it's done.");
     } else {
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `❌ **Failed to start run.** Status: ${response.status}`);
     }
