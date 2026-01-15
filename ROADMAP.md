@@ -61,7 +61,7 @@ timeline
 9.  **Token Estimation**: Real-time cost preview in the input editor.
 10. **Semantic Search**: Find prompts not just by text, but by intent/meaning.
 
-### ⚡️ Workflow & Productivity
+### ⚡️ Workflow & Productivity 
 11. **Keyboard Shortcuts Engine**: Full navigation (`j`/`k`), run (`Cmd+Enter`), and command palette (`Cmd+K`).
 12. **Markdown Toolbar**: Rich text controls in the prompt input area.
 13. **Presentation Mode 2.0**: Live slideshow generation from prompt outputs.
@@ -89,8 +89,9 @@ timeline
 31. **Webhook Triggers**: Run prompts via external POST requests.
 32. **Email Ingestion**: Create/Run prompts from specific email aliases.
 33. **Slack Bot**: Post finished generations to designated channels.
-34. **GitHub Issues**: Auto-convert prompt outputs to GH Issues.
-35. **CLI Companion**: `trello run <id>` from terminal.
+34. **Activity Log**: Immutable audit trail of prompt changes.
+29. **OpFS Explorer**: Developer tool to inspect raw SQLite files.
+30. **Mobile PWA Fit**: specialized CSS for dedicated mobile experience.
 36. **API Bearer Tokens**: Generate keys for third-party app access.
 37. **Plugin Sandbox**: TypeScript runtime for user-contributed logic.
 38. **Custom Renderers**: React components to visualize specific JSON outputs.
