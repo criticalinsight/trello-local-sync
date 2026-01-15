@@ -1,48 +1,42 @@
 # Strategic Roadmap: Work (Local-First AI Engine)
 
 ## 1. Vision & Strategy
-Our mission is to build the world's most responsive, reliable, and intelligent productivity engine. By combining **local-first architecture** with **agentic AI capabilities**, we provide a professional workspace that works offline, syncs instantly at the edge, and automates complex cognitive tasks.
+Our mission is to build the world's most responsive, reliable, and intelligent productivity engine.
 
 ## 2. Visual Timeline
 ```mermaid
 timeline
     title Project Journey & Future
-    Phase 1 : Foundation (Complete) : Local-first PGlite
-            : Optimistic UI (SolidJS)
-    Phase 2 : AI Lifecycle (Complete) : Draft-Deploy Workflow
-            : Gemini Interactions API
-    Phase 3 : Resilience & Memory (Complete) : ResearchDO
-            : Persistence Context
-    Phase 4 : Smart Automation (Complete) : Scheduled Prompts
-            : Triggered Workflows
-    Phase 7 : Autonomous Agents (Complete) : Multi-Agent Swarms
-             : Self-Correcting Workflows
-    Phase 8 : UX Polish (Current) : Agent Status Dashboard
-             : Micro-Animations & Feedback
+    Phase 1-4 : Foundation to Automation (Complete)
+    Phase 7 : Autonomous Agents (Complete)
+    Phase 8 : UX Polish (Complete)
+    Phase 9 : Advanced UX & Observability (Current)
 ```
 
-## 3. Phase 8: UX Polish (Current Focus)
+## 3. Phase 9: Advanced UX & Observability (Next)
 
-### 🎯 Agent Status Dashboard
-- Real-time visual progress for running agents
-- Collapsible worker task panel for coordinators
-- Live token usage and execution time display
+**Based on visual testing insights:**
 
-### ✨ Polished Interactions
-- Micro-animations for drag-and-drop
-- Snackbar notifications for background events
-- Optimistic feedback on all actions (buttons, saves)
+### 🌳 Agent Orchestration Tree View
+- Real-time hierarchical view of Coordinator → Workers
+- Inline status updates within the prompt card
 
-## 4. Current Progress (KPIs)
+### 📐 Side-Panel Editor
+- Replace modal with collapsible right panel
+- Keep board context visible during editing
 
-| Metric | Status | Target |
-|--------|--------|--------|
-| **UI Latency** | ✅ < 16ms | < 16ms |
-| **Offline Sync** | ✅ Robust | 100% |
-| **AI Reliability** | ✅ Improving | 99.9% Success |
-| **Agent Support** | ✅ Multi-Agent | Swarm Orchestration |
+### 📊 Granular Progress Feedback
+- "Thinking Trace" stages: Decomposing → Delegating → Synthesizing
+- Live token counter and estimated time
 
----
+### 🛡 Resilient Error Handling
+- Global error toast with "Retry" and "Show Logs" options
+- Timeout fallbacks for stuck agents
 
-> [!TIP]
-> This roadmap prioritizes **performance**, **privacy**, and **premium UX**.
+### 📚 Interactive Prompt Templates
+- Quick-start gallery: Research Assistant, Code Reviewer, etc.
+- Empty-state onboarding with template picker
+
+### 🔴 Live Preview Mode
+- Real-time streaming output in presentation view
+- No need to wait for full completion
