@@ -47,10 +47,63 @@ export type SyncMessage =
     | { type: 'SYNC_STATE'; cards: Card[]; lists: List[] }
     | { type: 'CLIENT_ID'; id: string };
 
-// Store state
 export interface StoreState {
     lists: Record<string, List>;
     cards: Record<string, Card>;
     connected: boolean;
     syncing: boolean;
 }
+
+// ============= PROMPT ENGINEERING TYPES =============
+
+export type PromptStatus = 'draft' | 'queued' | 'generating' | 'deployed' | 'error';
+
+export interface PromptParameters {
+    temperature: number;
+    topP: number;
+    maxTokens: number;
+}
+
+export interface PromptVersion {
+    id: string;
+    promptId: string;
+    content: string;
+    systemInstructions?: string;
+    parameters: PromptParameters;
+    output?: string;
+    createdAt: number;
+    executionTime?: number;
+    error?: string;
+}
+
+export interface PromptCard {
+    id: string;
+    title: string;
+    boardId: string;
+    status: PromptStatus;
+    currentVersionId?: string;
+    pos: number;
+    createdAt: number;
+    deployedAt?: number;
+    starred?: boolean;
+    archived?: boolean;
+    schedule?: {
+        cron: string;
+        enabled: boolean;
+        lastRun?: number;
+        nextRun?: number;
+    };
+}
+
+export interface PromptBoardMeta {
+    id: string;
+    title: string;
+    createdAt: number;
+}
+
+// Extend sync messages for prompts
+export type PromptSyncMessage =
+    | { type: 'PROMPT_UPDATE'; prompt: PromptCard; clientId: string }
+    | { type: 'VERSION_UPDATE'; version: PromptVersion; clientId: string }
+    | { type: 'PROMPT_DELETE'; promptId: string; clientId: string }
+    | { type: 'SYNC_PROMPTS'; prompts: PromptCard[]; versions: PromptVersion[] };

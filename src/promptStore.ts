@@ -1,0 +1,579 @@
+// Prompt Engineering Store - Dedicated state management for AI prompts
+import { createStore, produce } from 'solid-js/store';
+import { PGlite } from '@electric-sql/pglite';
+import type {
+    PromptCard,
+    PromptVersion,
+    PromptStatus,
+    PromptParameters,
+    PromptBoardMeta,
+    PromptSyncMessage
+} from './types';
+
+// ============= STATE =============
+
+interface PromptStoreState {
+    prompts: Record<string, PromptCard>;
+    versions: Record<string, PromptVersion>;
+    boards: Record<string, PromptBoardMeta>;
+    connected: boolean;
+    syncing: boolean;
+    executionQueue: string[]; // prompt IDs queued for execution
+}
+
+export const [promptStore, setPromptStore] = createStore<PromptStoreState>({
+    prompts: {},
+    versions: {},
+    boards: {},
+    connected: false,
+    syncing: false,
+    executionQueue: [],
+});
+
+// Database and WebSocket references
+let pglite: PGlite | null = null;
+let socket: WebSocket | null = null;
+let clientId: string = '';
+let currentBoardId: string = '';
+
+// ============= UTILITIES =============
+
+export const genId = () => crypto.randomUUID();
+
+const defaultParameters: PromptParameters = {
+    temperature: 0.7,
+    topP: 0.9,
+    maxTokens: 2048,
+};
+
+// ============= DATABASE INITIALIZATION =============
+
+export async function initPromptPGlite(boardId: string) {
+    currentBoardId = boardId;
+
+    // Create new PGlite instance for prompts
+    pglite = new PGlite(`idb://prompt-board-${boardId}`);
+    await pglite.waitReady;
+
+    // Create prompts table
+    await pglite.exec(`
+        CREATE TABLE IF NOT EXISTS prompts (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            board_id TEXT NOT NULL,
+            status TEXT DEFAULT 'draft',
+            current_version_id TEXT,
+            pos REAL NOT NULL,
+            created_at INTEGER NOT NULL,
+            deployed_at INTEGER,
+            starred INTEGER DEFAULT 0,
+            archived INTEGER DEFAULT 0
+        );
+    `);
+
+    // Create versions table
+    await pglite.exec(`
+        CREATE TABLE IF NOT EXISTS prompt_versions (
+            id TEXT PRIMARY KEY,
+            prompt_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            system_instructions TEXT,
+            temperature REAL DEFAULT 0.7,
+            top_p REAL DEFAULT 0.9,
+            max_tokens INTEGER DEFAULT 2048,
+            output TEXT,
+            created_at INTEGER NOT NULL,
+            execution_time INTEGER,
+            error TEXT
+        );
+    `);
+
+    // Create boards meta table
+    await pglite.exec(`
+        CREATE TABLE IF NOT EXISTS prompt_boards (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+    `);
+
+    // Load existing data
+    await loadPromptsFromDB();
+
+    // Initialize memory store
+    const { initMemoryStore } = await import('./memoryStore');
+    await initMemoryStore(boardId, pglite);
+}
+
+async function loadPromptsFromDB() {
+    if (!pglite) return;
+
+    // Load prompts
+    const promptsResult = await pglite.query<PromptCard>(
+        `SELECT id, title, board_id as "boardId", status, current_version_id as "currentVersionId", 
+         pos, created_at as "createdAt", deployed_at as "deployedAt", 
+         starred = 1 as starred, archived = 1 as archived
+         FROM prompts WHERE board_id = $1 AND archived = 0 ORDER BY pos`,
+        [currentBoardId]
+    );
+
+    // Load versions
+    const versionsResult = await pglite.query<PromptVersion>(
+        `SELECT v.id, v.prompt_id as "promptId", v.content, v.system_instructions as "systemInstructions",
+         v.temperature, v.top_p as "topP", v.max_tokens as "maxTokens", v.output,
+         v.created_at as "createdAt", v.execution_time as "executionTime", v.error
+         FROM prompt_versions v
+         INNER JOIN prompts p ON v.prompt_id = p.id
+         WHERE p.board_id = $1`,
+        [currentBoardId]
+    );
+
+    // Update store
+    setPromptStore(produce((s) => {
+        s.prompts = {};
+        s.versions = {};
+
+        for (const row of promptsResult.rows) {
+            s.prompts[row.id] = {
+                ...row,
+                starred: Boolean(row.starred),
+                archived: Boolean(row.archived),
+            };
+        }
+
+        for (const row of versionsResult.rows) {
+            s.versions[row.id] = {
+                ...row,
+                parameters: {
+                    temperature: row.parameters?.temperature ?? 0.7,
+                    topP: row.parameters?.topP ?? 0.9,
+                    maxTokens: row.parameters?.maxTokens ?? 2048,
+                },
+            };
+        }
+    }));
+}
+
+// ============= PROMPT CRUD =============
+
+export async function addPrompt(title: string): Promise<string> {
+    const id = genId();
+    const now = Date.now();
+
+    // Calculate position (end of draft list)
+    const draftPrompts = Object.values(promptStore.prompts)
+        .filter(p => p.status === 'draft')
+        .sort((a, b) => b.pos - a.pos);
+    const pos = draftPrompts.length > 0 ? draftPrompts[0].pos + 1000 : 1000;
+
+    const prompt: PromptCard = {
+        id,
+        title,
+        boardId: currentBoardId,
+        status: 'draft',
+        pos,
+        createdAt: now,
+    };
+
+    // Update store immediately (optimistic)
+    setPromptStore(produce((s) => {
+        s.prompts[id] = prompt;
+    }));
+
+    // Persist to DB
+    if (pglite) {
+        await pglite.query(
+            `INSERT INTO prompts (id, title, board_id, status, pos, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [id, title, currentBoardId, 'draft', pos, now]
+        );
+    }
+
+    // Create initial version
+    await createVersion(id, '', '', defaultParameters);
+
+    return id;
+}
+
+export async function updatePrompt(id: string, updates: Partial<PromptCard>) {
+    const existing = promptStore.prompts[id];
+    if (!existing) return;
+
+    // Update store
+    setPromptStore(produce((s) => {
+        Object.assign(s.prompts[id], updates);
+    }));
+
+    // Persist to DB
+    if (pglite) {
+        try {
+            const fields: string[] = [];
+            const values: unknown[] = [];
+            let idx = 1;
+
+            if (updates.title !== undefined) {
+                fields.push(`title = $${idx++}`);
+                values.push(updates.title);
+            }
+            if (updates.status !== undefined) {
+                fields.push(`status = $${idx++}`);
+                values.push(updates.status);
+            }
+            if (updates.currentVersionId !== undefined) {
+                fields.push(`current_version_id = $${idx++}`);
+                values.push(updates.currentVersionId);
+            }
+            if (updates.pos !== undefined) {
+                fields.push(`pos = $${idx++}`);
+                values.push(updates.pos);
+            }
+            if (updates.deployedAt !== undefined) {
+                fields.push(`deployed_at = $${idx++}`);
+                values.push(updates.deployedAt);
+            }
+            if (updates.starred !== undefined) {
+                fields.push(`starred = $${idx++}`);
+                values.push(updates.starred ? 1 : 0);
+            }
+            if (updates.archived !== undefined) {
+                fields.push(`archived = $${idx++}`);
+                values.push(updates.archived ? 1 : 0);
+            }
+
+            if (fields.length > 0) {
+                values.push(id);
+                await pglite.query(
+                    `UPDATE prompts SET ${fields.join(', ')} WHERE id = $${idx}`,
+                    values
+                );
+            }
+        } catch (error) {
+            console.error('[WARN] updatePrompt: DB update failed', error);
+        }
+    }
+}
+
+export async function deletePrompt(id: string) {
+    // Remove from store
+    setPromptStore(produce((s) => {
+        // Delete associated versions
+        Object.keys(s.versions)
+            .filter(vId => s.versions[vId].promptId === id)
+            .forEach(vId => delete s.versions[vId]);
+        delete s.prompts[id];
+    }));
+
+    // Delete from DB
+    if (pglite) {
+        await pglite.query(`DELETE FROM prompt_versions WHERE prompt_id = $1`, [id]);
+        await pglite.query(`DELETE FROM prompts WHERE id = $1`, [id]);
+    }
+}
+
+// ============= VERSION MANAGEMENT =============
+
+export async function createVersion(
+    promptId: string,
+    content: string,
+    systemInstructions: string,
+    parameters: PromptParameters
+): Promise<string> {
+    const id = genId();
+    const now = Date.now();
+
+    const version: PromptVersion = {
+        id,
+        promptId,
+        content,
+        systemInstructions: systemInstructions || undefined,
+        parameters,
+        createdAt: now,
+    };
+
+    // Update store
+    setPromptStore(produce((s) => {
+        s.versions[id] = version;
+        if (s.prompts[promptId]) {
+            s.prompts[promptId].currentVersionId = id;
+        }
+    }));
+
+    // Persist to DB
+    if (pglite) {
+        await pglite.query(
+            `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [id, promptId, content, systemInstructions || null, parameters.temperature, parameters.topP, parameters.maxTokens, now]
+        );
+
+        await pglite.query(
+            `UPDATE prompts SET current_version_id = $1 WHERE id = $2`,
+            [id, promptId]
+        );
+    }
+
+    return id;
+}
+
+export async function updateVersion(id: string, updates: Partial<PromptVersion>) {
+    const existing = promptStore.versions[id];
+    if (!existing) return;
+
+    setPromptStore(produce((s) => {
+        Object.assign(s.versions[id], updates);
+    }));
+
+    if (pglite) {
+        const fields: string[] = [];
+        const values: unknown[] = [];
+        let idx = 1;
+
+        if (updates.output !== undefined) {
+            fields.push(`output = $${idx++}`);
+            values.push(updates.output);
+        }
+        if (updates.executionTime !== undefined) {
+            fields.push(`execution_time = $${idx++}`);
+            values.push(updates.executionTime);
+        }
+        if (updates.error !== undefined) {
+            fields.push(`error = $${idx++}`);
+            values.push(updates.error);
+        }
+
+        if (fields.length > 0) {
+            values.push(id);
+            await pglite.query(
+                `UPDATE prompt_versions SET ${fields.join(', ')} WHERE id = $${idx}`,
+                values
+            );
+        }
+    }
+}
+
+export function getVersionsForPrompt(promptId: string): PromptVersion[] {
+    return Object.values(promptStore.versions)
+        .filter(v => v.promptId === promptId)
+        .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function revertToVersion(promptId: string, versionId: string) {
+    const version = promptStore.versions[versionId];
+    if (!version || version.promptId !== promptId) return;
+
+    await updatePrompt(promptId, { currentVersionId: versionId });
+}
+
+// ============= STATUS TRANSITIONS =============
+
+export async function moveToQueued(promptId: string) {
+    await updatePrompt(promptId, { status: 'queued' });
+    setPromptStore(produce((s) => {
+        if (!s.executionQueue.includes(promptId)) {
+            s.executionQueue.push(promptId);
+        }
+    }));
+}
+
+
+export async function moveToGenerating(promptId: string) {
+    await updatePrompt(promptId, { status: 'generating' });
+}
+
+export async function moveToDeployed(promptId: string) {
+    await updatePrompt(promptId, {
+        status: 'deployed',
+        deployedAt: Date.now()
+    });
+    setPromptStore(produce((s) => {
+        s.executionQueue = s.executionQueue.filter(id => id !== promptId);
+    }));
+}
+
+export async function moveToError(promptId: string) {
+    await updatePrompt(promptId, { status: 'error' });
+    setPromptStore(produce((s) => {
+        s.executionQueue = s.executionQueue.filter(id => id !== promptId);
+    }));
+}
+
+export async function moveToDraft(promptId: string) {
+    await updatePrompt(promptId, { status: 'draft' });
+}
+
+
+// ============= BATCH EXECUTION =============
+
+const CONCURRENT_LIMIT = 5;
+const STAGGER_MS = 100;
+let activeCount = 0;
+
+export async function runAllDrafts() {
+    const drafts = Object.values(promptStore.prompts)
+        .filter(p => p.status === 'draft')
+        .sort((a, b) => a.pos - b.pos);
+
+    // Move all to queued first
+    for (const prompt of drafts) {
+        await moveToQueued(prompt.id);
+    }
+
+    // Process in batches with staggering
+    await processExecutionQueue();
+}
+
+export async function runSinglePrompt(promptId: string) {
+    await moveToQueued(promptId);
+    await processExecutionQueue();
+}
+
+export async function processExecutionQueue() {
+    // Check global store for queued items
+    // Use a loop to keep checking as long as we have capacity and items
+    const candidates = promptStore.executionQueue.filter(id =>
+        promptStore.prompts[id]?.status === 'queued'
+    );
+
+    if (candidates.length === 0) return;
+
+    for (const promptId of candidates) {
+        if (activeCount >= CONCURRENT_LIMIT) break;
+
+        // Check availability again
+        if (promptStore.prompts[promptId]?.status !== 'queued') continue;
+
+        activeCount++;
+
+        // Execute without awaiting to allow concurrency (fire and forget)
+        executePrompt(promptId).finally(() => {
+            activeCount--;
+            processExecutionQueue();
+        });
+    }
+}
+
+async function executePrompt(promptId: string) {
+    const prompt = promptStore.prompts[promptId];
+    if (!prompt) return;
+
+    const version = prompt.currentVersionId
+        ? promptStore.versions[prompt.currentVersionId]
+        : null;
+
+    if (!version || !version.content.trim()) {
+        await updateVersion(version?.id || '', { error: 'Empty prompt content' });
+        await moveToError(promptId);
+        return;
+    }
+
+    try {
+        await moveToGenerating(promptId);
+
+        const startTime = Date.now();
+
+        // Import AI service and memory store
+        const { generateWithFallback } = await import('./aiService');
+        const { getMemoriesForContext, addMemory } = await import('./memoryStore');
+
+        // 1. Context Injection
+        const contextMemories = getMemoriesForContext(10);
+
+        const result = await generateWithFallback({
+            prompt: version.content,
+            systemInstructions: version.systemInstructions,
+            parameters: version.parameters,
+            contextMemories,
+        });
+
+        // 2. Memory Extraction
+        if (result.extractedMemories && result.extractedMemories.length > 0) {
+            for (const mem of result.extractedMemories) {
+                await addMemory(mem.key, mem.value, ['auto-extracted']);
+            }
+        }
+
+        await updateVersion(version.id, {
+            output: result.content,
+            executionTime: result.executionTime,
+        });
+
+        await moveToDeployed(promptId);
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[Prompt ${promptId}] Failed:`, errorMessage);
+        await updateVersion(version.id, { error: errorMessage });
+        await moveToError(promptId);
+    }
+}
+
+// ============= HELPERS =============
+
+export function getPromptsByStatus(status: PromptStatus): PromptCard[] {
+    return Object.values(promptStore.prompts)
+        .filter(p => p.status === status && !p.archived)
+        .sort((a, b) => a.pos - b.pos);
+}
+
+export function getCurrentVersion(promptId: string): PromptVersion | null {
+    const prompt = promptStore.prompts[promptId];
+    if (!prompt?.currentVersionId) return null;
+    return promptStore.versions[prompt.currentVersionId] || null;
+}
+
+// ============= INITIALIZATION =============
+
+export async function initPromptStore(boardId: string) {
+    await initPromptPGlite(boardId);
+    // TODO: Connect WebSocket for sync
+}
+
+// ============= SCHEDULER =============
+
+export async function schedulePrompt(
+    promptId: string,
+    cron: string,
+    enabled: boolean
+) {
+    const prompt = promptStore.prompts[promptId];
+    if (!prompt) return;
+
+    // Optimistic update
+    setPromptStore(produce(state => {
+        if (state.prompts[promptId]) {
+            state.prompts[promptId].schedule = {
+                cron,
+                enabled,
+                lastRun: state.prompts[promptId].schedule?.lastRun,
+                nextRun: Date.now(), // Placeholder
+            };
+        }
+    }));
+
+    // Send to Server
+    const version = getCurrentVersion(promptId);
+    const payload = {
+        id: crypto.randomUUID(),
+        promptId,
+        content: version?.content || '',
+        system: version?.systemInstructions || '',
+        params: version?.parameters || defaultParameters,
+        cron
+    };
+
+    try {
+        const workerUrl = import.meta.env.VITE_AI_WORKER_URL || '';
+        const response = await fetch(`${workerUrl}/api/scheduler/schedule?board=${currentBoardId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to schedule prompt');
+        }
+    } catch (error) {
+        console.error('Schedule failed:', error);
+        // Revert on failure? For now just log.
+    }
+}

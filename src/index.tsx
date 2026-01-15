@@ -3,7 +3,10 @@ import { render } from 'solid-js/web';
 import { createSignal, onMount, Show } from 'solid-js';
 import { Home } from './components/Home';
 import { Board } from './components/Board';
+import { PromptBoard } from './components/PromptBoard';
+import { PresentationView } from './components/PresentationView';
 import { initStore } from './store';
+import { initPromptStore } from './promptStore';
 import './index.css';
 import { polyfill } from "mobile-drag-drop";
 // import "mobile-drag-drop/default.css"; // We'll add custom minimal css or use default if needed
@@ -19,23 +22,47 @@ window.addEventListener('touchmove', function () { }, { passive: false });
 
 const App = () => {
     // Simple routing state
-    const [page, setPage] = createSignal<'home' | 'board'>('home');
+    const [page, setPage] = createSignal<'home' | 'board' | 'prompts' | 'presentation'>('home');
     const [boardId, setBoardId] = createSignal<string>('');
+    const [promptId, setPromptId] = createSignal<string>('');
 
     const navigate = (path: string) => {
         window.history.pushState({}, '', path);
         handleRoute();
     };
 
-    const handleRoute = () => {
+    const handleRoute = async () => {
         const path = window.location.pathname;
+
         if (path === '/' || path === '') {
             setPage('home');
-        } else {
-            // Assume /:id
-            const id = path.substring(1);
-            // Basic validation or sanitization could go here
+        } else if (path.includes('/present/')) {
+            // Presentation route: /prompts/:boardId/present/:promptId
+            const parts = path.split('/');
+            // /prompts/123/present/456 -> ["", "prompts", "123", "present", "456"]
+            const bId = parts[2];
+            const pId = parts[4];
+
+            if (bId && pId) {
+                setBoardId(bId);
+                setPromptId(pId);
+                setPage('presentation');
+                await initPromptStore(bId);
+            }
+        } else if (path.startsWith('/prompts/')) {
+            // Prompt board route: /prompts/:id
+            const id = path.substring('/prompts/'.length);
             if (id) {
+                setBoardId(id);
+                setPage('prompts');
+                // initialization moved to PromptBoard component
+            } else {
+                setPage('home');
+            }
+        } else {
+            // Regular board route: /:id
+            const id = path.substring(1);
+            if (id && !id.includes('/')) {
                 setBoardId(id);
                 setPage('board');
                 initStore(id);
@@ -57,7 +84,10 @@ const App = () => {
     return (
         <>
             <Show when={page() === 'home'}>
-                <Home onNavigate={(id) => navigate('/' + id)} />
+                <Home
+                    onNavigate={(id) => navigate('/' + id)}
+                    onNavigatePrompts={(id) => navigate('/prompts/' + id)}
+                />
             </Show>
             <Show when={page() === 'board'}>
                 <Board />
@@ -71,6 +101,20 @@ const App = () => {
                     </svg>
                 </button>
             </Show>
+            <Show when={page() === 'prompts'}>
+                <PromptBoard
+                    boardId={boardId()}
+                    onNavigateHome={() => navigate('/')}
+                    onNavigatePresent={(promptId) => navigate(`/prompts/${boardId()}/present/${promptId}`)}
+                />
+            </Show>
+            <Show when={page() === 'presentation'}>
+                <PresentationView
+                    boardId={boardId()}
+                    promptId={promptId()}
+                    onClose={() => navigate('/prompts/' + boardId())}
+                />
+            </Show>
         </>
     );
 };
@@ -79,3 +123,4 @@ const root = document.getElementById('root');
 if (root) {
     render(() => <App />, root);
 }
+

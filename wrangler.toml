@@ -7,11 +7,18 @@ account_id = "c61fd30bce61d2d26de34db53b001e3d"
 routes = [{ pattern = "work.moecapital.com", custom_domain = true }]
 
 [durable_objects]
-bindings = [{ name = "BOARD_DO", class_name = "BoardDO" }]
+bindings = [
+    { name = "BOARD_DO", class_name = "BoardDO" },
+    { name = "RESEARCH_DO", class_name = "ResearchDO" }
+]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["BoardDO"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["ResearchDO"]
 
 [observability]
 enabled = true
@@ -29,3 +36,8 @@ binding = "ASSETS"
 [[r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "work-media"
+
+# Secret: GEMINI_API_KEY
+# Set via: wrangler secret put GEMINI_API_KEY
+# Then paste your Gemini API key when prompted
+
