@@ -20,6 +20,7 @@ import { TemplateModal } from './TemplateModal';
 import { GEMINI_MODELS, generate, type GeminiModel } from '../aiService';
 import { VersionDiff } from './VersionDiff';
 import { estimateTokens, estimateCost, formatCost } from '../utils/tokenEstimator';
+import { PromptHistoryView } from './PromptHistoryView';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -60,6 +61,8 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const versions = () => getVersionsForPrompt(props.promptId);
 
     // Local editing state
+    const [activeTab, setActiveTab] = createSignal<'output' | 'compare' | 'history'>('output');
+    const [isCompareMode, setIsCompareMode] = createSignal(false);
     const [content, setContent] = createSignal('');
     const [systemInstructions, setSystemInstructions] = createSignal('');
     const [temperature, setTemperature] = createSignal(0.7);
@@ -208,6 +211,18 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
             props.onClose();
         }
     };
+
+    // Token and Cost Estimation
+    const stats = createEffect(() => {
+        const promptContent = content();
+        const systemContent = systemInstructions();
+        const params = getParams();
+        const model = currentVersion()?.parameters?.model || 'gemini-1.5-pro'; // Default model for estimation
+
+        const tokens = estimateTokens(promptContent, systemContent);
+        const cost = estimateCost(tokens, model);
+        return { tokens, cost };
+    });
 
     return (
         <div
