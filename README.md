@@ -1,6 +1,6 @@
-# Work (Local-First Kanban)
+# Work (Local-First AI Kanban)
 
-A high-performance Kanban board built with **SolidJS**, **PGlite** (Postgres WASM), and **Cloudflare Durable Objects**.
+A high-performance AI-powered Kanban board built with **SolidJS**, **PGlite** (Postgres WASM), and **Cloudflare Durable Objects**.
 
 ## 🚀 Live Demo
 
@@ -8,20 +8,40 @@ A high-performance Kanban board built with **SolidJS**, **PGlite** (Postgres WAS
 
 ## Features
 
-- ⚡ **0ms Latency**: Optimistic UI updates.
-- 🔄 **Real-time Sync**: WebSocket-based synchronization via Cloudflare Edge.
-- 📱 **Local-First**: Full offline support using in-browser PostgreSQL (PGlite).
-- 🏃 **Performance**: No Virtual DOM overhead; native drag-and-drop at 60fps.
-- 🏢 **Enterprise Ready**: Multiple boards, workspace isolation.
-- 🎨 **Rich UX**: Dark mode, Drag & Drop lists, Search & Filtering.
-- 📅 **Productivity**: Due dates, Checklists, Tags, JSON Export.
-- 📲 **PWA**: Installable on Desktop/Mobile with Service Worker caching.
+### Core
+- ⚡ **0ms Latency**: Optimistic UI updates
+- 🔄 **Real-time Sync**: WebSocket via Cloudflare Edge
+- 📱 **Local-First**: Offline-capable with in-browser PostgreSQL
+- 🏃 **60fps Performance**: Native drag-and-drop, no Virtual DOM
+
+### AI Capabilities
+- 🤖 **Autonomous Agents**: Multi-agent swarms with Coordinator/Worker orchestration
+- 🔁 **Self-Correcting AI**: Recursive critique loops with automatic feedback injection
+- 📅 **Scheduled Prompts**: Cron-based AI execution
+- ⚡ **Triggered Workflows**: Event-driven prompt automation
+
+### UX Polish
+- 🎛 **Agent Dashboard**: Real-time status of running agents
+- 📊 **Global Agent Bar**: Persistent progress indicator
+- 🔔 **Snackbar Notifications**: Success/error/info feedback
+- 📱 **Mobile-Adaptive**: Responsive layouts for all devices
 
 ## Architecture
 
-- **Frontend**: SolidJS + Vite + Tailwind CSS
-- **Store**: PGlite (WASM) + Solid Store
-- **Backend**: Cloudflare Worker + Durable Object + Native SQLite
+| Layer | Technology |
+|-------|------------|
+| Frontend | SolidJS + Vite + Tailwind CSS |
+| Store | PGlite (WASM) + Solid Store |
+| Backend | Cloudflare Worker + Durable Object |
+| AI | Gemini Interactions API |
+
+### Bundle Optimization
+| Chunk | Size |
+|-------|------|
+| index.js | 114KB |
+| solid-vendor.js | 13.5KB |
+| pglite.js | 393KB |
+| ai-service.js | 4.3KB |
 
 ## Getting Started
 
@@ -31,33 +51,20 @@ A high-performance Kanban board built with **SolidJS**, **PGlite** (Postgres WAS
 
 ### Local Development
 
-1. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+npm run dev
+```
 
-2. **Start Dev Server**
-   ```bash
-   npm run dev
-   ```
-   Open http://localhost:3000
+Open http://localhost:3000
 
 ## Deployment
 
-This project executes on Cloudflare Workers.
-
-### Security Note 🔒
-Never commit your `CLOUDFLARE_API_KEY` or `CLOUDFLARE_EMAIL` to the repository. Use environment variables.
-
-### Deploy Command
-```powershell
-# Set credentials (session only)
-$env:CLOUDFLARE_EMAIL="your-email@example.com"
-$env:CLOUDFLARE_API_KEY="your-global-api-key"
-
-# Deploy
+```bash
 npx wrangler deploy
 ```
+
+> **Security**: Never commit API keys. Use environment variables.
 
 ## License
 MIT
