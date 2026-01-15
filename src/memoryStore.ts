@@ -106,16 +106,24 @@ export async function initMemoryStore(boardId: string, pgliteInstance?: PGlite) 
 async function loadMemories() {
     if (!pglite) return;
 
-    const result = await pglite.query<any>(
+    // Load nodes
+    const nodesResult = await pglite.query<any>(
         `SELECT id, key, value, tags, created_at, updated_at, usage_count 
-         FROM memories WHERE board_id = $1 ORDER BY updated_at DESC`,
+         FROM nodes WHERE board_id = $1 ORDER BY updated_at DESC`,
+        [currentBoardId]
+    );
+
+    // Load edges
+    const edgesResult = await pglite.query<any>(
+        `SELECT id, source_id, target_id, relation, weight, created_at 
+         FROM edges WHERE board_id = $1`,
         [currentBoardId]
     );
 
     setMemoryStore(produce((s) => {
-        s.memories = {};
-        for (const row of result.rows) {
-            s.memories[row.id] = {
+        s.nodes = {};
+        for (const row of nodesResult.rows) {
+            s.nodes[row.id] = {
                 id: row.id,
                 key: row.key,
                 value: row.value,
@@ -125,16 +133,25 @@ async function loadMemories() {
                 usageCount: row.usage_count,
             };
         }
+
+        s.edges = edgesResult.rows.map(row => ({
+            id: row.id,
+            sourceId: row.source_id,
+            targetId: row.target_id,
+            relation: row.relation,
+            weight: row.weight,
+            createdAt: row.created_at,
+        }));
     }));
 }
 
 // ============= CRUD OPERATIONS =============
 
-export async function addMemory(key: string, value: string, tags: string[] = []): Promise<string> {
+export async function addNode(key: string, value: string, tags: string[] = []): Promise<string> {
     const id = crypto.randomUUID();
     const now = Date.now();
 
-    const memory: Memory = {
+    const node: Node = {
         id,
         key: key.trim(),
         value: value.trim(),
@@ -146,60 +163,98 @@ export async function addMemory(key: string, value: string, tags: string[] = [])
 
     // Optimistic update
     setMemoryStore(produce((s) => {
-        s.memories[id] = memory;
+        s.nodes[id] = node;
     }));
 
     if (pglite) {
         await pglite.query(
-            `INSERT INTO memories (id, key, value, tags, board_id, created_at, updated_at, usage_count)
+            `INSERT INTO nodes (id, key, value, tags, board_id, created_at, updated_at, usage_count)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              ON CONFLICT(board_id, key) DO UPDATE SET
              value = EXCLUDED.value,
              tags = EXCLUDED.tags,
              updated_at = EXCLUDED.updated_at`,
-            [id, memory.key, memory.value, JSON.stringify(tags), currentBoardId, now, now, 0]
+            [id, node.key, node.value, JSON.stringify(tags), currentBoardId, now, now, 0]
         );
     }
 
     return id;
 }
 
-export async function updateMemory(id: string, updates: Partial<Memory>) {
+// Legacy alias
+export const addMemory = addNode;
+
+export async function updateNode(id: string, updates: Partial<Node>) {
     setMemoryStore(produce((s) => {
-        if (s.memories[id]) {
-            Object.assign(s.memories[id], { ...updates, updatedAt: Date.now() });
+        if (s.nodes[id]) {
+            Object.assign(s.nodes[id], { ...updates, updatedAt: Date.now() });
         }
     }));
 
     if (pglite) {
-        const memory = memoryStore.memories[id];
-        if (memory) {
+        const node = memoryStore.nodes[id];
+        if (node) {
             await pglite.query(
-                `UPDATE memories SET value = $1, tags = $2, updated_at = $3 WHERE id = $4`,
-                [memory.value, JSON.stringify(memory.tags), memory.updatedAt, id]
+                `UPDATE nodes SET value = $1, tags = $2, updated_at = $3 WHERE id = $4`,
+                [node.value, JSON.stringify(node.tags), node.updatedAt, id]
             );
         }
     }
 }
 
-export async function deleteMemory(id: string) {
+// Legacy alias
+export const updateMemory = updateNode;
+
+export async function deleteNode(id: string) {
     setMemoryStore(produce((s) => {
-        delete s.memories[id];
+        delete s.nodes[id];
+        s.edges = s.edges.filter(e => e.sourceId !== id && e.targetId !== id);
     }));
 
     if (pglite) {
-        await pglite.query(`DELETE FROM memories WHERE id = $1`, [id]);
+        await pglite.query(`DELETE FROM nodes WHERE id = $1`, [id]);
     }
+}
+
+// Legacy alias
+export const deleteMemory = deleteNode;
+
+export async function addEdge(sourceId: string, targetId: string, relation: string, weight = 1.0): Promise<string> {
+    const id = crypto.randomUUID();
+    const now = Date.now();
+
+    const edge: Edge = {
+        id,
+        sourceId,
+        targetId,
+        relation,
+        weight,
+        createdAt: now,
+    };
+
+    setMemoryStore(produce((s) => {
+        s.edges.push(edge);
+    }));
+
+    if (pglite) {
+        await pglite.query(
+            `INSERT INTO edges (id, source_id, target_id, relation, weight, board_id, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT(board_id, source_id, target_id, relation) DO UPDATE SET
+             weight = EXCLUDED.weight`,
+            [id, sourceId, targetId, relation, weight, currentBoardId, now]
+        );
+    }
+
+    return id;
 }
 
 export async function incrementUsage(id: string) {
     if (pglite) {
         await pglite.query(
-            `UPDATE memories SET usage_count = usage_count + 1 WHERE id = $1`,
+            `UPDATE nodes SET usage_count = usage_count + 1 WHERE id = $1`,
             [id]
         );
-        // Reload to sync state
-        // In full app we'd just optimistically update, but this is fine for now
     }
 }
 
