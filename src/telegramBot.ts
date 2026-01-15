@@ -75,6 +75,8 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleLatest(chatId, env);
             } else if (cmd === '/retry') {
                 await handleRunPrompt(chatId, args[0], env);
+            } else if (cmd === '/refine') {
+                await handleRefinePrompt(chatId, args[0], env);
             } else {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "❓ Unknown command. Try /help.");
             }
@@ -178,6 +180,30 @@ async function handleLatest(chatId: number, env: Env) {
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
     } else {
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🔍 No generated outputs found yet.");
+    }
+}
+
+async function handleRefinePrompt(chatId: number, promptId: string, env: Env) {
+    if (!promptId) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Please provide a Prompt ID. Example: `/refine [id]`");
+        return;
+    }
+
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🧠 **Refining Prompt...**\n\nI'm asking the AI to critique and improve your prompt. One moment.");
+
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promptId })
+    });
+
+    if (response.status === 200) {
+        const data = await response.json() as any;
+        const msg = `✨ **Prompt Refined!**\n\n**New Content:**\n${data.newContent}\n\n**Critique:**\n${data.critique}\n\nA new version has been created. Use \`/run ${promptId}\` to test it.`;
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `❌ **Refinement failed.** Status: ${response.status}`);
     }
 }
 
