@@ -693,3 +693,166 @@ export async function configureWorkflow(
     // Update locally (state and DB)
     await updatePrompt(promptId, { workflow });
 }
+
+// ============= AUTONOMOUS AGENT ORCHESTRATION =============
+
+import type { CritiqueConfig, AgentMode } from './types';
+
+/**
+ * Decomposes a coordinator prompt into worker sub-tasks and runs them in parallel.
+ */
+export async function decomposeAndDelegate(coordinatorId: string): Promise<void> {
+    const coordinator = promptStore.prompts[coordinatorId];
+    if (!coordinator) return;
+
+    const version = getCurrentVersion(coordinatorId);
+    if (!version?.content) return;
+
+    console.log(`[Agent] Decomposing coordinator: ${coordinatorId}`);
+    await updatePrompt(coordinatorId, { agentMode: 'coordinator', status: 'queued' });
+
+    const { decomposeTask } = await import('./aiService');
+    const subtasks = await decomposeTask(version.content, 3);
+
+    const childIds: string[] = [];
+
+    for (const task of subtasks) {
+        // Create worker prompt
+        const workerId = await addPrompt(`[Worker] ${task.title}`);
+        childIds.push(workerId);
+
+        // Set worker metadata
+        await updatePrompt(workerId, {
+            agentMode: 'worker',
+            parentId: coordinatorId,
+        });
+
+        // Set worker content
+        const workerVersion = getCurrentVersion(workerId);
+        if (workerVersion) {
+            await updateVersion(workerVersion.id, {
+                content: task.description,
+                systemInstructions: `You are a specialized worker agent. Complete the following sub-task thoroughly.\n\nMAIN CONTEXT: ${version.content}`,
+            });
+        }
+
+        // Queue worker execution
+        runSinglePrompt(workerId);
+    }
+
+    // Link children to coordinator
+    await updatePrompt(coordinatorId, { childIds });
+
+    console.log(`[Agent] Spawned ${childIds.length} workers for coordinator ${coordinatorId}`);
+}
+
+/**
+ * Called after all workers complete. Aggregates outputs and synthesizes final response.
+ */
+export async function synthesizeFromWorkers(coordinatorId: string): Promise<void> {
+    const coordinator = promptStore.prompts[coordinatorId];
+    if (!coordinator?.childIds?.length) return;
+
+    // Check if all children are complete
+    const children = coordinator.childIds.map(id => promptStore.prompts[id]).filter(Boolean);
+    const allDone = children.every(c => c.status === 'deployed' || c.status === 'error');
+
+    if (!allDone) {
+        console.log(`[Agent] Not all workers complete for ${coordinatorId}`);
+        return;
+    }
+
+    // Gather outputs
+    const workerOutputs = children.map(child => {
+        const v = getCurrentVersion(child.id);
+        return `## ${child.title}\n${v?.output || '(no output)'}`;
+    }).join('\n\n---\n\n');
+
+    const version = getCurrentVersion(coordinatorId);
+    if (!version) return;
+
+    console.log(`[Agent] Synthesizing from ${children.length} workers...`);
+    await updatePrompt(coordinatorId, { status: 'generating' });
+
+    const { generateWithFallback } = await import('./aiService');
+
+    const result = await generateWithFallback({
+        prompt: `Synthesize the following worker outputs into a cohesive final answer.
+
+ORIGINAL QUESTION:
+${version.content}
+
+WORKER OUTPUTS:
+${workerOutputs}
+
+Provide a comprehensive, well-structured answer.`,
+        parameters: version.parameters,
+    });
+
+    await updateVersion(version.id, {
+        output: result.content,
+        executionTime: result.executionTime,
+    });
+
+    await updatePrompt(coordinatorId, { status: 'deployed' });
+    console.log(`[Agent] Coordinator ${coordinatorId} synthesis complete.`);
+}
+
+/**
+ * Runs a prompt with critique-based self-correction loop.
+ */
+export async function runWithCritique(promptId: string): Promise<void> {
+    const prompt = promptStore.prompts[promptId];
+    if (!prompt?.critique?.enabled) {
+        await runSinglePrompt(promptId);
+        return;
+    }
+
+    const maxRetries = prompt.critique.maxRetries || 2;
+    let currentRetry = 0;
+    let lastFeedback = '';
+
+    while (currentRetry <= maxRetries) {
+        console.log(`[Critique] Attempt ${currentRetry + 1}/${maxRetries + 1} for ${promptId}`);
+
+        // Update critique state
+        await updatePrompt(promptId, {
+            critique: { ...prompt.critique, currentRetry, lastFeedback }
+        });
+
+        // Run prompt
+        await runSinglePrompt(promptId);
+
+        // Get output
+        const version = getCurrentVersion(promptId);
+        if (!version?.output) break;
+
+        // Critique the output
+        const { critiqueOutput } = await import('./aiService');
+        const critique = await critiqueOutput(version.output, prompt.critique.constraints);
+
+        console.log(`[Critique] Score: ${critique.score}, Pass: ${critique.pass}`);
+
+        await updatePrompt(promptId, {
+            critique: { ...prompt.critique, lastScore: critique.score, lastFeedback: critique.feedback }
+        });
+
+        if (critique.pass) {
+            console.log(`[Critique] Output passed for ${promptId}`);
+            return;
+        }
+
+        // Prepare for retry with feedback injection
+        lastFeedback = critique.feedback;
+        currentRetry++;
+
+        // Inject feedback into system instructions for next run
+        if (currentRetry <= maxRetries) {
+            const newSystem = `${version.systemInstructions || ''}\n\n[CRITIC FEEDBACK - IMPROVE YOUR RESPONSE]\n${critique.feedback}`;
+            await updateVersion(version.id, { systemInstructions: newSystem, output: undefined });
+            await updatePrompt(promptId, { status: 'draft' }); // Reset for re-run
+        }
+    }
+
+    console.log(`[Critique] Max retries reached for ${promptId}. Using last output.`);
+}
