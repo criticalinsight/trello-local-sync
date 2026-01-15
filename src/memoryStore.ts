@@ -258,11 +258,11 @@ export async function incrementUsage(id: string) {
     }
 }
 
-// ============= SEARCH =============
+// ============= SEARCH & CONTEXT =============
 
-export function searchMemories(query: string): Memory[] {
+export function searchNodes(query: string): Node[] {
     const term = query.toLowerCase();
-    return Object.values(memoryStore.memories)
+    return Object.values(memoryStore.nodes)
         .filter(m =>
             m.key.toLowerCase().includes(term) ||
             m.value.toLowerCase().includes(term) ||
@@ -271,16 +271,38 @@ export function searchMemories(query: string): Memory[] {
         .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+// Legacy alias
+export const searchMemories = searchNodes;
+
+/**
+ * Retrieves a context string for the AI, prioritizing recently updated and related nodes.
+ */
 export function getMemoriesForContext(limit = 10): string {
-    // Simple strategy: return mostly recently used/updated memories
-    // In future: use embeddings for semantic relevance
-    const topMemories = Object.values(memoryStore.memories)
+    // Current simple strategy: most recent nodes
+    // TODO: Evolve to use relationship clusters/weights
+    const topNodes = Object.values(memoryStore.nodes)
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .slice(0, limit);
 
-    if (topMemories.length === 0) return '';
+    if (topNodes.length === 0) return '';
 
-    return topMemories
-        .map(m => `[MEMORY: ${m.key}] ${m.value}`)
+    // Build context with simple relationship hints if available
+    return topNodes
+        .map(node => {
+            const contextLine = `[MEMORY: ${node.key}] ${node.value}`;
+
+            // Find related nodes
+            const related = memoryStore.edges
+                .filter(e => e.sourceId === node.id || e.targetId === node.id)
+                .map(e => {
+                    const otherId = e.sourceId === node.id ? e.targetId : e.sourceId;
+                    const otherNode = memoryStore.nodes[otherId];
+                    return otherNode ? `${e.relation} ${otherNode.key}` : null;
+                })
+                .filter(Boolean)
+                .join(', ');
+
+            return related ? `${contextLine} (Related: ${related})` : contextLine;
+        })
         .join('\n');
 }
