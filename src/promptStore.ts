@@ -230,7 +230,8 @@ async function loadPromptsFromDB() {
     );
 
     // Load versions
-    `SELECT v.id, v.prompt_id as "promptId", v.content, v.system_instructions as "systemInstructions",
+    const versionsResult = await pglite.query<any>(
+        `SELECT v.id, v.prompt_id as "promptId", v.content, v.system_instructions as "systemInstructions",
          v.temperature, v.top_p as "topP", v.max_tokens as "maxTokens", v.model, v.output,
          v.created_at as "createdAt", v.execution_time as "executionTime", v.error
          FROM prompt_versions v
