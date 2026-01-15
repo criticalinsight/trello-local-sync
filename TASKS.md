@@ -13,6 +13,6 @@
   - [x] Cache-control headers
 
 ## 🚀 Refactoring & Deployment (Phase 11)
-- [ ] /test @[/refactor] @[/test] - Comprehensive refactor and verification <!-- id: p11_0 -->
+- [/] /test @[/refactor] @[/test] - Comprehensive refactor and verification <!-- id: p11_0 -->
 - [ ] Update documentation after refactor <!-- id: p11_1 -->
 - [ ] @[/c] with authlogin - Production deployment <!-- id: p11_2 -->

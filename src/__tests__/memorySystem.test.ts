@@ -32,7 +32,7 @@ describe('Memory System Integration', () => {
         expect(id).toBeDefined();
 
         // Verify in store state
-        const stored = Object.values(memoryStore.memories).find(m => m.key === 'project_name');
+        const stored = Object.values(memoryStore.nodes).find(m => m.key === 'project_name');
         expect(stored).toBeDefined();
         expect(stored?.value).toBe('Trello Sync');
 

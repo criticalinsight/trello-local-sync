@@ -25,4 +25,9 @@ export default defineConfig({
     optimizeDeps: {
         exclude: ['@electric-sql/pglite'],
     },
+    test: {
+        globals: true,
+        environment: 'jsdom',
+        exclude: ['**/node_modules/**', '**/dist/**', '**/__e2e__/**'],
+    },
 });

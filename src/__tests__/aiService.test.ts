@@ -40,7 +40,7 @@ describe('AI Service', () => {
         test('config includes proper timeout settings', async () => {
             const { AI_DEFAULT_CONFIG } = await import('../aiService');
             expect(AI_DEFAULT_CONFIG.timeout).toBeGreaterThanOrEqual(60000);
-            expect(AI_DEFAULT_CONFIG.pollInterval).toBe(2000);
+            expect(AI_DEFAULT_CONFIG.pollInterval).toBe(10000); // Matches ResearchDO poll interval
             expect(AI_DEFAULT_CONFIG.maxPollAttempts).toBeGreaterThanOrEqual(30);
         });
     });

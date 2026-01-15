@@ -1,53 +1,13 @@
 # Page snapshot
 
 ```yaml
-- generic [ref=e3]:
-  - banner [ref=e4]:
-    - generic [ref=e5]:
-      - generic [ref=e6]:
-        - button "Back to Home" [ref=e7] [cursor=pointer]:
-          - img [ref=e8]
-        - generic [ref=e10]:
-          - heading "Prompt Engineering Board" [level=1] [ref=e11]
-          - paragraph [ref=e12]: f65a42f7...
-      - generic [ref=e13]:
-        - generic [ref=e14]:
-          - button "Board" [ref=e15] [cursor=pointer]
-          - button "Analytics" [ref=e16] [cursor=pointer]
-        - generic [ref=e17]:
-          - generic [ref=e18]: 0 drafts
-          - generic [ref=e19]: 0 queued
-          - generic [ref=e20]: 0 running
-          - generic [ref=e21]: 0 deployed
-        - button "Switch to Light Mode" [ref=e22] [cursor=pointer]:
-          - img [ref=e23]
-  - generic [ref=e25]:
-    - generic [ref=e26]:
-      - generic [ref=e27]:
-        - generic [ref=e28]:
-          - heading "Draft Prompts" [level=2] [ref=e29]
-          - generic [ref=e31]: "0"
-        - button "Add new prompt" [ref=e33] [cursor=pointer]:
-          - img [ref=e34]
-      - generic [ref=e36]:
-        - textbox "Enter prompt title..." [active] [ref=e37]: Lifecycle Test - 1768513278532
-        - generic [ref=e38]:
-          - button "Cancel" [ref=e39] [cursor=pointer]
-          - button "Add" [ref=e40] [cursor=pointer]
-      - generic [ref=e42]: Click + to create your first prompt
-    - generic [ref=e43]:
-      - generic [ref=e45]:
-        - heading "Queued" [level=2] [ref=e46]
-        - generic [ref=e48]: "0"
-      - generic [ref=e50]: No prompts yet
-    - generic [ref=e51]:
-      - generic [ref=e53]:
-        - heading "Generating" [level=2] [ref=e54]
-        - generic [ref=e56]: "0"
-      - generic [ref=e58]: No prompts yet
-    - generic [ref=e59]:
-      - generic [ref=e61]:
-        - heading "Deployed" [level=2] [ref=e62]
-        - generic [ref=e64]: "0"
-      - generic [ref=e66]: No prompts yet
+- generic [ref=e4]:
+  - img [ref=e6]
+  - heading "Something went wrong" [level=2] [ref=e8]
+  - paragraph [ref=e9]: ee is not a function
+  - generic [ref=e10]:
+    - button "Reload Page" [ref=e11] [cursor=pointer]
+    - button "Try Again" [ref=e12] [cursor=pointer]
+  - group [ref=e13]:
+    - generic "Technical Details" [ref=e14] [cursor=pointer]
 ```
