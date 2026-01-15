@@ -27,8 +27,8 @@ export const VersionDiff: Component<VersionDiffProps> = (props) => {
                             part.added
                                 ? 'bg-emerald-900/50 text-emerald-200 px-0.5 rounded'
                                 : part.removed
-                                    ? 'bg-red-900/50 text-red-200 px-0.5 line-through decoration-red-500/50 opacity-70'
-                                    : 'text-slate-300'
+                                  ? 'bg-red-900/50 text-red-200 px-0.5 line-through decoration-red-500/50 opacity-70'
+                                  : 'text-slate-300'
                         }
                     >
                         {part.value}

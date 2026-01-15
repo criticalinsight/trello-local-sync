@@ -9,12 +9,14 @@ A high-performance AI-powered Kanban board built with **SolidJS**, **PGlite** (P
 ## Features
 
 ### Core
+
 - ⚡ **0ms Latency**: Optimistic UI updates
 - 🔄 **Real-time Sync**: WebSocket via Cloudflare Edge
 - 📱 **Local-First**: Offline-capable with in-browser PostgreSQL
 - 🏃 **60fps Performance**: Native drag-and-drop, no Virtual DOM
 
 ### AI Capabilities
+
 - 🤖 **Autonomous Agents**: Multi-agent swarms with Coordinator/Worker orchestration
 - 🔁 **Self-Correcting AI**: Recursive critique loops with automatic feedback injection
 - 📅 **Scheduled Prompts**: Cron-based AI execution
@@ -22,6 +24,7 @@ A high-performance AI-powered Kanban board built with **SolidJS**, **PGlite** (P
 - 📝 **Presentation Mode**: Export AI outputs as documents or slides
 
 ### UX Polish
+
 - 🎛 **Agent Dashboard**: Real-time status of running agents
 - 📊 **Global Agent Bar**: Persistent progress indicator
 - 🔔 **Snackbar Notifications**: Success/error/info feedback
@@ -29,31 +32,34 @@ A high-performance AI-powered Kanban board built with **SolidJS**, **PGlite** (P
 - 🛡 **Error Boundary**: Graceful recovery from runtime errors
 
 ### Production Reliability
+
 - 🔄 **Auto-Updating**: No hard refresh needed after deployments
 - 📦 **Cache Headers**: Immutable hashed assets, no-cache HTML
 - 🧹 **SW Cache Cleanup**: Automatic old cache invalidation
 
 ## Architecture
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | SolidJS + Vite + Tailwind CSS |
-| Store | PGlite (WASM) + Solid Store |
-| Backend | Cloudflare Worker + Durable Object |
-| AI | Gemini Interactions API |
-| CDN | Cloudflare Assets + Service Worker |
+| Layer    | Technology                         |
+| -------- | ---------------------------------- |
+| Frontend | SolidJS + Vite + Tailwind CSS      |
+| Store    | PGlite (WASM) + Solid Store        |
+| Backend  | Cloudflare Worker + Durable Object |
+| AI       | Gemini Interactions API            |
+| CDN      | Cloudflare Assets + Service Worker |
 
 ### Bundle Optimization
-| Chunk | Size |
-|-------|------|
-| index.js | 118KB |
-| solid-vendor.js | 14KB |
-| pglite.js | 394KB |
-| ai-service.js | 4.3KB |
+
+| Chunk           | Size  |
+| --------------- | ----- |
+| index.js        | 118KB |
+| solid-vendor.js | 14KB  |
+| pglite.js       | 394KB |
+| ai-service.js   | 4.3KB |
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (v20+)
 - Cloudflare Account (for deployment)
 
@@ -80,4 +86,5 @@ npx wrangler deploy
 See [ROADMAP.md](./ROADMAP.md) for current phase and future plans.
 
 ## License
+
 MIT

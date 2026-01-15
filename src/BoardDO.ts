@@ -94,10 +94,18 @@ export class BoardDO extends DurableObject {
             // SQLite doesn't support IF NOT EXISTS in ALTER COLUMN, so we catch errors
             // or checking pragma table_info would be cleaner but verbose.
             // Quick & dirty for this implementation: separate try/catches
-            try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN description TEXT'); } catch { }
-            try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN tags JSON'); } catch { }
-            try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN checklist JSON'); } catch { }
-            try { this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN due_date INTEGER'); } catch { }
+            try {
+                this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN description TEXT');
+            } catch {}
+            try {
+                this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN tags JSON');
+            } catch {}
+            try {
+                this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN checklist JSON');
+            } catch {}
+            try {
+                this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN due_date INTEGER');
+            } catch {}
         } catch (e) {
             console.warn('Migration warning:', e);
         }
@@ -146,33 +154,44 @@ export class BoardDO extends DurableObject {
 
         // REST API fallback
         if (url.pathname === '/api/state') {
-            const lists = [...this.ctx.storage.sql.exec('SELECT * FROM lists ORDER BY pos').toArray()];
-            const cards = [...this.ctx.storage.sql.exec('SELECT * FROM cards ORDER BY pos').toArray()];
+            const lists = [
+                ...this.ctx.storage.sql.exec('SELECT * FROM lists ORDER BY pos').toArray(),
+            ];
+            const cards = [
+                ...this.ctx.storage.sql.exec('SELECT * FROM cards ORDER BY pos').toArray(),
+            ];
             return Response.json({ lists, cards });
         }
 
         if (url.pathname === '/api/sql') {
-            const body = await request.json() as { sql: string; params?: unknown[] };
+            const body = (await request.json()) as { sql: string; params?: unknown[] };
             const result = this.ctx.storage.sql.exec(body.sql, ...(body.params || []));
             return Response.json({
                 success: true,
-                result: [...result.toArray()]
+                result: [...result.toArray()],
             });
         }
 
         if (url.pathname === '/api/run') {
-            const body = await request.json() as { promptId: string };
+            const body = (await request.json()) as { promptId: string };
             // Trigger run asynchronously to avoid timing out the request
             // We'll return a 202 Accepted
             this.ctx.blockConcurrencyWhile(async () => {
-                const prompt = this.ctx.storage.sql.exec('SELECT * FROM prompts WHERE id = $1', body.promptId).one() as any;
+                const prompt = this.ctx.storage.sql
+                    .exec('SELECT * FROM prompts WHERE id = $1', body.promptId)
+                    .one() as any;
                 if (!prompt) return;
 
-                const version = this.ctx.storage.sql.exec('SELECT * FROM prompt_versions WHERE id = $1', prompt.current_version_id).one() as any;
+                const version = this.ctx.storage.sql
+                    .exec('SELECT * FROM prompt_versions WHERE id = $1', prompt.current_version_id)
+                    .one() as any;
                 if (!version) return;
 
                 // Update status to generating
-                this.ctx.storage.sql.exec('UPDATE prompts SET status = "generating" WHERE id = $1', body.promptId);
+                this.ctx.storage.sql.exec(
+                    'UPDATE prompts SET status = "generating" WHERE id = $1',
+                    body.promptId,
+                );
 
                 // Construct task object for internal processTask method (to be added/refactored)
                 const task = {
@@ -182,9 +201,9 @@ export class BoardDO extends DurableObject {
                         temperature: version.temperature,
                         topP: version.top_p,
                         maxTokens: version.max_tokens,
-                        model: version.model
+                        model: version.model,
                     }),
-                    current_version_id: prompt.current_version_id
+                    current_version_id: prompt.current_version_id,
                 };
 
                 // Use the same logic as processScheduledTasks but refactored
@@ -194,22 +213,30 @@ export class BoardDO extends DurableObject {
         }
 
         if (url.pathname === '/api/latest') {
-            const result = this.ctx.storage.sql.exec(`
+            const result = this.ctx.storage.sql
+                .exec(
+                    `
                 SELECT p.title, v.output, v.created_at, p.id 
                 FROM prompts p 
                 JOIN prompt_versions v ON p.current_version_id = v.id 
                 WHERE v.output IS NOT NULL 
                 ORDER BY v.created_at DESC LIMIT 1
-            `).one() as any;
+            `,
+                )
+                .one() as any;
             return Response.json({ success: true, result });
         }
 
         if (url.pathname === '/api/refine') {
-            const body = await request.json() as { promptId: string };
-            const prompt = this.ctx.storage.sql.exec('SELECT * FROM prompts WHERE id = $1', body.promptId).one() as any;
+            const body = (await request.json()) as { promptId: string };
+            const prompt = this.ctx.storage.sql
+                .exec('SELECT * FROM prompts WHERE id = $1', body.promptId)
+                .one() as any;
             if (!prompt) return new Response('Prompt not found', { status: 404 });
 
-            const version = this.ctx.storage.sql.exec('SELECT * FROM prompt_versions WHERE id = $1', prompt.current_version_id).one() as any;
+            const version = this.ctx.storage.sql
+                .exec('SELECT * FROM prompt_versions WHERE id = $1', prompt.current_version_id)
+                .one() as any;
             if (!version) return new Response('Version not found', { status: 404 });
 
             // Call AI to refine
@@ -232,11 +259,11 @@ export class BoardDO extends DurableObject {
             const aiResponse = await fetch('http://127.0.0.1/api/ai/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ input: refinementPrompt })
+                body: JSON.stringify({ input: refinementPrompt }),
             });
 
-            const aiData = await aiResponse.json() as any;
-            const aiText = aiData.text || aiData.content || "";
+            const aiData = (await aiResponse.json()) as any;
+            const aiText = aiData.text || aiData.content || '';
 
             try {
                 // Extract JSON from AI text (standardizing)
@@ -247,48 +274,84 @@ export class BoardDO extends DurableObject {
                 const now = Date.now();
 
                 // Create new version
-                this.ctx.storage.sql.exec(`
+                this.ctx.storage.sql.exec(
+                    `
                     INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `, newVersionId, prompt.id, parsed.improvedContent, version.system_instructions, version.temperature, version.top_p, version.max_tokens, version.model, now);
+                `,
+                    newVersionId,
+                    prompt.id,
+                    parsed.improvedContent,
+                    version.system_instructions,
+                    version.temperature,
+                    version.top_p,
+                    version.max_tokens,
+                    version.model,
+                    now,
+                );
 
                 // Update prompt
-                this.ctx.storage.sql.exec('UPDATE prompts SET current_version_id = ? WHERE id = ?', newVersionId, prompt.id);
+                this.ctx.storage.sql.exec(
+                    'UPDATE prompts SET current_version_id = ? WHERE id = ?',
+                    newVersionId,
+                    prompt.id,
+                );
 
                 return Response.json({
                     success: true,
                     critique: parsed.critique,
-                    newContent: parsed.improvedContent
+                    newContent: parsed.improvedContent,
                 });
             } catch (e) {
-                return Response.json({ success: false, error: 'Failed to parse AI refinement', raw: aiText }, { status: 500 });
+                return Response.json(
+                    { success: false, error: 'Failed to parse AI refinement', raw: aiText },
+                    { status: 500 },
+                );
             }
         }
 
         if (url.pathname === '/api/log') {
-            const body = await request.json() as { event: string; entityId?: string; details?: string };
-            this.ctx.storage.sql.exec(`
+            const body = (await request.json()) as {
+                event: string;
+                entityId?: string;
+                details?: string;
+            };
+            this.ctx.storage.sql.exec(
+                `
                 INSERT INTO activity_log (id, event, entity_id, details, created_at)
                 VALUES (?, ?, ?, ?, ?)
-            `, crypto.randomUUID(), body.event, body.entityId, body.details, Date.now());
+            `,
+                crypto.randomUUID(),
+                body.event,
+                body.entityId,
+                body.details,
+                Date.now(),
+            );
             return Response.json({ success: true });
         }
 
         if (url.pathname === '/api/logs') {
-            const result = this.ctx.storage.sql.exec('SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 20').toArray();
+            const result = this.ctx.storage.sql
+                .exec('SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 20')
+                .toArray();
             return Response.json({ success: true, result });
         }
 
         if (url.pathname === '/api/search') {
-            const body = await request.json() as { query: string };
+            const body = (await request.json()) as { query: string };
             const q = `%${body.query}%`;
-            const result = this.ctx.storage.sql.exec(`
+            const result = this.ctx.storage.sql
+                .exec(
+                    `
                 SELECT p.id, p.title, v.content 
                 FROM prompts p 
                 LEFT JOIN prompt_versions v ON p.current_version_id = v.id 
                 WHERE p.title LIKE $1 OR v.content LIKE $1
                 LIMIT 10
-            `, q).toArray();
+            `,
+                    q,
+                )
+                .toArray();
             return Response.json({ success: true, result });
         }
 
@@ -299,32 +362,46 @@ export class BoardDO extends DurableObject {
                 try {
                     const tags = JSON.parse(row.tags || '[]');
                     tags.forEach((t: string) => allTags.add(t));
-                } catch (e) { }
+                } catch (e) {}
             });
             return Response.json({ success: true, tags: Array.from(allTags) });
         }
 
         if (url.pathname === '/api/analytics') {
-            const counts = this.ctx.storage.sql.exec('SELECT status, COUNT(*) as count FROM prompts GROUP BY status').toArray();
-            const avgTime = this.ctx.storage.sql.exec('SELECT AVG(execution_time) as avg FROM prompt_versions WHERE execution_time > 0').one() as any;
-            const modelDist = this.ctx.storage.sql.exec('SELECT model, COUNT(*) as count FROM prompt_versions GROUP BY model').toArray();
+            const counts = this.ctx.storage.sql
+                .exec('SELECT status, COUNT(*) as count FROM prompts GROUP BY status')
+                .toArray();
+            const avgTime = this.ctx.storage.sql
+                .exec(
+                    'SELECT AVG(execution_time) as avg FROM prompt_versions WHERE execution_time > 0',
+                )
+                .one() as any;
+            const modelDist = this.ctx.storage.sql
+                .exec('SELECT model, COUNT(*) as count FROM prompt_versions GROUP BY model')
+                .toArray();
 
             return Response.json({
                 success: true,
                 stats: {
                     distribution: counts,
                     averageExecutionTime: avgTime?.avg || 0,
-                    models: modelDist
-                }
+                    models: modelDist,
+                },
             });
         }
 
         if (url.pathname === '/api/assign') {
-            const body = await request.json() as { promptId: string, model: string };
-            const prompt = this.ctx.storage.sql.exec('SELECT current_version_id FROM prompts WHERE id = ?', body.promptId).one() as any;
+            const body = (await request.json()) as { promptId: string; model: string };
+            const prompt = this.ctx.storage.sql
+                .exec('SELECT current_version_id FROM prompts WHERE id = ?', body.promptId)
+                .one() as any;
             if (!prompt) return new Response('Prompt not found', { status: 404 });
 
-            this.ctx.storage.sql.exec('UPDATE prompt_versions SET model = ? WHERE id = ?', body.model, prompt.current_version_id);
+            this.ctx.storage.sql.exec(
+                'UPDATE prompt_versions SET model = ? WHERE id = ?',
+                body.model,
+                prompt.current_version_id,
+            );
             return Response.json({ success: true });
         }
 
@@ -351,9 +428,13 @@ export class BoardDO extends DurableObject {
                 const now = Date.now();
 
                 // Check if we should batch
-                if (this.requestCount > BATCH_THRESHOLD && (now - this.lastFlush) < BATCH_WINDOW_MS) {
+                if (this.requestCount > BATCH_THRESHOLD && now - this.lastFlush < BATCH_WINDOW_MS) {
                     // Add to batch queue
-                    this.writeQueue.push({ sql: msg.sql, params: msg.params, clientId: msg.clientId });
+                    this.writeQueue.push({
+                        sql: msg.sql,
+                        params: msg.params,
+                        clientId: msg.clientId,
+                    });
 
                     // Set flush timeout if not already set
                     if (!this.batchTimeout) {
@@ -388,13 +469,15 @@ export class BoardDO extends DurableObject {
 
             // Broadcast batch result to all clients
             const lastWrite = this.writeQueue[this.writeQueue.length - 1];
-            this.broadcast(JSON.stringify({
-                type: 'SQL_RESULT',
-                sql: 'BATCH',
-                params: [],
-                result: { affected: this.writeQueue.length }
-            }), lastWrite.clientId);
-
+            this.broadcast(
+                JSON.stringify({
+                    type: 'SQL_RESULT',
+                    sql: 'BATCH',
+                    params: [],
+                    result: { affected: this.writeQueue.length },
+                }),
+                lastWrite.clientId,
+            );
         } catch (e) {
             this.ctx.storage.sql.exec('ROLLBACK');
             console.error('Batch write failed:', e);
@@ -405,19 +488,26 @@ export class BoardDO extends DurableObject {
         this.lastFlush = Date.now();
     }
 
-    private async executeAndBroadcast(sql: string, params: unknown[], clientId: string, sender: WebSocket) {
+    private async executeAndBroadcast(
+        sql: string,
+        params: unknown[],
+        clientId: string,
+        sender: WebSocket,
+    ) {
         try {
             const result = await this.sql(sql, ...params);
             const rows = [...result.toArray()];
 
             // Broadcast to all OTHER clients (not the sender)
-            this.broadcast(JSON.stringify({
-                type: 'SQL_RESULT',
-                sql,
-                params,
-                result: rows
-            }), clientId);
-
+            this.broadcast(
+                JSON.stringify({
+                    type: 'SQL_RESULT',
+                    sql,
+                    params,
+                    result: rows,
+                }),
+                clientId,
+            );
         } catch (e) {
             console.error('SQL execution error:', e);
             sender.send(JSON.stringify({ type: 'ERROR', message: String(e) }));
@@ -480,7 +570,7 @@ export class BoardDO extends DurableObject {
         }
 
         if (request.method === 'POST' && url.pathname.endsWith('/schedule')) {
-            const body = await request.json() as any;
+            const body = (await request.json()) as any;
             const { id, promptId, content, system, params, cron } = body;
 
             // Calculate next run
@@ -489,7 +579,8 @@ export class BoardDO extends DurableObject {
             // For MVP: Set next_run to now.
             const nextRun = Date.now();
 
-            this.ctx.storage.sql.exec(`
+            this.ctx.storage.sql.exec(
+                `
                 INSERT INTO scheduled_tasks (id, prompt_id, prompt_content, system_instructions, parameters, cron, enabled, last_run, next_run, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
@@ -497,7 +588,17 @@ export class BoardDO extends DurableObject {
                 cron = excluded.cron,
                 parameters = excluded.parameters,
                 next_run = ?
-            `, id, promptId, content, system, JSON.stringify(params), cron, nextRun, Date.now(), nextRun);
+            `,
+                id,
+                promptId,
+                content,
+                system,
+                JSON.stringify(params),
+                cron,
+                nextRun,
+                Date.now(),
+                nextRun,
+            );
 
             return new Response('Scheduled', { status: 200 });
         }
@@ -510,9 +611,16 @@ export class BoardDO extends DurableObject {
         // Fetch tasks due
         // Since we don't have sophisticated cron parsing in DO yet, we'll just check 'next_run' <= now
         // And for this MVP, we treat CRON as just "active". Real impl needs 'croner' or similar.
-        const tasks = [...this.ctx.storage.sql.exec(`
+        const tasks = [
+            ...this.ctx.storage.sql
+                .exec(
+                    `
             SELECT * FROM scheduled_tasks WHERE enabled = 1 AND next_run <= ?
-        `, now).toArray()] as any[];
+        `,
+                    now,
+                )
+                .toArray(),
+        ] as any[];
 
         console.log(`[Scheduler] Processing ${tasks.length} tasks`);
 
@@ -534,73 +642,102 @@ export class BoardDO extends DurableObject {
                     generationConfig: {
                         temperature: params.temperature,
                         topP: params.topP,
-                        maxOutputTokens: params.maxTokens
-                    }
-                })
+                        maxOutputTokens: params.maxTokens,
+                    },
+                }),
             });
 
             if (!response.ok) throw new Error(`AI Service Error: ${response.status}`);
 
-            const result = await response.json() as any;
+            const result = (await response.json()) as any;
             const output = result.text || result.content || JSON.stringify(result);
             const now = Date.now();
 
             // 1. Log Result
             const logId = crypto.randomUUID();
-            this.ctx.storage.sql.exec(`
+            this.ctx.storage.sql.exec(
+                `
                 INSERT INTO task_log (id, task_id, output, executed_at, duration, status)
                 VALUES (?, ?, ?, ?, ?, 'success')
-            `, logId, task.id, output, now, result.executionTime || 0);
+            `,
+                logId,
+                task.id,
+                output,
+                now,
+                result.executionTime || 0,
+            );
 
             // 2. Update Prompt Version with output
-            this.ctx.storage.sql.exec(`
+            this.ctx.storage.sql.exec(
+                `
                 UPDATE prompt_versions SET output = ?, execution_time = ? WHERE id = ?
-            `, output, result.executionTime || 0, task.current_version_id);
+            `,
+                output,
+                result.executionTime || 0,
+                task.current_version_id,
+            );
 
             // 3. Update Prompt Status to deployed/done
-            this.ctx.storage.sql.exec(`
+            this.ctx.storage.sql.exec(
+                `
                 UPDATE prompts SET status = 'deployed', deployed_at = ? WHERE id = ?
-            `, now, task.id);
+            `,
+                now,
+                task.id,
+            );
 
             // 4. Update Scheduler Next Run (if it's a scheduled task)
             if (task.cron) {
                 const nextRun = now + 60000;
-                this.ctx.storage.sql.exec(`
+                this.ctx.storage.sql.exec(
+                    `
                     UPDATE scheduled_tasks SET last_run = ?, next_run = ? WHERE id = ?
-                `, now, nextRun, task.id);
+                `,
+                    now,
+                    nextRun,
+                    task.id,
+                );
             }
 
             // 5. Notify via Telegram
             if (this.env.TELEGRAM_BOT_TOKEN) {
                 const promptTitle = task.title || 'Untitled Prompt';
-                await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any,
-                    `✅ **Job Complete!**\n\nPrompt: ${promptTitle}\nDuration: ${result.executionTime}ms\n\nPreview:\n${output.substring(0, 100)}...`
+                await sendNotification(
+                    this.env.TELEGRAM_BOT_TOKEN,
+                    this.env as any,
+                    `✅ **Job Complete!**\n\nPrompt: ${promptTitle}\nDuration: ${result.executionTime}ms\n\nPreview:\n${output.substring(0, 100)}...`,
                 );
             }
 
-
             console.log(`[BoardDO] Task complete: ${task.id}`);
-
         } catch (error) {
             console.error(`[BoardDO] Task ${task.id} failed:`, error);
             // Move back to error status
-            this.ctx.storage.sql.exec(`
+            this.ctx.storage.sql.exec(
+                `
                 UPDATE prompts SET status = 'error' WHERE id = ?
-            `, task.id);
+            `,
+                task.id,
+            );
 
             if (task.cron) {
-                this.ctx.storage.sql.exec(`
+                this.ctx.storage.sql.exec(
+                    `
                     UPDATE scheduled_tasks SET next_run = ? WHERE id = ?
-                `, Date.now() + 60000, task.id);
+                `,
+                    Date.now() + 60000,
+                    task.id,
+                );
             }
 
             // Notify via Telegram
             if (this.env.TELEGRAM_BOT_TOKEN) {
-                await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any,
-                    `❌ **Job Failed!**\n\nPrompt: ${task.id}\nError: ${error.message}`
+                await sendNotification(
+                    this.env.TELEGRAM_BOT_TOKEN,
+                    this.env as any,
+                    `❌ **Job Failed!**\n\nPrompt: ${task.id}\nError: ${error.message}`,
                 );
             }
-
         }
     }
 }

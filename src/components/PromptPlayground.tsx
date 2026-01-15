@@ -27,25 +27,39 @@ import { PromptHistoryView } from './PromptHistoryView';
 function renderMarkdown(text: string): string {
     if (!text) return '';
 
-    return text
-        // Headers
-        .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2 text-white">$1</h3>')
-        .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-4 mb-2 text-white">$1</h2>')
-        .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-3 text-white">$1</h1>')
-        // Bold
-        .replace(/\*\*(.*?)\*\*/gim, '<strong class="font-semibold text-white">$1</strong>')
-        // Italic
-        .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-        // Code blocks
-        .replace(/```(\w+)?\n([\s\S]*?)```/gim, '<pre class="bg-slate-900 rounded-lg p-3 my-2 overflow-x-auto"><code class="text-emerald-400 text-sm">$2</code></pre>')
-        // Inline code
-        .replace(/`(.*?)`/gim, '<code class="bg-slate-700 text-purple-300 px-1 rounded text-sm">$1</code>')
-        // Lists
-        .replace(/^\- (.*$)/gim, '<li class="ml-4 list-disc">$1</li>')
-        // Line breaks
-        .replace(/\n/gim, '<br>')
-        // Links
-        .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" class="text-blue-400 underline hover:text-blue-300" target="_blank">$1</a>');
+    return (
+        text
+            // Headers
+            .replace(
+                /^### (.*$)/gim,
+                '<h3 class="text-lg font-semibold mt-4 mb-2 text-white">$1</h3>',
+            )
+            .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-4 mb-2 text-white">$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-3 text-white">$1</h1>')
+            // Bold
+            .replace(/\*\*(.*?)\*\*/gim, '<strong class="font-semibold text-white">$1</strong>')
+            // Italic
+            .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+            // Code blocks
+            .replace(
+                /```(\w+)?\n([\s\S]*?)```/gim,
+                '<pre class="bg-slate-900 rounded-lg p-3 my-2 overflow-x-auto"><code class="text-emerald-400 text-sm">$2</code></pre>',
+            )
+            // Inline code
+            .replace(
+                /`(.*?)`/gim,
+                '<code class="bg-slate-700 text-purple-300 px-1 rounded text-sm">$1</code>',
+            )
+            // Lists
+            .replace(/^\- (.*$)/gim, '<li class="ml-4 list-disc">$1</li>')
+            // Line breaks
+            .replace(/\n/gim, '<br>')
+            // Links
+            .replace(
+                /\[(.*?)\]\((.*?)\)/gim,
+                '<a href="$2" class="text-blue-400 underline hover:text-blue-300" target="_blank">$1</a>',
+            )
+    );
 }
 
 interface PromptPlaygroundProps {
@@ -91,7 +105,11 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
 
     // Model Comparison State (Phase 13)
     const [showModelComparison, setShowModelComparison] = createSignal(false);
-    const [comparisonModel, setComparisonModel] = createSignal<GeminiModel>(GEMINI_MODELS[0] === 'deep-research-pro-preview-12-2025' ? 'gemini-3-pro-preview' : GEMINI_MODELS[0]);
+    const [comparisonModel, setComparisonModel] = createSignal<GeminiModel>(
+        GEMINI_MODELS[0] === 'deep-research-pro-preview-12-2025'
+            ? 'gemini-3-pro-preview'
+            : GEMINI_MODELS[0],
+    );
     const [comparisonOutput, setComparisonOutput] = createSignal('');
     const [comparisonIsRunning, setComparisonIsRunning] = createSignal(false);
     const [comparisonError, setComparisonError] = createSignal('');
@@ -122,12 +140,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
 
     // Save current state as new version
     const handleSave = async () => {
-        await createVersion(
-            props.promptId,
-            content(),
-            systemInstructions(),
-            getParams()
-        );
+        await createVersion(props.promptId, content(), systemInstructions(), getParams());
         setHasUnsavedChanges(false);
         showSnackbar('Prompt saved', 'success');
     };
@@ -152,7 +165,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     try {
                         const output = await generate(content(), systemInstructions(), {
                             ...getParams(),
-                            model: comparisonModel() // Use selected model override
+                            model: comparisonModel(), // Use selected model override
                         } as any); // Type cast due to extended params
                         setComparisonOutput(output);
                     } catch (e) {
@@ -163,9 +176,9 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 })();
 
                 await primaryPromise;
-                // We don't await comparisonPromise here to let primary finish independently, 
+                // We don't await comparisonPromise here to let primary finish independently,
                 // but for UI correctness we might want to track both?
-                // Actually, runSinglePrompt is awaited, so primary is done. 
+                // Actually, runSinglePrompt is awaited, so primary is done.
                 // Comparison runs in background if slower.
             } else {
                 await runSinglePrompt(props.promptId);
@@ -241,16 +254,30 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         </Show>
                         <Show when={prompt()?.status === 'generating'}>
                             <span class="px-2 py-0.5 text-xs bg-blue-600 text-blue-100 rounded-full animate-pulse flex items-center gap-1">
-                                <svg class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                <svg
+                                    class="animate-spin w-3 h-3"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle
+                                        class="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        stroke-width="4"
+                                    ></circle>
+                                    <path
+                                        class="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                    ></path>
                                 </svg>
                                 Running
                             </span>
                         </Show>
                     </div>
-
-
 
                     {/* Comparison Control */}
                     <div class="flex items-center gap-3 px-4 border-l border-slate-700 mx-2">
@@ -267,10 +294,17 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         <Show when={showModelComparison()}>
                             <select
                                 value={comparisonModel()}
-                                onChange={(e) => setComparisonModel(e.currentTarget.value as GeminiModel)}
+                                onChange={(e) =>
+                                    setComparisonModel(e.currentTarget.value as GeminiModel)
+                                }
                                 class="bg-slate-800 border border-slate-600 text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-purple-500"
                             >
-                                <For each={['gemini-3-pro-preview', 'deep-research-pro-preview-12-2025']}>
+                                <For
+                                    each={[
+                                        'gemini-3-pro-preview',
+                                        'deep-research-pro-preview-12-2025',
+                                    ]}
+                                >
                                     {(model) => <option value={model}>{model}</option>}
                                 </For>
                             </select>
@@ -280,13 +314,13 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     <div class="flex items-center gap-2">
                         {/* Token Badge */}
                         <div class="flex items-center gap-2 mr-4 px-3 py-1.5 bg-slate-800 rounded border border-slate-700 text-xs shadow-sm">
-                            <span class={`font-medium ${stats().tokens > 30000 ? 'text-red-400' : stats().tokens > 10000 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                            <span
+                                class={`font-medium ${stats().tokens > 30000 ? 'text-red-400' : stats().tokens > 10000 ? 'text-yellow-400' : 'text-emerald-400'}`}
+                            >
                                 ~{stats().tokens.toLocaleString()} tokens
                             </span>
                             <span class="text-slate-500">|</span>
-                            <span class="text-slate-400">
-                                {formatCost(stats().cost)}
-                            </span>
+                            <span class="text-slate-400">{formatCost(stats().cost)}</span>
                         </div>
 
                         <Show when={props.onPresent}>
@@ -295,8 +329,19 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                                 title="Present Output"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="w-5 h-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                    />
                                 </svg>
                             </button>
                         </Show>
@@ -304,8 +349,19 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             onClick={props.onClose}
                             class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="w-5 h-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M6 18L18 6M6 6l12 12"
+                                />
                             </svg>
                         </button>
                     </div>
@@ -314,13 +370,20 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 {/* Split View Content */}
                 <div class="flex-1 flex overflow-hidden">
                     {/* Left Panel - Editor */}
-                    <div class={`${showModelComparison() ? 'w-1/3 min-w-[300px]' : 'w-1/2'} flex flex-col border-r border-slate-700 overflow-y-auto transition-all`}>
+                    <div
+                        class={`${showModelComparison() ? 'w-1/3 min-w-[300px]' : 'w-1/2'} flex flex-col border-r border-slate-700 overflow-y-auto transition-all`}
+                    >
                         {/* Prompt Content - VISIBLE FIRST */}
                         <div class="flex-1 p-4">
-                            <label class="block text-sm font-medium text-slate-400 mb-2">Prompt</label>
+                            <label class="block text-sm font-medium text-slate-400 mb-2">
+                                Prompt
+                            </label>
                             <textarea
                                 value={content()}
-                                onInput={(e) => { setContent(e.currentTarget.value); markChanged(); }}
+                                onInput={(e) => {
+                                    setContent(e.currentTarget.value);
+                                    markChanged();
+                                }}
                                 placeholder="Enter your prompt here..."
                                 class="w-full h-full min-h-[200px] px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg
                                        text-white placeholder-slate-500 resize-none focus:outline-none
@@ -330,20 +393,37 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
 
                         {/* System Instructions - Collapsible */}
                         <details class="border-t border-slate-700">
-                            <summary class="p-4 cursor-pointer text-sm font-medium text-slate-400 hover:text-slate-300 
-                                           flex items-center gap-2 select-none">
-                                <svg class="w-4 h-4 transition-transform details-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            <summary
+                                class="p-4 cursor-pointer text-sm font-medium text-slate-400 hover:text-slate-300 
+                                           flex items-center gap-2 select-none"
+                            >
+                                <svg
+                                    class="w-4 h-4 transition-transform details-open:rotate-90"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M9 5l7 7-7 7"
+                                    />
                                 </svg>
                                 System Instructions
                                 <Show when={systemInstructions()}>
-                                    <span class="px-1.5 py-0.5 text-xs bg-purple-600/30 text-purple-300 rounded">set</span>
+                                    <span class="px-1.5 py-0.5 text-xs bg-purple-600/30 text-purple-300 rounded">
+                                        set
+                                    </span>
                                 </Show>
                             </summary>
                             <div class="px-4 pb-4">
                                 <textarea
                                     value={systemInstructions()}
-                                    onInput={(e) => { setSystemInstructions(e.currentTarget.value); markChanged(); }}
+                                    onInput={(e) => {
+                                        setSystemInstructions(e.currentTarget.value);
+                                        markChanged();
+                                    }}
                                     placeholder="Optional system context..."
                                     class="w-full h-20 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg
                                            text-white placeholder-slate-500 resize-none focus:outline-none
@@ -354,11 +434,16 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     </div>
 
                     {/* Right Panel - Output Preview */}
-                    <div class={`${showModelComparison() ? 'w-1/3' : 'w-1/2'} flex flex-col bg-slate-850 overflow-y-auto border-l border-slate-700`}>
+                    <div
+                        class={`${showModelComparison() ? 'w-1/3' : 'w-1/2'} flex flex-col bg-slate-850 overflow-y-auto border-l border-slate-700`}
+                    >
                         <div class="p-4 border-b border-slate-700 flex justify-between items-center">
-                            <label class="block text-sm font-medium text-slate-400">Primary Output</label>
+                            <label class="block text-sm font-medium text-slate-400">
+                                Primary Output
+                            </label>
                             <span class="text-xs text-slate-500 px-2 py-1 bg-slate-800 rounded">
-                                {promptStore.versions[prompt()?.currentVersionId || '']?.parameters?.model || 'Default'}
+                                {promptStore.versions[prompt()?.currentVersionId || '']?.parameters
+                                    ?.model || 'Default'}
                             </span>
                         </div>
 
@@ -368,7 +453,13 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 fallback={
                                     <div class="text-center py-12 text-slate-500">
                                         <p class="mb-2">No output yet</p>
-                                        <p class="text-sm">Press <kbd class="px-2 py-1 bg-slate-700 rounded text-xs">⌘+Enter</kbd> to run</p>
+                                        <p class="text-sm">
+                                            Press{' '}
+                                            <kbd class="px-2 py-1 bg-slate-700 rounded text-xs">
+                                                ⌘+Enter
+                                            </kbd>{' '}
+                                            to run
+                                        </p>
                                     </div>
                                 }
                             >
@@ -381,7 +472,9 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             <Show when={currentVersion()?.error}>
                                 <div class="mt-4 p-4 bg-red-900/20 border border-red-800 rounded-lg">
                                     <p class="text-red-400 text-sm font-medium">Error</p>
-                                    <p class="text-red-300 text-sm mt-1">{currentVersion()?.error}</p>
+                                    <p class="text-red-300 text-sm mt-1">
+                                        {currentVersion()?.error}
+                                    </p>
                                 </div>
                             </Show>
                         </div>
@@ -391,7 +484,9 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     <Show when={showModelComparison()}>
                         <div class="w-1/3 flex flex-col bg-slate-900 overflow-y-auto border-l border-slate-700">
                             <div class="p-4 border-b border-slate-700 flex justify-between items-center">
-                                <label class="block text-sm font-medium text-amber-400">Comparison Output</label>
+                                <label class="block text-sm font-medium text-amber-400">
+                                    Comparison Output
+                                </label>
                                 <div class="flex items-center gap-2">
                                     <Show when={comparisonOutput()}>
                                         <button
@@ -410,9 +505,25 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             <div class="flex-1 p-4 overflow-y-auto">
                                 <Show when={comparisonIsRunning()}>
                                     <div class="flex flex-col items-center justify-center h-full text-amber-500/50 gap-3">
-                                        <svg class="animate-spin w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                        <svg
+                                            class="animate-spin w-6 h-6"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <circle
+                                                class="opacity-25"
+                                                cx="12"
+                                                cy="12"
+                                                r="10"
+                                                stroke="currentColor"
+                                                stroke-width="4"
+                                            ></circle>
+                                            <path
+                                                class="opacity-75"
+                                                fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                            ></path>
                                         </svg>
                                         <span class="text-xs animate-pulse">Comparing...</span>
                                     </div>
@@ -438,12 +549,20 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
 
                                 <Show when={comparisonError()}>
                                     <div class="mt-4 p-4 bg-red-900/20 border border-red-800 rounded-lg">
-                                        <p class="text-red-400 text-sm font-medium">Comparison Error</p>
+                                        <p class="text-red-400 text-sm font-medium">
+                                            Comparison Error
+                                        </p>
                                         <p class="text-red-300 text-sm mt-1">{comparisonError()}</p>
                                     </div>
                                 </Show>
 
-                                <Show when={!comparisonIsRunning() && !comparisonOutput() && !comparisonError()}>
+                                <Show
+                                    when={
+                                        !comparisonIsRunning() &&
+                                        !comparisonOutput() &&
+                                        !comparisonError()
+                                    }
+                                >
                                     <div class="text-center py-12 text-slate-600">
                                         <p>Ready to compare</p>
                                     </div>
@@ -465,10 +584,15 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 max="2"
                                 step="0.1"
                                 value={temperature()}
-                                onInput={(e) => { setTemperature(parseFloat(e.currentTarget.value)); markChanged(); }}
+                                onInput={(e) => {
+                                    setTemperature(parseFloat(e.currentTarget.value));
+                                    markChanged();
+                                }}
                                 class="w-32 accent-purple-500"
                             />
-                            <span class="text-sm text-white font-mono w-10">{temperature().toFixed(1)}</span>
+                            <span class="text-sm text-white font-mono w-10">
+                                {temperature().toFixed(1)}
+                            </span>
                         </div>
 
                         {/* Top-P */}
@@ -480,10 +604,15 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 max="1"
                                 step="0.05"
                                 value={topP()}
-                                onInput={(e) => { setTopP(parseFloat(e.currentTarget.value)); markChanged(); }}
+                                onInput={(e) => {
+                                    setTopP(parseFloat(e.currentTarget.value));
+                                    markChanged();
+                                }}
                                 class="w-32 accent-purple-500"
                             />
-                            <span class="text-sm text-white font-mono w-10">{topP().toFixed(2)}</span>
+                            <span class="text-sm text-white font-mono w-10">
+                                {topP().toFixed(2)}
+                            </span>
                         </div>
 
                         {/* Max Tokens */}
@@ -495,7 +624,10 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 max="128000"
                                 step="256"
                                 value={maxTokens()}
-                                onInput={(e) => { setMaxTokens(parseInt(e.currentTarget.value) || 2048); markChanged(); }}
+                                onInput={(e) => {
+                                    setMaxTokens(parseInt(e.currentTarget.value) || 2048);
+                                    markChanged();
+                                }}
                                 class="w-24 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-purple-500"
                             />
                         </div>
@@ -513,9 +645,16 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             >
                                 <svg
                                     class={`w-4 h-4 transition-transform ${showVersionPanel() ? 'rotate-90' : ''}`}
-                                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
                                 >
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M9 5l7 7-7 7"
+                                    />
                                 </svg>
                                 Version History
                                 <span class="px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded">
@@ -527,23 +666,28 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             <div class="flex items-center gap-1">
                                 <For each={versions().slice(-8)}>
                                     {(version, index) => {
-                                        const isCurrent = () => version.id === prompt()?.currentVersionId;
+                                        const isCurrent = () =>
+                                            version.id === prompt()?.currentVersionId;
                                         const hasOutput = () => !!version.output;
                                         const isCompare = () => compareVersionId() === version.id;
 
                                         return (
                                             <button
                                                 onClick={() => handleRevert(version.id)}
-                                                onContextMenu={(e) => { e.preventDefault(); setCompareVersionId(version.id); }}
+                                                onContextMenu={(e) => {
+                                                    e.preventDefault();
+                                                    setCompareVersionId(version.id);
+                                                }}
                                                 title={`v${versions().length - 7 + index()} - ${new Date(version.createdAt).toLocaleTimeString()}${hasOutput() ? ' ✓' : ''}`}
-                                                class={`w-2.5 h-2.5 rounded-full transition-all ${isCompare()
-                                                    ? 'bg-amber-500 ring-2 ring-amber-400/50'
-                                                    : isCurrent()
-                                                        ? 'bg-purple-500 ring-2 ring-purple-400/50'
-                                                        : hasOutput()
+                                                class={`w-2.5 h-2.5 rounded-full transition-all ${
+                                                    isCompare()
+                                                        ? 'bg-amber-500 ring-2 ring-amber-400/50'
+                                                        : isCurrent()
+                                                          ? 'bg-purple-500 ring-2 ring-purple-400/50'
+                                                          : hasOutput()
                                                             ? 'bg-emerald-500/60 hover:bg-emerald-400'
                                                             : 'bg-slate-700 hover:bg-slate-600'
-                                                    }`}
+                                                }`}
                                             />
                                         );
                                     }}
@@ -555,16 +699,20 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             <Show when={versions().length > 1}>
                                 <button
                                     onClick={() => setCompareMode(!compareMode())}
-                                    class={`px-2 py-1 text-xs font-medium rounded transition-colors ${compareMode()
-                                        ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50'
-                                        : 'bg-slate-700 text-slate-400 hover:text-white border border-slate-600'
-                                        }`}
+                                    class={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                                        compareMode()
+                                            ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50'
+                                            : 'bg-slate-700 text-slate-400 hover:text-white border border-slate-600'
+                                    }`}
                                 >
                                     {compareMode() ? 'Exit Compare' : 'Compare'}
                                 </button>
                             </Show>
                             <span class="text-xs text-slate-500">
-                                v{versions().findIndex(v => v.id === prompt()?.currentVersionId) + 1} of {versions().length}
+                                v
+                                {versions().findIndex((v) => v.id === prompt()?.currentVersionId) +
+                                    1}{' '}
+                                of {versions().length}
                             </span>
                         </div>
                     </div>
@@ -575,28 +723,47 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             <div class="grid grid-cols-4 gap-2">
                                 <For each={versions()}>
                                     {(version, index) => {
-                                        const isCurrent = () => version.id === prompt()?.currentVersionId;
+                                        const isCurrent = () =>
+                                            version.id === prompt()?.currentVersionId;
                                         const hasOutput = () => !!version.output;
                                         const isCompare = () => compareVersionId() === version.id;
 
                                         return (
                                             <button
-                                                onClick={() => compareMode() ? setCompareVersionId(version.id) : handleRevert(version.id)}
-                                                class={`p-2 rounded-lg text-left transition-all border ${isCompare()
-                                                    ? 'bg-amber-900/30 border-amber-500/50'
-                                                    : isCurrent()
-                                                        ? 'bg-purple-900/30 border-purple-500/50'
-                                                        : 'bg-slate-800 border-slate-700 hover:border-slate-600'
-                                                    }`}
+                                                onClick={() =>
+                                                    compareMode()
+                                                        ? setCompareVersionId(version.id)
+                                                        : handleRevert(version.id)
+                                                }
+                                                class={`p-2 rounded-lg text-left transition-all border ${
+                                                    isCompare()
+                                                        ? 'bg-amber-900/30 border-amber-500/50'
+                                                        : isCurrent()
+                                                          ? 'bg-purple-900/30 border-purple-500/50'
+                                                          : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                                                }`}
                                             >
                                                 <div class="flex items-center justify-between mb-1">
-                                                    <span class="text-xs font-medium text-white">v{index() + 1}</span>
+                                                    <span class="text-xs font-medium text-white">
+                                                        v{index() + 1}
+                                                    </span>
                                                     <Show when={hasOutput()}>
-                                                        <span class="w-2 h-2 rounded-full bg-emerald-500" title="Has output" />
+                                                        <span
+                                                            class="w-2 h-2 rounded-full bg-emerald-500"
+                                                            title="Has output"
+                                                        />
                                                     </Show>
                                                 </div>
                                                 <div class="text-xs text-slate-500 truncate">
-                                                    {new Date(version.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(version.createdAt).toLocaleString(
+                                                        [],
+                                                        {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                        },
+                                                    )}
                                                 </div>
                                                 <Show when={version.output}>
                                                     <div class="text-xs text-slate-400 truncate mt-1">
@@ -617,18 +784,23 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             <div class="flex items-center gap-2 mb-3">
                                 <span class="text-xs text-amber-400 font-medium">Comparing:</span>
                                 <span class="px-2 py-0.5 text-xs bg-amber-900/30 text-amber-300 rounded">
-                                    v{versions().findIndex(v => v.id === compareVersionId()) + 1}
+                                    v{versions().findIndex((v) => v.id === compareVersionId()) + 1}
                                 </span>
                                 <span class="text-xs text-slate-500">vs</span>
                                 <span class="px-2 py-0.5 text-xs bg-purple-900/30 text-purple-300 rounded">
-                                    v{versions().findIndex(v => v.id === prompt()?.currentVersionId) + 1} (current)
+                                    v
+                                    {versions().findIndex(
+                                        (v) => v.id === prompt()?.currentVersionId,
+                                    ) + 1}{' '}
+                                    (current)
                                 </span>
                             </div>
                             <div class="grid grid-cols-2 gap-4 max-h-40 overflow-y-auto">
                                 <div class="p-3 bg-slate-900 rounded-lg border border-amber-800/30">
                                     <div class="text-xs text-amber-400 mb-2">Previous Output</div>
                                     <div class="text-sm text-slate-300 whitespace-pre-wrap">
-                                        {promptStore.versions[compareVersionId()!]?.output || 'No output'}
+                                        {promptStore.versions[compareVersionId()!]?.output ||
+                                            'No output'}
                                     </div>
                                 </div>
                                 <div class="p-3 bg-slate-900 rounded-lg border border-purple-800/30">
@@ -661,19 +833,21 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         </button>
                         <button
                             onClick={() => setShowSchedule(true)}
-                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${prompt()?.schedule?.enabled
-                                ? 'bg-amber-900/30 border-amber-500/50 text-amber-200 hover:bg-amber-900/50'
-                                : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
-                                }`}
+                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${
+                                prompt()?.schedule?.enabled
+                                    ? 'bg-amber-900/30 border-amber-500/50 text-amber-200 hover:bg-amber-900/50'
+                                    : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
+                            }`}
                         >
                             {prompt()?.schedule?.enabled ? 'Scheduled' : 'Schedule'}
                         </button>
                         <button
                             onClick={() => setShowWorkflow(true)}
-                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${prompt()?.workflow?.enabled
-                                ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
-                                : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
-                                }`}
+                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${
+                                prompt()?.workflow?.enabled
+                                    ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
+                                    : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
+                            }`}
                         >
                             {prompt()?.workflow?.enabled ? 'Workflow' : 'Workflow'}
                         </button>
@@ -694,17 +868,46 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                    bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white"
                         >
                             <Show when={isRunning() || prompt()?.status === 'generating'}>
-                                <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                <svg
+                                    class="animate-spin w-4 h-4"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle
+                                        class="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        stroke-width="4"
+                                    ></circle>
+                                    <path
+                                        class="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                    ></path>
                                 </svg>
                             </Show>
                             <Show when={!(isRunning() || prompt()?.status === 'generating')}>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                                    />
                                 </svg>
                             </Show>
-                            {isRunning() || prompt()?.status === 'generating' ? 'Running...' : 'Run Prompt'}
+                            {isRunning() || prompt()?.status === 'generating'
+                                ? 'Running...'
+                                : 'Run Prompt'}
                         </button>
                     </div>
                 </div>
@@ -734,7 +937,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 onClose={() => setShowTemplates(false)}
                 onSelect={handleLoadTemplate}
             />
-        </div >
+        </div>
     );
 };
 

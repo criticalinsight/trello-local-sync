@@ -2,9 +2,11 @@ import { test, expect } from '@playwright/test';
 
 test('Debug Home Page Load', async ({ page }) => {
     // Log everything
-    page.on('console', msg => console.log('BROWSER CONSOLE:', msg.type(), msg.text()));
-    page.on('pageerror', err => console.log('BROWSER UNCAUGHT ERROR:', err));
-    page.on('requestfailed', request => console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText));
+    page.on('console', (msg) => console.log('BROWSER CONSOLE:', msg.type(), msg.text()));
+    page.on('pageerror', (err) => console.log('BROWSER UNCAUGHT ERROR:', err));
+    page.on('requestfailed', (request) =>
+        console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText),
+    );
 
     console.log('Navigating to / ...');
     await page.goto('/');

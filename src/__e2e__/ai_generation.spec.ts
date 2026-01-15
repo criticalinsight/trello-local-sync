@@ -14,14 +14,13 @@ test.describe('AI Prompt Generation Workflow', () => {
     });
 
     test('should create a prompt, run it, and verify output', async ({ page }) => {
-
         // Mock the AI API response (Use broader pattern)
-        await page.route('**/*', async route => {
+        await page.route('**/*', async (route) => {
             const url = route.request().url();
             if (url.includes('interact')) {
                 const json = {
                     id: 'mock-interaction-id',
-                    output: { text: "Hello World from Playwright!\nThis is a mock response." }
+                    output: { text: 'Hello World from Playwright!\nThis is a mock response.' },
                 };
                 await route.fulfill({ json });
             } else {
@@ -49,21 +48,28 @@ test.describe('AI Prompt Generation Workflow', () => {
         await expect(playground).toBeVisible();
 
         // Fill prompt content area
-        await page.locator('textarea[placeholder="Enter your prompt here..."]').fill('Write a short hello world poem.');
+        await page
+            .locator('textarea[placeholder="Enter your prompt here..."]')
+            .fill('Write a short hello world poem.');
         // Close playground (assuming clicking outside or close button)
         // 3. Trigger Generation (Run Prompt inside Playground)
         await page.getByRole('button', { name: 'Run Prompt' }).click();
 
         // 4. Monitor Status Changes & Output
         // Wait for output to appear (it shows "No output yet" initially)
-        await expect.poll(async () => {
-            const preview = page.locator('.prose'); // Markdown container
-            if (await preview.count() === 0) return '';
-            return await preview.innerText();
-        }, {
-            timeout: 120000,
-            intervals: [2000],
-        }).not.toBe('');
+        await expect
+            .poll(
+                async () => {
+                    const preview = page.locator('.prose'); // Markdown container
+                    if ((await preview.count()) === 0) return '';
+                    return await preview.innerText();
+                },
+                {
+                    timeout: 120000,
+                    intervals: [2000],
+                },
+            )
+            .not.toBe('');
 
         // 5. Verify Output content
         const outputText = await page.locator('.prose').innerText();

@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('AI Prompt Full Lifecycle (Live Site)', () => {
     test.setTimeout(180000); // 3 minute timeout
 
-    test('should create prompt and verify all phases: draft → queued → generating → deployed', async ({ page }) => {
+    test('should create prompt and verify all phases: draft → queued → generating → deployed', async ({
+        page,
+    }) => {
         // Navigate to the live site
         await page.goto('https://work.moecapital.com');
         await page.waitForLoadState('domcontentloaded');
@@ -54,7 +56,9 @@ test.describe('AI Prompt Full Lifecycle (Live Site)', () => {
         await runButton.click();
 
         // Should see "Running..." button
-        await expect(page.getByRole('button', { name: 'Running...' })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole('button', { name: 'Running...' })).toBeVisible({
+            timeout: 10000,
+        });
         console.log('✅ QUEUED/GENERATING phase detected');
         await page.screenshot({ path: 'lifecycle-3-running.png' });
 
@@ -72,7 +76,7 @@ test.describe('AI Prompt Full Lifecycle (Live Site)', () => {
 
             // Check for output content
             const outputArea = page.locator('.prose');
-            if (await outputArea.count() > 0) {
+            if ((await outputArea.count()) > 0) {
                 const text = await outputArea.innerText();
                 if (text.length > 10 && !text.includes('No output')) {
                     deployed = true;
@@ -83,7 +87,7 @@ test.describe('AI Prompt Full Lifecycle (Live Site)', () => {
 
             // Also check if status changed to error
             const errorIndicator = page.locator('text=Error');
-            if (await errorIndicator.count() > 0) {
+            if ((await errorIndicator.count()) > 0) {
                 console.log('⚠️ Generation resulted in error');
                 break;
             }

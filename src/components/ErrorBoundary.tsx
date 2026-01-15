@@ -21,8 +21,18 @@ const ErrorFallback: Component<ErrorFallbackProps> = (props) => {
         <div class="min-h-screen bg-slate-900 flex items-center justify-center p-6">
             <div class="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center">
                 <div class="w-16 h-16 mx-auto mb-6 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <svg class="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    <svg
+                        class="w-8 h-8 text-red-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
                     </svg>
                 </div>
 
@@ -33,8 +43,7 @@ const ErrorFallback: Component<ErrorFallbackProps> = (props) => {
                 <p class="text-slate-400 mb-6 text-sm">
                     {isModuleError()
                         ? 'Failed to load application resources. This usually happens due to a network issue or a new deployment.'
-                        : props.error.message || 'An unexpected error occurred.'
-                    }
+                        : props.error.message || 'An unexpected error occurred.'}
                 </p>
 
                 <div class="flex flex-col gap-3">
@@ -81,14 +90,22 @@ export const ErrorBoundary: Component<ErrorBoundaryProps> = (props) => {
     };
 
     const handleReset = () => {
-        setErrorKey(k => k + 1);
+        setErrorKey((k) => k + 1);
     };
 
     return (
         <SolidErrorBoundary
             fallback={(err, reset) => {
                 handleError(err);
-                return <ErrorFallback error={err} reset={() => { reset(); handleReset(); }} />;
+                return (
+                    <ErrorFallback
+                        error={err}
+                        reset={() => {
+                            reset();
+                            handleReset();
+                        }}
+                    />
+                );
             }}
         >
             {props.children}

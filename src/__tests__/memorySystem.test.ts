@@ -1,4 +1,3 @@
-
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { generateWithFallback } from '../aiService';
 import { initMemoryStore, addMemory, getMemoriesForContext, memoryStore } from '../memoryStore';
@@ -11,7 +10,7 @@ vi.mock('@electric-sql/pglite', () => {
             waitReady = Promise.resolve();
             query = vi.fn().mockResolvedValue({ rows: [] });
             exec = vi.fn().mockResolvedValue(undefined);
-        }
+        },
     };
 });
 
@@ -32,7 +31,7 @@ describe('Memory System Integration', () => {
         expect(id).toBeDefined();
 
         // Verify in store state
-        const stored = Object.values(memoryStore.nodes).find(m => m.key === 'project_name');
+        const stored = Object.values(memoryStore.nodes).find((m) => m.key === 'project_name');
         expect(stored).toBeDefined();
         expect(stored?.value).toBe('Trello Sync');
 
@@ -44,27 +43,29 @@ describe('Memory System Integration', () => {
     test('should parse extracted memories from AI response', async () => {
         const mockResponse = {
             id: '123',
-            outputs: [{
-                text: 'Here is the plan.\n[MEMORY: user_role] Developer\n[MEMORY: framework] SolidJS'
-            }]
+            outputs: [
+                {
+                    text: 'Here is the plan.\n[MEMORY: user_role] Developer\n[MEMORY: framework] SolidJS',
+                },
+            ],
         };
 
         (global.fetch as any).mockResolvedValue({
             ok: true,
-            json: () => Promise.resolve(mockResponse)
+            json: () => Promise.resolve(mockResponse),
         });
 
         const result = await generateWithFallback({
             prompt: 'Test prompt',
             parameters: { temperature: 0.7, topP: 0.9, maxTokens: 100 },
             systemInstructions: 'System',
-            contextMemories: ''
+            contextMemories: '',
         });
 
         expect(result.extractedMemories).toHaveLength(2);
         expect(result.extractedMemories).toEqual([
             { key: 'user_role', value: 'Developer' },
-            { key: 'framework', value: 'SolidJS' }
+            { key: 'framework', value: 'SolidJS' },
         ]);
     });
 });

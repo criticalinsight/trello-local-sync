@@ -19,8 +19,19 @@ export const CalendarView: Component<CalendarViewProps> = (props) => {
         return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
     };
 
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
+    const monthNames = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
     ];
 
     const prevMonth = () => {
@@ -39,7 +50,7 @@ export const CalendarView: Component<CalendarViewProps> = (props) => {
         // Very basic equality check for now, can be improved to handle time zones better if needed
         // Stored dueDate is timestamp. We just check if it falls on this day.
 
-        return Object.values(store.cards).filter(card => {
+        return Object.values(store.cards).filter((card) => {
             if (!card?.dueDate) return false;
             const d = new Date(card.dueDate);
             return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year;
@@ -54,14 +65,42 @@ export const CalendarView: Component<CalendarViewProps> = (props) => {
                     {monthNames[currentDate().getMonth()]} {currentDate().getFullYear()}
                 </h2>
                 <div class="flex gap-2">
-                    <button onClick={prevMonth} class="p-2 hover:bg-slate-700 rounded touch-manipulation">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    <button
+                        onClick={prevMonth}
+                        class="p-2 hover:bg-slate-700 rounded touch-manipulation"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="w-6 h-6"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M15.75 19.5L8.25 12l7.5-7.5"
+                            />
                         </svg>
                     </button>
-                    <button onClick={nextMonth} class="p-2 hover:bg-slate-700 rounded touch-manipulation">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    <button
+                        onClick={nextMonth}
+                        class="p-2 hover:bg-slate-700 rounded touch-manipulation"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="w-6 h-6"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                            />
                         </svg>
                     </button>
                 </div>
@@ -69,7 +108,13 @@ export const CalendarView: Component<CalendarViewProps> = (props) => {
 
             {/* Week Headers */}
             <div class="grid grid-cols-7 gap-1 text-center font-semibold text-slate-400 mb-2">
-                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
             </div>
 
             {/* Content Grid */}
@@ -85,7 +130,9 @@ export const CalendarView: Component<CalendarViewProps> = (props) => {
                         const cards = getCardsForDate(day);
                         return (
                             <div class="bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 rounded p-1 flex flex-col gap-1 overflow-hidden transition-colors">
-                                <span class={`text-sm font-bold ${new Date().getDate() === day && new Date().getMonth() === currentDate().getMonth() && new Date().getFullYear() === currentDate().getFullYear() ? 'text-blue-400' : 'text-slate-400'}`}>
+                                <span
+                                    class={`text-sm font-bold ${new Date().getDate() === day && new Date().getMonth() === currentDate().getMonth() && new Date().getFullYear() === currentDate().getFullYear() ? 'text-blue-400' : 'text-slate-400'}`}
+                                >
                                     {day}
                                 </span>
                                 <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-1">

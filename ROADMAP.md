@@ -1,9 +1,11 @@
 # Strategic Roadmap: Work (Local-First AI Engine)
 
 ## Vision
+
 Build the world's most responsive, reliable, and intelligent productivity engine.
 
 ## Timeline
+
 ```mermaid
 timeline
     title Project Journey
@@ -16,6 +18,7 @@ timeline
 ## Completed Phases ✅
 
 ### Phase 10: Production Reliability
+
 - Error boundary for graceful error recovery
 - Visible-first Playground layout (Prompt above System Instructions)
 - Immediate lane transition on Run
@@ -24,22 +27,26 @@ timeline
 - Cache-control headers for optimal caching
 
 ### Phase 9: Observability
+
 - 118KB main bundle (optimized chunking)
 - Global Agent Bar for progress tracking
 - Mobile-adaptive CSS
 
 ### Phase 8: UX Polish
+
 - Agent Dashboard with real-time status
 - Snackbar notifications
 - Smooth animations
 
 ### Phase 7: Autonomous Agents
+
 - Multi-agent swarms with Coordinator/Worker pattern
 - Self-correcting AI with critique loops
 
 ---
 
 ### Phase 11: Templates, Sync & Diffing
+
 - **Template Library**: Pre-built prompts for Coding, Writing, Analysis
 - **Offline Sync**: Mutation queue with auto-retry
 - **Version Diffing**: Side-by-side output comparison
@@ -50,6 +57,7 @@ timeline
 ## Future Roadmap: Selected Commitments
 
 ### 🧠 AI Engineering
+
 1. **Model Comparison Arena**: Side-by-side output generation with diff highlighting.
 2. **Historical Analysis**: "Improvement over time" tracking for prompt versions.
 3. **Auto-Critique Loop**: Optional step where AI evaluates its own response before showing.
@@ -57,12 +65,13 @@ timeline
 5. **Persona Library**: Save system instructions as reusable, shareable personae.
 6. **Prompt Chaining**: Visually link Prompt A output to Prompt B input.
 7. **Batch Runner**: Execute one prompt against a CSV dataset of variables.
-8.  **Response Rating**: Binary (Thumbs Up/Down) or 5-star rating for fine-tuning datasets.
-9.  **Token Estimation**: Real-time cost preview in the input editor.
+8. **Response Rating**: Binary (Thumbs Up/Down) or 5-star rating for fine-tuning datasets.
+9. **Token Estimation**: Real-time cost preview in the input editor.
 10. **Semantic Search**: Find prompts not just by text, but by intent/meaning.
 11. **Auto-Tagging**: AI suggests tags based on prompt content.
 
 ### ⚡️ Workflow, Data & Integrations
+
 12. **WIP Limits**: Visual warnings when "Generating" column exceeds capacity.
 13. **Prompt Forking**: Branch a prompt history into a new experimental card.
 14. **Variable Highlighting**: Syntax highlighting for `{{variable}}` patterns.

@@ -51,26 +51,34 @@ const defaultParameters: PromptParameters = {
 
 // ============= BOARD EVENT HANDLER =============
 
-async function handleBoardEvent(event: { type: string; cardId: string; listId?: string; data?: any }) {
+async function handleBoardEvent(event: {
+    type: string;
+    cardId: string;
+    listId?: string;
+    data?: any;
+}) {
     // Find prompts with active workflows matching this event
-    const activePrompts = Object.values(promptStore.prompts).filter(p =>
-        p.workflow?.enabled &&
-        p.workflow.triggers.some(t => {
-            if (t.type === 'card_added' && event.type === 'card_added') {
-                return !t.config?.listId || t.config.listId === event.listId;
-            }
-            if (t.type === 'card_moved' && event.type === 'card_moved') {
-                return !t.config?.listId || t.config.listId === event.listId;
-            }
-            if (t.type === 'card_tagged' && event.type === 'card_updated' && event.data?.tags) {
-                return !t.config?.tag || event.data.tags.includes(t.config.tag);
-            }
-            return false;
-        })
+    const activePrompts = Object.values(promptStore.prompts).filter(
+        (p) =>
+            p.workflow?.enabled &&
+            p.workflow.triggers.some((t) => {
+                if (t.type === 'card_added' && event.type === 'card_added') {
+                    return !t.config?.listId || t.config.listId === event.listId;
+                }
+                if (t.type === 'card_moved' && event.type === 'card_moved') {
+                    return !t.config?.listId || t.config.listId === event.listId;
+                }
+                if (t.type === 'card_tagged' && event.type === 'card_updated' && event.data?.tags) {
+                    return !t.config?.tag || event.data.tags.includes(t.config.tag);
+                }
+                return false;
+            }),
     );
 
     if (activePrompts.length > 0) {
-        console.log(`[Workflow] Triggering ${activePrompts.length} prompts for event: ${event.type}`);
+        console.log(
+            `[Workflow] Triggering ${activePrompts.length} prompts for event: ${event.type}`,
+        );
         for (const prompt of activePrompts) {
             // Dynamically import to avoid circular dependency
             const { runSinglePrompt } = await import('./promptStore');
@@ -204,7 +212,7 @@ export async function initPromptPGlite(boardId: string) {
             `INSERT INTO prompt_boards (id, title, created_at)
              VALUES ($1, $2, $3)
              ON CONFLICT(id) DO NOTHING`,
-            [boardId, 'New Prompt Board', Date.now()]
+            [boardId, 'New Prompt Board', Date.now()],
         );
     } catch (e) {
         console.warn('[PromptStore] Meta entry failed (non-critical)', e);
@@ -235,7 +243,7 @@ async function loadPromptsFromDB() {
          pos, created_at as "createdAt", deployed_at as "deployedAt", 
          starred = 1 as starred, archived = 1 as archived, schedule_json, workflow_json, tags
          FROM prompts WHERE board_id = $1 AND archived = 0 ORDER BY pos`,
-        [currentBoardId]
+        [currentBoardId],
     );
 
     // Load versions
@@ -246,55 +254,57 @@ async function loadPromptsFromDB() {
          FROM prompt_versions v
          INNER JOIN prompts p ON v.prompt_id = p.id
          WHERE p.board_id = $1`,
-        [currentBoardId]
+        [currentBoardId],
     );
 
     // Update store
-    setPromptStore(produce((s) => {
-        s.prompts = {};
-        s.versions = {};
+    setPromptStore(
+        produce((s) => {
+            s.prompts = {};
+            s.versions = {};
 
-        const promptsMap: Record<string, PromptCard> = {};
-        promptsResult.rows.forEach((row: any) => {
-            let tags: string[] = [];
-            try {
-                if (row.tags) {
-                    tags = JSON.parse(row.tags);
+            const promptsMap: Record<string, PromptCard> = {};
+            promptsResult.rows.forEach((row: any) => {
+                let tags: string[] = [];
+                try {
+                    if (row.tags) {
+                        tags = JSON.parse(row.tags);
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse tags for prompt', row.id, e);
                 }
-            } catch (e) {
-                console.warn('Failed to parse tags for prompt', row.id, e);
+
+                promptsMap[row.id] = {
+                    id: row.id,
+                    title: row.title,
+                    boardId: row.boardId,
+                    status: row.status as PromptStatus,
+                    currentVersionId: row.currentVersionId,
+                    pos: row.pos,
+                    createdAt: row.createdAt,
+                    deployedAt: row.deployedAt,
+                    starred: row.starred ? true : false,
+                    archived: row.archived ? true : false,
+                    schedule: row.schedule_json ? JSON.parse(row.schedule_json) : undefined,
+                    workflow: row.workflow_json ? JSON.parse(row.workflow_json) : undefined,
+                    tags: tags,
+                };
+            });
+            s.prompts = promptsMap;
+
+            for (const row of versionsResult.rows as any[]) {
+                s.versions[row.id] = {
+                    ...row,
+                    parameters: {
+                        temperature: row.temperature ?? 0.7,
+                        topP: row.topP ?? 0.9,
+                        maxTokens: row.maxTokens ?? 2048,
+                        model: row.model,
+                    },
+                };
             }
-
-            promptsMap[row.id] = {
-                id: row.id,
-                title: row.title,
-                boardId: row.boardId,
-                status: row.status as PromptStatus,
-                currentVersionId: row.currentVersionId,
-                pos: row.pos,
-                createdAt: row.createdAt,
-                deployedAt: row.deployedAt,
-                starred: row.starred ? true : false,
-                archived: row.archived ? true : false,
-                schedule: row.schedule_json ? JSON.parse(row.schedule_json) : undefined,
-                workflow: row.workflow_json ? JSON.parse(row.workflow_json) : undefined,
-                tags: tags
-            };
-        });
-        s.prompts = promptsMap;
-
-        for (const row of (versionsResult.rows as any[])) {
-            s.versions[row.id] = {
-                ...row,
-                parameters: {
-                    temperature: row.temperature ?? 0.7,
-                    topP: row.topP ?? 0.9,
-                    maxTokens: row.maxTokens ?? 2048,
-                    model: row.model
-                }
-            };
-        }
-    }));
+        }),
+    );
 }
 
 // ============= PROMPT CRUD =============
@@ -305,7 +315,7 @@ export async function addPrompt(title: string): Promise<string> {
 
     // Calculate position (end of draft list)
     const draftPrompts = Object.values(promptStore.prompts)
-        .filter(p => p.status === 'draft')
+        .filter((p) => p.status === 'draft')
         .sort((a, b) => b.pos - a.pos);
     const pos = draftPrompts.length > 0 ? draftPrompts[0].pos + 1000 : 1000;
 
@@ -316,26 +326,28 @@ export async function addPrompt(title: string): Promise<string> {
         status: 'draft',
         pos,
         createdAt: now,
-        tags: []
+        tags: [],
     };
 
     // Update store immediately (optimistic)
-    setPromptStore(produce((s) => {
-        s.prompts[id] = prompt;
-    }));
+    setPromptStore(
+        produce((s) => {
+            s.prompts[id] = prompt;
+        }),
+    );
 
     // Persist to DB
     if (pglite) {
         await pglite.query(
             `INSERT INTO prompts (id, title, board_id, status, pos, created_at, tags)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [id, title, currentBoardId, 'draft', pos, now, JSON.stringify([])]
+            [id, title, currentBoardId, 'draft', pos, now, JSON.stringify([])],
         );
 
         // Sync
         await syncManager.enqueue(
             `INSERT INTO prompts (id, title, board_id, status, pos, created_at, tags) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [id, title, currentBoardId, 'draft', pos, now, JSON.stringify([])]
+            [id, title, currentBoardId, 'draft', pos, now, JSON.stringify([])],
         );
     }
 
@@ -350,9 +362,11 @@ export async function updatePrompt(id: string, updates: Partial<PromptCard>) {
     if (!existing) return;
 
     // Update store
-    setPromptStore(produce((s) => {
-        Object.assign(s.prompts[id], updates);
-    }));
+    setPromptStore(
+        produce((s) => {
+            Object.assign(s.prompts[id], updates);
+        }),
+    );
 
     // Persist to DB
     if (pglite) {
@@ -406,15 +420,15 @@ export async function updatePrompt(id: string, updates: Partial<PromptCard>) {
                 values.push(id);
                 await pglite.query(
                     `UPDATE prompts SET ${fields.join(', ')} WHERE id = $${idx}`,
-                    values
+                    values,
                 );
 
                 // Sync (Convert $n to ?)
                 // Note: values array matches order.
-                const syncFields = fields.map(f => f.split('=')[0] + '= ?');
+                const syncFields = fields.map((f) => f.split('=')[0] + '= ?');
                 await syncManager.enqueue(
                     `UPDATE prompts SET ${syncFields.join(', ')} WHERE id = ?`,
-                    values
+                    values,
                 );
             }
         } catch (error) {
@@ -425,13 +439,15 @@ export async function updatePrompt(id: string, updates: Partial<PromptCard>) {
 
 export async function deletePrompt(id: string) {
     // Remove from store
-    setPromptStore(produce((s) => {
-        // Delete associated versions
-        Object.keys(s.versions)
-            .filter(vId => s.versions[vId].promptId === id)
-            .forEach(vId => delete s.versions[vId]);
-        delete s.prompts[id];
-    }));
+    setPromptStore(
+        produce((s) => {
+            // Delete associated versions
+            Object.keys(s.versions)
+                .filter((vId) => s.versions[vId].promptId === id)
+                .forEach((vId) => delete s.versions[vId]);
+            delete s.prompts[id];
+        }),
+    );
 
     // Delete from DB
     if (pglite) {
@@ -445,30 +461,38 @@ export async function deletePrompt(id: string) {
 }
 
 export async function deletePromptsByStatus(status: PromptStatus) {
-    const promptsToDelete = Object.values(promptStore.prompts).filter(p => p.status === status);
+    const promptsToDelete = Object.values(promptStore.prompts).filter((p) => p.status === status);
     if (promptsToDelete.length === 0) return;
 
     // Remove from store
-    setPromptStore(produce((s) => {
-        promptsToDelete.forEach(p => {
-            // Delete associated versions
-            Object.keys(s.versions)
-                .filter(vId => s.versions[vId].promptId === p.id)
-                .forEach(vId => delete s.versions[vId]);
-            delete s.prompts[p.id];
-        });
-    }));
+    setPromptStore(
+        produce((s) => {
+            promptsToDelete.forEach((p) => {
+                // Delete associated versions
+                Object.keys(s.versions)
+                    .filter((vId) => s.versions[vId].promptId === p.id)
+                    .forEach((vId) => delete s.versions[vId]);
+                delete s.prompts[p.id];
+            });
+        }),
+    );
 
     // Delete from DB (Batch)
     if (pglite) {
-        await pglite.query(`DELETE FROM prompt_versions WHERE prompt_id IN (SELECT id FROM prompts WHERE status = $1)`, [status]);
+        await pglite.query(
+            `DELETE FROM prompt_versions WHERE prompt_id IN (SELECT id FROM prompts WHERE status = $1)`,
+            [status],
+        );
         await pglite.query(`DELETE FROM prompts WHERE status = $1`, [status]);
 
         // Sync (Batched where possible, or iterative)
         // Simple logic: delete versions by subquery logic isn't easily supported by simple syncManager unless we execute exact SQL
         // Let's iterate for safety in sync queue for now, or use the logic if supported by downstream.
         // Assuming syncManager replays SQL on sqlite.
-        await syncManager.enqueue(`DELETE FROM prompt_versions WHERE prompt_id IN (SELECT id FROM prompts WHERE status = ?)`, [status]);
+        await syncManager.enqueue(
+            `DELETE FROM prompt_versions WHERE prompt_id IN (SELECT id FROM prompts WHERE status = ?)`,
+            [status],
+        );
         await syncManager.enqueue(`DELETE FROM prompts WHERE status = ?`, [status]);
     }
 }
@@ -479,7 +503,7 @@ export async function createVersion(
     promptId: string,
     content: string,
     systemInstructions: string,
-    parameters: PromptParameters
+    parameters: PromptParameters,
 ): Promise<string> {
     const id = genId();
     const now = Date.now();
@@ -502,36 +526,58 @@ export async function createVersion(
     };
 
     // Update store
-    setPromptStore(produce((s) => {
-        s.versions[id] = version;
-        if (s.prompts[promptId]) {
-            s.prompts[promptId].currentVersionId = id;
-        }
-    }));
+    setPromptStore(
+        produce((s) => {
+            s.versions[id] = version;
+            if (s.prompts[promptId]) {
+                s.prompts[promptId].currentVersionId = id;
+            }
+        }),
+    );
 
     // Persist to DB
     if (pglite) {
         await pglite.query(
             `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [id, promptId, content, systemInstructions || null, parameters.temperature, parameters.topP, parameters.maxTokens, parameters.model || null, now]
+            [
+                id,
+                promptId,
+                content,
+                systemInstructions || null,
+                parameters.temperature,
+                parameters.topP,
+                parameters.maxTokens,
+                parameters.model || null,
+                now,
+            ],
         );
 
-        await pglite.query(
-            `UPDATE prompts SET current_version_id = $1 WHERE id = $2`,
-            [id, promptId]
-        );
+        await pglite.query(`UPDATE prompts SET current_version_id = $1 WHERE id = $2`, [
+            id,
+            promptId,
+        ]);
 
         // Sync
         await syncManager.enqueue(
             `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, promptId, content, systemInstructions || null, parameters.temperature, parameters.topP, parameters.maxTokens, parameters.model || null, now]
+            [
+                id,
+                promptId,
+                content,
+                systemInstructions || null,
+                parameters.temperature,
+                parameters.topP,
+                parameters.maxTokens,
+                parameters.model || null,
+                now,
+            ],
         );
 
-        await syncManager.enqueue(
-            `UPDATE prompts SET current_version_id = ? WHERE id = ?`,
-            [id, promptId]
-        );
+        await syncManager.enqueue(`UPDATE prompts SET current_version_id = ? WHERE id = ?`, [
+            id,
+            promptId,
+        ]);
     }
 
     return id;
@@ -541,9 +587,11 @@ export async function updateVersion(id: string, updates: Partial<PromptVersion>)
     const existing = promptStore.versions[id];
     if (!existing) return;
 
-    setPromptStore(produce((s) => {
-        Object.assign(s.versions[id], updates);
-    }));
+    setPromptStore(
+        produce((s) => {
+            Object.assign(s.versions[id], updates);
+        }),
+    );
 
     if (pglite) {
         // Auto-Tagging on update if content changed
@@ -599,14 +647,14 @@ export async function updateVersion(id: string, updates: Partial<PromptVersion>)
             values.push(id);
             await pglite.query(
                 `UPDATE prompt_versions SET ${fields.join(', ')} WHERE id = $${idx}`,
-                values
+                values,
             );
 
             // Sync
-            const syncFields = fields.map(f => f.split('=')[0] + '= ?');
+            const syncFields = fields.map((f) => f.split('=')[0] + '= ?');
             await syncManager.enqueue(
                 `UPDATE prompt_versions SET ${syncFields.join(', ')} WHERE id = ?`,
-                values
+                values,
             );
         }
     }
@@ -614,7 +662,7 @@ export async function updateVersion(id: string, updates: Partial<PromptVersion>)
 
 export function getVersionsForPrompt(promptId: string): PromptVersion[] {
     return Object.values(promptStore.versions)
-        .filter(v => v.promptId === promptId)
+        .filter((v) => v.promptId === promptId)
         .sort((a, b) => a.createdAt - b.createdAt);
 }
 
@@ -629,21 +677,22 @@ export async function revertToVersion(promptId: string, versionId: string) {
 
 export async function moveToQueued(promptId: string, priority: 'high' | 'normal' = 'normal') {
     await updatePrompt(promptId, { status: 'queued' });
-    setPromptStore(produce((s) => {
-        if (!s.executionQueue.includes(promptId)) {
-            if (priority === 'high') {
-                s.executionQueue.unshift(promptId); // Add to front
-            } else {
-                s.executionQueue.push(promptId); // Add to back
+    setPromptStore(
+        produce((s) => {
+            if (!s.executionQueue.includes(promptId)) {
+                if (priority === 'high') {
+                    s.executionQueue.unshift(promptId); // Add to front
+                } else {
+                    s.executionQueue.push(promptId); // Add to back
+                }
+            } else if (priority === 'high') {
+                // If already queued but high priority, move to front
+                s.executionQueue = s.executionQueue.filter((id) => id !== promptId);
+                s.executionQueue.unshift(promptId);
             }
-        } else if (priority === 'high') {
-            // If already queued but high priority, move to front
-            s.executionQueue = s.executionQueue.filter(id => id !== promptId);
-            s.executionQueue.unshift(promptId);
-        }
-    }));
+        }),
+    );
 }
-
 
 export async function moveToGenerating(promptId: string) {
     await updatePrompt(promptId, { status: 'generating' });
@@ -652,24 +701,27 @@ export async function moveToGenerating(promptId: string) {
 export async function moveToDeployed(promptId: string) {
     await updatePrompt(promptId, {
         status: 'deployed',
-        deployedAt: Date.now()
+        deployedAt: Date.now(),
     });
-    setPromptStore(produce((s) => {
-        s.executionQueue = s.executionQueue.filter(id => id !== promptId);
-    }));
+    setPromptStore(
+        produce((s) => {
+            s.executionQueue = s.executionQueue.filter((id) => id !== promptId);
+        }),
+    );
 }
 
 export async function moveToError(promptId: string) {
     await updatePrompt(promptId, { status: 'error' });
-    setPromptStore(produce((s) => {
-        s.executionQueue = s.executionQueue.filter(id => id !== promptId);
-    }));
+    setPromptStore(
+        produce((s) => {
+            s.executionQueue = s.executionQueue.filter((id) => id !== promptId);
+        }),
+    );
 }
 
 export async function moveToDraft(promptId: string) {
     await updatePrompt(promptId, { status: 'draft' });
 }
-
 
 // ============= BATCH EXECUTION =============
 
@@ -679,7 +731,7 @@ let activeCount = 0;
 
 export async function runAllDrafts() {
     const drafts = Object.values(promptStore.prompts)
-        .filter(p => p.status === 'draft')
+        .filter((p) => p.status === 'draft')
         .sort((a, b) => a.pos - b.pos);
 
     // Move all to queued first
@@ -701,8 +753,8 @@ export async function runSinglePrompt(promptId: string) {
 export async function processExecutionQueue() {
     // Check global store for queued items
     // Use a loop to keep checking as long as we have capacity and items
-    const candidates = promptStore.executionQueue.filter(id =>
-        promptStore.prompts[id]?.status === 'queued'
+    const candidates = promptStore.executionQueue.filter(
+        (id) => promptStore.prompts[id]?.status === 'queued',
     );
 
     if (candidates.length === 0) return;
@@ -727,9 +779,7 @@ async function executePrompt(promptId: string) {
     const prompt = promptStore.prompts[promptId];
     if (!prompt) return;
 
-    const version = prompt.currentVersionId
-        ? promptStore.versions[prompt.currentVersionId]
-        : null;
+    const version = prompt.currentVersionId ? promptStore.versions[prompt.currentVersionId] : null;
 
     if (!version || !version.content.trim()) {
         await updateVersion(version?.id || '', { error: 'Empty prompt content' });
@@ -770,8 +820,8 @@ async function executePrompt(promptId: string) {
             for (const rel of (result as any).extractedRelations) {
                 // Find node IDs for source and target keys
                 const nodes = Object.values((await import('./memoryStore')).memoryStore.nodes);
-                const source = nodes.find(n => n.key === rel.sourceKey);
-                const target = nodes.find(n => n.key === rel.targetKey);
+                const source = nodes.find((n) => n.key === rel.sourceKey);
+                const target = nodes.find((n) => n.key === rel.targetKey);
 
                 if (source && target) {
                     await addEdge(source.id, target.id, rel.relationType);
@@ -784,12 +834,11 @@ async function executePrompt(promptId: string) {
             executionTime: result.executionTime,
             parameters: {
                 ...version.parameters,
-                model: result.model
-            }
+                model: result.model,
+            },
         });
 
         await moveToDeployed(promptId);
-
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[Prompt ${promptId}] Failed:`, errorMessage);
@@ -802,7 +851,7 @@ async function executePrompt(promptId: string) {
 
 export function getPromptsByStatus(status: PromptStatus): PromptCard[] {
     return Object.values(promptStore.prompts)
-        .filter(p => p.status === status && !p.archived)
+        .filter((p) => p.status === status && !p.archived)
         .sort((a, b) => a.pos - b.pos);
 }
 
@@ -821,11 +870,7 @@ export async function initPromptStore(boardId: string) {
 
 // ============= SCHEDULER =============
 
-export async function schedulePrompt(
-    promptId: string,
-    cron: string,
-    enabled: boolean
-) {
+export async function schedulePrompt(promptId: string, cron: string, enabled: boolean) {
     const prompt = promptStore.prompts[promptId];
     if (!prompt) return;
 
@@ -848,18 +893,21 @@ export async function schedulePrompt(
         system: version?.systemInstructions || '',
         params: version?.parameters || defaultParameters,
         cron,
-        enabled
+        enabled,
     };
 
     try {
         const workerUrl = import.meta.env.VITE_AI_WORKER_URL || '';
         if (!workerUrl) return;
 
-        const response = await fetch(`${workerUrl}/api/scheduler/schedule?board=${currentBoardId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        const response = await fetch(
+            `${workerUrl}/api/scheduler/schedule?board=${currentBoardId}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            },
+        );
 
         if (!response.ok) {
             throw new Error('Failed to schedule prompt on server');
@@ -869,10 +917,7 @@ export async function schedulePrompt(
     }
 }
 
-export async function configureWorkflow(
-    promptId: string,
-    workflow: PromptWorkflow
-) {
+export async function configureWorkflow(promptId: string, workflow: PromptWorkflow) {
     const prompt = promptStore.prompts[promptId];
     if (!prompt) return;
 
@@ -940,8 +985,8 @@ export async function synthesizeFromWorkers(coordinatorId: string): Promise<void
     if (!coordinator?.childIds?.length) return;
 
     // Check if all children are complete
-    const children = coordinator.childIds.map(id => promptStore.prompts[id]).filter(Boolean);
-    const allDone = children.every(c => c.status === 'deployed' || c.status === 'error');
+    const children = coordinator.childIds.map((id) => promptStore.prompts[id]).filter(Boolean);
+    const allDone = children.every((c) => c.status === 'deployed' || c.status === 'error');
 
     if (!allDone) {
         console.log(`[Agent] Not all workers complete for ${coordinatorId}`);
@@ -949,10 +994,12 @@ export async function synthesizeFromWorkers(coordinatorId: string): Promise<void
     }
 
     // Gather outputs
-    const workerOutputs = children.map(child => {
-        const v = getCurrentVersion(child.id);
-        return `## ${child.title}\n${v?.output || '(no output)'}`;
-    }).join('\n\n---\n\n');
+    const workerOutputs = children
+        .map((child) => {
+            const v = getCurrentVersion(child.id);
+            return `## ${child.title}\n${v?.output || '(no output)'}`;
+        })
+        .join('\n\n---\n\n');
 
     const version = getCurrentVersion(coordinatorId);
     if (!version) return;
@@ -1003,7 +1050,7 @@ export async function runWithCritique(promptId: string): Promise<void> {
 
         // Update critique state
         await updatePrompt(promptId, {
-            critique: { ...prompt.critique, currentRetry, lastFeedback }
+            critique: { ...prompt.critique, currentRetry, lastFeedback },
         });
 
         // Run prompt
@@ -1020,7 +1067,11 @@ export async function runWithCritique(promptId: string): Promise<void> {
         console.log(`[Critique] Score: ${critique.score}, Pass: ${critique.pass}`);
 
         await updatePrompt(promptId, {
-            critique: { ...prompt.critique, lastScore: critique.score, lastFeedback: critique.feedback }
+            critique: {
+                ...prompt.critique,
+                lastScore: critique.score,
+                lastFeedback: critique.feedback,
+            },
         });
 
         if (critique.pass) {

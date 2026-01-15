@@ -1,13 +1,13 @@
 /**
  * @fileoverview AI Service - Gemini Interactions API Integration
- * 
+ *
  * Provides a client for the Gemini Interactions API via Cloudflare Worker proxy.
  * Supports multiple models with automatic fallback on rate limiting.
- * 
+ *
  * @module aiService
  * @version 1.0.0
  * @author Gemini Ops
- * 
+ *
  * Time Complexity: O(n) where n = number of models in fallback chain (typically 2)
  * Space Complexity: O(1) - no significant memory allocation
  */
@@ -19,11 +19,11 @@ import type { PromptParameters } from './types';
 /** Available Gemini models in priority order */
 export const GEMINI_MODELS = [
     'deep-research-pro-preview-12-2025', // Agent model (requires background mode)
-    'gemini-3-pro-preview',               // Standard model (sync)
+    'gemini-3-pro-preview', // Standard model (sync)
 ] as const;
 
 /** Type for supported Gemini model identifiers */
-export type GeminiModel = typeof GEMINI_MODELS[number];
+export type GeminiModel = (typeof GEMINI_MODELS)[number];
 
 /** HTTP status codes for error handling */
 const HTTP_STATUS = {
@@ -34,7 +34,9 @@ const HTTP_STATUS = {
 } as const;
 
 /** Model configuration - determines sync vs background execution */
-const MODEL_CONFIG: Readonly<Record<GeminiModel, { isAgent: boolean; requiresBackground: boolean }>> = {
+const MODEL_CONFIG: Readonly<
+    Record<GeminiModel, { isAgent: boolean; requiresBackground: boolean }>
+> = {
     'deep-research-pro-preview-12-2025': { isAgent: true, requiresBackground: true },
     'gemini-3-pro-preview': { isAgent: false, requiresBackground: false },
 };
@@ -63,7 +65,8 @@ export interface AIConfig {
 }
 
 const DEFAULT_CONFIG: AIConfig = {
-    workerUrl: import.meta.env.VITE_AI_WORKER_URL ||
+    workerUrl:
+        import.meta.env.VITE_AI_WORKER_URL ||
         (import.meta.env.PROD ? 'https://work.moecapital.com/api/ai/interact' : '/api/ai/interact'),
     apiKey: import.meta.env.VITE_GEMINI_API_KEY,
     defaultModel: 'deep-research-pro-preview-12-2025',
@@ -77,9 +80,9 @@ let config: AIConfig = { ...DEFAULT_CONFIG };
 
 /**
  * Updates AI service configuration
- * 
+ *
  * @param newConfig - Partial configuration to merge
- * 
+ *
  * Time Complexity: O(1)
  * Space Complexity: O(1)
  */
@@ -122,7 +125,7 @@ export class AIError extends Error {
         message: string,
         public code: string,
         public model?: GeminiModel,
-        public retryable: boolean = false
+        public retryable: boolean = false,
     ) {
         super(message);
         this.name = 'AIError';
@@ -131,18 +134,14 @@ export class AIError extends Error {
 
 /**
  * Main generation function with fallback logic.
- * 
+ *
  * Time Complexity: O(M * R) where M = number of models in chain, R = request latency
  * Space Complexity: O(C) where C = size of context/memories being processed
  */
-export async function generateWithFallback(
-    request: GenerateRequest
-): Promise<GenerateResponse> {
+export async function generateWithFallback(request: GenerateRequest): Promise<GenerateResponse> {
     const startModel = request.model || config.defaultModel;
     const startIndex = GEMINI_MODELS.indexOf(startModel);
-    const modelsToTry = config.enableFallback
-        ? GEMINI_MODELS.slice(startIndex)
-        : [startModel];
+    const modelsToTry = config.enableFallback ? GEMINI_MODELS.slice(startIndex) : [startModel];
 
     let lastError: Error | null = null;
 
@@ -180,7 +179,9 @@ function parseMemories(content: string): Array<{ key: string; value: string }> {
 }
 
 // Helper to extract relations from content
-function parseRelations(content: string): Array<{ sourceKey: string; relationType: string; targetKey: string }> {
+function parseRelations(
+    content: string,
+): Array<{ sourceKey: string; relationType: string; targetKey: string }> {
     const relations: Array<{ sourceKey: string; relationType: string; targetKey: string }> = [];
     const regex = /\[RELATION:\s*([^ ]+)\s*->\s*([^ ]+)\s*->\s*([^\]]+)\]/g;
     let match;
@@ -190,7 +191,7 @@ function parseRelations(content: string): Array<{ sourceKey: string; relationTyp
             relations.push({
                 sourceKey: match[1].trim(),
                 relationType: match[2].trim(),
-                targetKey: match[3].trim()
+                targetKey: match[3].trim(),
             });
         }
     }
@@ -201,7 +202,7 @@ function parseRelations(content: string): Array<{ sourceKey: string; relationTyp
 async function generateWithModel(
     model: GeminiModel,
     request: GenerateRequest,
-    modelConfig: { isAgent: boolean; requiresBackground: boolean }
+    modelConfig: { isAgent: boolean; requiresBackground: boolean },
 ): Promise<GenerateResponse> {
     const startTime = Date.now();
 
@@ -245,7 +246,7 @@ Example:
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(config.apiKey ? { 'Authorization': `Bearer ${config.apiKey}` } : {}),
+                ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
             },
             body: JSON.stringify(payload),
             signal: controller.signal,
@@ -261,10 +262,15 @@ Example:
             if (response.status === 503) {
                 throw new AIError(`${model} overloaded`, 'OVERLOADED', model, true);
             }
-            throw new AIError(`Request failed: ${response.status} - ${errorBody}`, 'REQUEST_FAILED', model, response.status >= 500);
+            throw new AIError(
+                `Request failed: ${response.status} - ${errorBody}`,
+                'REQUEST_FAILED',
+                model,
+                response.status >= 500,
+            );
         }
 
-        const data = await response.json() as {
+        const data = (await response.json()) as {
             id?: string;
             jobId?: string;
             status?: string;
@@ -299,7 +305,12 @@ Example:
         if ((error as Error).name === 'AbortError') {
             throw new AIError(`Timeout for ${model}`, 'TIMEOUT', model, true);
         }
-        throw new AIError(`Network error: ${(error as Error).message}`, 'NETWORK_ERROR', model, true);
+        throw new AIError(
+            `Network error: ${(error as Error).message}`,
+            'NETWORK_ERROR',
+            model,
+            true,
+        );
     }
 }
 
@@ -307,13 +318,13 @@ Example:
 async function pollJobStatus(
     jobId: string,
     model: GeminiModel,
-    startTime: number
+    startTime: number,
 ): Promise<GenerateResponse> {
     const statusUrl = config.workerUrl.replace('/interact', `/status/${jobId}`);
     const maxPollTime = config.timeout;
 
     while (Date.now() - startTime < maxPollTime) {
-        await new Promise(resolve => setTimeout(resolve, config.pollInterval));
+        await new Promise((resolve) => setTimeout(resolve, config.pollInterval));
 
         try {
             const response = await fetch(statusUrl);
@@ -322,7 +333,7 @@ async function pollJobStatus(
                 continue;
             }
 
-            const data = await response.json() as {
+            const data = (await response.json()) as {
                 status: string;
                 text?: string;
                 outputs?: unknown[];
@@ -348,12 +359,7 @@ async function pollJobStatus(
             }
 
             if (data.status === 'failed') {
-                throw new AIError(
-                    data.error || 'Job failed',
-                    'JOB_FAILED',
-                    model,
-                    false
-                );
+                throw new AIError(data.error || 'Job failed', 'JOB_FAILED', model, false);
             }
 
             // Still processing, continue polling
@@ -404,7 +410,7 @@ function extractContent(response: unknown): string {
 export async function generate(
     prompt: string,
     systemInstructions?: string,
-    parameters?: Partial<PromptParameters>
+    parameters?: Partial<PromptParameters>,
 ): Promise<string> {
     const defaultParams: PromptParameters = {
         temperature: 0.7,
@@ -436,7 +442,7 @@ export interface CritiqueResult {
  */
 export async function critiqueOutput(
     output: string,
-    constraints?: string
+    constraints?: string,
 ): Promise<CritiqueResult> {
     const criticPrompt = `You are a quality assurance critic. Evaluate the following AI output.
 
@@ -490,7 +496,7 @@ export interface DecomposedTask {
  */
 export async function decomposeTask(
     prompt: string,
-    maxSubtasks: number = 3
+    maxSubtasks: number = 3,
 ): Promise<DecomposedTask[]> {
     const decompositionPrompt = `You are a task decomposition expert. Break down the following complex task into ${maxSubtasks} or fewer independent sub-tasks that can be executed in parallel.
 

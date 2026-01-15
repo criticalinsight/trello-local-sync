@@ -23,7 +23,8 @@ Provide the refactored code with comments explaining key changes.
 
 Code to refactor:
 [PASTE CODE HERE]`,
-        systemInstructions: 'You are an expert Senior Software Engineer. Prioritize clean, efficient, and idiomatic code.'
+        systemInstructions:
+            'You are an expert Senior Software Engineer. Prioritize clean, efficient, and idiomatic code.',
     },
     {
         id: 'unit-tests',
@@ -40,7 +41,8 @@ Use [FRAMEWORK NAME] syntax.
 
 Code:
 [PASTE CODE HERE]`,
-        systemInstructions: 'You are a QA Automation Expert. Focus on robustness and high code coverage.'
+        systemInstructions:
+            'You are a QA Automation Expert. Focus on robustness and high code coverage.',
     },
     {
         id: 'blog-post',
@@ -60,7 +62,8 @@ Structure:
 5. Conclusion/Call to Action
 
 Include SEO-optimized title and meta description.`,
-        systemInstructions: 'You are a Tech Blogger with a flair for engaging storytelling and clear, concise explanations.'
+        systemInstructions:
+            'You are a Tech Blogger with a flair for engaging storytelling and clear, concise explanations.',
     },
     {
         id: 'summarize',
@@ -74,7 +77,8 @@ Include SEO-optimized title and meta description.`,
 
 Text:
 [PASTE TEXT HERE]`,
-        systemInstructions: 'You are an Executive Assistant specializing in information synthesis and brevity.'
+        systemInstructions:
+            'You are an Executive Assistant specializing in information synthesis and brevity.',
     },
     {
         id: 'agent-planner',
@@ -90,6 +94,7 @@ Break down the task into:
 3. Verification/Testing Strategy
 
 Format as a checklist in Markdown.`,
-        systemInstructions: 'You are a Project Manager Agent designed to break down complex goals into actionable, atomic steps.'
-    }
+        systemInstructions:
+            'You are a Project Manager Agent designed to break down complex goals into actionable, atomic steps.',
+    },
 ];

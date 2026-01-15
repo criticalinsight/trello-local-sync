@@ -1,4 +1,3 @@
-
 import { batch } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import { PGlite } from '@electric-sql/pglite';
@@ -86,54 +85,63 @@ async function initPGlite(boardId: string) {
             // Default NULL board_id (legacy data) to 'default' if we are loading 'default' board
             // Or update all nulls to 'default' once
             await pglite.exec("UPDATE lists SET board_id = 'default' WHERE board_id IS NULL");
-
-        } catch (e) { }
+        } catch (e) {}
 
         // Load existing cards for this board
         // JOIN lists to filter cards by board_id? Or just load all cards and filter in memory?
         // Better: filtering in SQL.
         // We need lists first.
 
-
         // Load initial data
         const [lists, cards, comments, attachments] = await Promise.all([
-            pglite.query<List>('SELECT * FROM lists WHERE board_id = $1 ORDER BY pos', [boardId]).then(r => r.rows),
-            pglite.query<Card>('SELECT * FROM cards').then(r => r.rows),
-            pglite.query<Comment>('SELECT * FROM comments').then(r => r.rows),
-            pglite.query<Attachment>('SELECT * FROM attachments').then(r => r.rows)
+            pglite
+                .query<List>('SELECT * FROM lists WHERE board_id = $1 ORDER BY pos', [boardId])
+                .then((r) => r.rows),
+            pglite.query<Card>('SELECT * FROM cards').then((r) => r.rows),
+            pglite.query<Comment>('SELECT * FROM comments').then((r) => r.rows),
+            pglite.query<Attachment>('SELECT * FROM attachments').then((r) => r.rows),
         ]);
 
         batch(() => {
             const listMap: Record<string, List> = {};
-            lists.forEach(l => listMap[l.id] = l);
+            lists.forEach((l) => (listMap[l.id] = l));
 
             const cardMap: Record<string, Card> = {};
-            cards.forEach(c => cardMap[c.id] = {
-                ...c,
-                tags: c.tags ? JSON.parse(c.tags as any) : [],
-                checklist: c.checklist ? JSON.parse(c.checklist as any) : [],
-                dueDate: (c as any).due_date
-            });
+            cards.forEach(
+                (c) =>
+                    (cardMap[c.id] = {
+                        ...c,
+                        tags: c.tags ? JSON.parse(c.tags as any) : [],
+                        checklist: c.checklist ? JSON.parse(c.checklist as any) : [],
+                        dueDate: (c as any).due_date,
+                    }),
+            );
 
             const commentMap: Record<string, Comment> = {};
-            comments.forEach(c => commentMap[c.id] = {
-                ...c,
-                cardId: (c as any).card_id,
-                createdAt: (c as any).created_at
-            });
+            comments.forEach(
+                (c) =>
+                    (commentMap[c.id] = {
+                        ...c,
+                        cardId: (c as any).card_id,
+                        createdAt: (c as any).created_at,
+                    }),
+            );
 
             const attachmentMap: Record<string, Attachment> = {};
-            attachments.forEach(a => attachmentMap[a.id] = {
-                ...a,
-                cardId: (a as any).card_id,
-                createdAt: (a as any).created_at
-            });
+            attachments.forEach(
+                (a) =>
+                    (attachmentMap[a.id] = {
+                        ...a,
+                        cardId: (a as any).card_id,
+                        createdAt: (a as any).created_at,
+                    }),
+            );
 
             setStore({
                 lists: listMap,
                 cards: cardMap,
                 comments: commentMap,
-                attachments: attachmentMap
+                attachments: attachmentMap,
             });
         });
         console.log(`✅ PGlite initialized for board ${boardId}`);
@@ -182,24 +190,32 @@ function handleSyncMessage(msg: SyncMessage) {
             break;
 
         case 'SYNC_STATE':
-            setStore(produce((s) => {
-                for (const list of msg.lists) {
-                    s.lists[list.id] = list;
-                }
-                for (const card of msg.cards) {
-                    s.cards[card.id] = {
-                        id: card.id,
-                        title: card.title,
-                        listId: (card as any).list_id || card.listId,
-                        pos: card.pos,
-                        createdAt: (card as any).created_at || card.createdAt,
-                        description: (card as any).description || '',
-                        tags: typeof (card as any).tags === 'string' ? JSON.parse((card as any).tags) : (card.tags || []),
-                        checklist: typeof (card as any).checklist === 'string' ? JSON.parse((card as any).checklist) : (card.checklist || []),
-                        dueDate: (card as any).due_date || card.dueDate,
-                    };
-                }
-            }));
+            setStore(
+                produce((s) => {
+                    for (const list of msg.lists) {
+                        s.lists[list.id] = list;
+                    }
+                    for (const card of msg.cards) {
+                        s.cards[card.id] = {
+                            id: card.id,
+                            title: card.title,
+                            listId: (card as any).list_id || card.listId,
+                            pos: card.pos,
+                            createdAt: (card as any).created_at || card.createdAt,
+                            description: (card as any).description || '',
+                            tags:
+                                typeof (card as any).tags === 'string'
+                                    ? JSON.parse((card as any).tags)
+                                    : card.tags || [],
+                            checklist:
+                                typeof (card as any).checklist === 'string'
+                                    ? JSON.parse((card as any).checklist)
+                                    : card.checklist || [],
+                            dueDate: (card as any).due_date || card.dueDate,
+                        };
+                    }
+                }),
+            );
             break;
 
         case 'SQL_RESULT':
@@ -231,9 +247,9 @@ export async function undo() {
 
     console.log('↩️ Undoing...');
 
-    // Create a logical inverse for redo (this is tricky with async closures, 
+    // Create a logical inverse for redo (this is tricky with async closures,
     // strictly speaking we should capture the 'redo' action before executing undo if we want proper redo.
-    // For now, let's implement simple Undo first. 
+    // For now, let's implement simple Undo first.
     // To support Redo, the 'action' logs need to be pairs: { undo, redo }
     // Let's refactor:
     // See implementation below in PUBLIC ACTIONS
@@ -247,9 +263,9 @@ interface HistoryEntry {
     redo: () => Promise<void>;
 }
 
-const history: { undo: HistoryEntry[], redo: HistoryEntry[] } = {
+const history: { undo: HistoryEntry[]; redo: HistoryEntry[] } = {
     undo: [],
-    redo: []
+    redo: [],
 };
 
 export async function performUndo() {
@@ -300,13 +316,18 @@ export function onBoardEvent(listener: BoardEventListener) {
 
 function emitBoardEvent(event: BoardEvent) {
     console.log(`[Store] Event emitted: ${event.type}`, event);
-    listeners.forEach(l => l(event));
+    listeners.forEach((l) => l(event));
 }
 
 // ============= PUBLIC ACTIONS =============
 
 // Move card to new position
-export async function moveCard(cardId: string, newListId: string, newPos: number, recordHistory = true) {
+export async function moveCard(
+    cardId: string,
+    newListId: string,
+    newPos: number,
+    recordHistory = true,
+) {
     const card = store.cards[cardId];
     if (!card) return;
 
@@ -317,7 +338,7 @@ export async function moveCard(cardId: string, newListId: string, newPos: number
     if (recordHistory) {
         logAction(
             () => moveCard(cardId, oldListId, oldPos, false), // Undo: move back
-            () => moveCard(cardId, newListId, newPos, false)  // Redo: move forward
+            () => moveCard(cardId, newListId, newPos, false), // Redo: move forward
         );
     }
 
@@ -330,20 +351,23 @@ export async function moveCard(cardId: string, newListId: string, newPos: number
     try {
         // 2. PERSIST TO BROWSER DB
         if (pglite) {
-            await pglite.query(
-                'UPDATE cards SET list_id = $1, pos = $2 WHERE id = $3',
-                [newListId, newPos, cardId]
-            );
+            await pglite.query('UPDATE cards SET list_id = $1, pos = $2 WHERE id = $3', [
+                newListId,
+                newPos,
+                cardId,
+            ]);
         }
 
         // 3. SYNC TO CLOUD
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: 'UPDATE cards SET list_id = ?, pos = ? WHERE id = ?',
-                params: [newListId, newPos, cardId],
-                clientId,
-            }));
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: 'UPDATE cards SET list_id = ?, pos = ? WHERE id = ?',
+                    params: [newListId, newPos, cardId],
+                    clientId,
+                }),
+            );
         }
     } catch (error) {
         // 4. ROLLBACK ON FAILURE
@@ -355,7 +379,7 @@ export async function moveCard(cardId: string, newListId: string, newPos: number
 // Add new card
 export async function addCard(listId: string, title: string, recordHistory = true) {
     const id = genId();
-    const pos = Object.values(store.cards).filter(c => c && c.listId === listId).length;
+    const pos = Object.values(store.cards).filter((c) => c && c.listId === listId).length;
     const createdAt = Date.now();
 
     const card: Card = { id, title, listId, pos, createdAt };
@@ -364,7 +388,9 @@ export async function addCard(listId: string, title: string, recordHistory = tru
     if (recordHistory) {
         logAction(
             () => deleteCard(id, false), // Undo: delete it
-            async () => { await restoreCard(card); } // Redo: restore it (complicated, need helper)
+            async () => {
+                await restoreCard(card);
+            }, // Redo: restore it (complicated, need helper)
             // Actually redo for add is just creating it again with same ID?
             // Let's implement restoreCard helper
         );
@@ -381,18 +407,20 @@ export async function addCard(listId: string, title: string, recordHistory = tru
         if (pglite) {
             await pglite.query(
                 'INSERT INTO cards (id, title, list_id, pos, created_at) VALUES ($1, $2, $3, $4, $5)',
-                [id, title, listId, pos, createdAt]
+                [id, title, listId, pos, createdAt],
             );
         }
 
         // 3. Sync
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: 'INSERT INTO cards (id, title, list_id, pos, created_at) VALUES (?, ?, ?, ?, ?)',
-                params: [id, title, listId, pos, createdAt],
-                clientId,
-            }));
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: 'INSERT INTO cards (id, title, list_id, pos, created_at) VALUES (?, ?, ?, ?, ?)',
+                    params: [id, title, listId, pos, createdAt],
+                    clientId,
+                }),
+            );
         }
     } catch (error) {
         console.error('Add card failed:', error);
@@ -410,20 +438,21 @@ async function restoreCard(card: Card, recordHistory = false) {
     if (pglite) {
         await pglite.query(
             'INSERT INTO cards (id, title, list_id, pos, created_at) VALUES ($1, $2, $3, $4, $5)',
-            [card.id, card.title, card.listId, card.pos, card.createdAt]
+            [card.id, card.title, card.listId, card.pos, card.createdAt],
         );
     }
 
     if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-            type: 'EXECUTE_SQL',
-            sql: 'INSERT INTO cards (id, title, list_id, pos, created_at) VALUES (?, ?, ?, ?, ?)',
-            params: [card.id, card.title, card.listId, card.pos, card.createdAt],
-            clientId,
-        }));
+        socket.send(
+            JSON.stringify({
+                type: 'EXECUTE_SQL',
+                sql: 'INSERT INTO cards (id, title, list_id, pos, created_at) VALUES (?, ?, ?, ?, ?)',
+                params: [card.id, card.title, card.listId, card.pos, card.createdAt],
+                clientId,
+            }),
+        );
     }
 }
-
 
 // Delete card
 export async function deleteCard(cardId: string, recordHistory = true) {
@@ -434,7 +463,7 @@ export async function deleteCard(cardId: string, recordHistory = true) {
     if (recordHistory) {
         logAction(
             () => restoreCard(card), // Undo: restore
-            () => deleteCard(cardId, false) // Redo: delete again
+            () => deleteCard(cardId, false), // Redo: delete again
         );
     }
 
@@ -449,12 +478,14 @@ export async function deleteCard(cardId: string, recordHistory = true) {
 
         // 3. Sync
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: 'DELETE FROM cards WHERE id = ?',
-                params: [cardId],
-                clientId,
-            }));
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: 'DELETE FROM cards WHERE id = ?',
+                    params: [cardId],
+                    clientId,
+                }),
+            );
         }
     } catch (error) {
         console.error('Delete failed:', error);
@@ -463,7 +494,11 @@ export async function deleteCard(cardId: string, recordHistory = true) {
 }
 
 // Update card details (description, tags, checklist)
-export async function updateCardDetails(cardId: string, updates: Partial<Card>, recordHistory = true) {
+export async function updateCardDetails(
+    cardId: string,
+    updates: Partial<Card>,
+    recordHistory = true,
+) {
     const card = store.cards[cardId];
     if (!card) return;
 
@@ -473,7 +508,7 @@ export async function updateCardDetails(cardId: string, updates: Partial<Card>, 
     if (recordHistory) {
         logAction(
             () => updateCardDetails(cardId, oldCard, false),
-            () => updateCardDetails(cardId, updates, false)
+            () => updateCardDetails(cardId, updates, false),
         );
     }
 
@@ -520,13 +555,15 @@ export async function updateCardDetails(cardId: string, updates: Partial<Card>, 
         // 3. Sync
         if (socket && socket.readyState === WebSocket.OPEN) {
             // Convert $1 to ? for sync (assuming common format or handling in DO)
-            const syncSql = `UPDATE cards SET ${setClauses.map(c => c.split('=')[0] + '= ?').join(', ')} WHERE id = ?`;
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: syncSql,
-                params: params,
-                clientId,
-            }));
+            const syncSql = `UPDATE cards SET ${setClauses.map((c) => c.split('=')[0] + '= ?').join(', ')} WHERE id = ?`;
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: syncSql,
+                    params: params,
+                    clientId,
+                }),
+            );
         }
     } catch (error) {
         console.error('Update card details failed:', error);
@@ -545,7 +582,7 @@ export async function updateCardTitle(cardId: string, title: string, recordHisto
     if (recordHistory) {
         logAction(
             () => updateCardTitle(cardId, oldTitle, false),
-            () => updateCardTitle(cardId, title, false)
+            () => updateCardTitle(cardId, title, false),
         );
     }
 
@@ -560,12 +597,14 @@ export async function updateCardTitle(cardId: string, title: string, recordHisto
 
         // 3. Sync
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: 'UPDATE cards SET title = ? WHERE id = ?',
-                params: [title, cardId],
-                clientId,
-            }));
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: 'UPDATE cards SET title = ? WHERE id = ?',
+                    params: [title, cardId],
+                    clientId,
+                }),
+            );
         }
     } catch (error) {
         console.error('Update card failed:', error);
@@ -585,20 +624,23 @@ export async function addList(title: string) {
     try {
         // 2. Persist
         if (pglite) {
-            await pglite.query(
-                'INSERT INTO lists (id, title, pos) VALUES ($1, $2, $3)',
-                [id, title, pos]
-            );
+            await pglite.query('INSERT INTO lists (id, title, pos) VALUES ($1, $2, $3)', [
+                id,
+                title,
+                pos,
+            ]);
         }
 
         // 3. Sync
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: 'INSERT INTO lists (id, title, pos) VALUES (?, ?, ?)',
-                params: [id, title, pos],
-                clientId,
-            }));
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: 'INSERT INTO lists (id, title, pos) VALUES (?, ?, ?)',
+                    params: [id, title, pos],
+                    clientId,
+                }),
+            );
         }
     } catch (error) {
         console.error('Add list failed:', error);
@@ -626,12 +668,14 @@ export async function updateListTitle(listId: string, title: string) {
 
         // 3. Sync
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: 'UPDATE lists SET title = ? WHERE id = ?',
-                params: [title, listId],
-                clientId,
-            }));
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: 'UPDATE lists SET title = ? WHERE id = ?',
+                    params: [title, listId],
+                    clientId,
+                }),
+            );
         }
     } catch (error) {
         console.error('Update list failed:', error);
@@ -649,16 +693,18 @@ export async function deleteList(listId: string) {
 
     // Also delete associated cards from UI
     const cardIds = Object.values(store.cards)
-        .filter(c => c && c.listId === listId)
-        .map(c => c.id);
+        .filter((c) => c && c.listId === listId)
+        .map((c) => c.id);
 
     // Batch update cards to undefined
-    setStore(produce(s => {
-        if (s.lists[listId]) delete s.lists[listId];
-        cardIds.forEach(id => {
-            if (s.cards[id]) delete s.cards[id];
-        });
-    }));
+    setStore(
+        produce((s) => {
+            if (s.lists[listId]) delete s.lists[listId];
+            cardIds.forEach((id) => {
+                if (s.cards[id]) delete s.cards[id];
+            });
+        }),
+    );
 
     try {
         // 2. Persist
@@ -672,18 +718,22 @@ export async function deleteList(listId: string) {
         if (socket && socket.readyState === WebSocket.OPEN) {
             // Send two commands
             console.log('Syncing delete list');
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: 'DELETE FROM cards WHERE list_id = ?',
-                params: [listId],
-                clientId,
-            }));
-            socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: 'DELETE FROM lists WHERE id = ?',
-                params: [listId],
-                clientId,
-            }));
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: 'DELETE FROM cards WHERE list_id = ?',
+                    params: [listId],
+                    clientId,
+                }),
+            );
+            socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: 'DELETE FROM lists WHERE id = ?',
+                    params: [listId],
+                    clientId,
+                }),
+            );
         }
     } catch (error) {
         console.error('Delete list failed:', error);
@@ -703,11 +753,14 @@ export async function moveList(listId: string, oldIndex: number, newIndex: numbe
     sorted.splice(newIndex, 0, moved);
 
     // Update store
-    setStore('lists', produce((lists) => {
-        sorted.forEach((l, index) => {
-            if (lists[l.id]) lists[l.id].pos = index;
-        });
-    }));
+    setStore(
+        'lists',
+        produce((lists) => {
+            sorted.forEach((l, index) => {
+                if (lists[l.id]) lists[l.id].pos = index;
+            });
+        }),
+    );
 
     // Persist & Sync (Naive loop)
     try {
@@ -716,12 +769,14 @@ export async function moveList(listId: string, oldIndex: number, newIndex: numbe
                 await pglite.query('UPDATE lists SET pos = $1 WHERE id = $2', [index, l.id]);
             }
             if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                    type: 'EXECUTE_SQL',
-                    sql: 'UPDATE lists SET pos = ? WHERE id = ?',
-                    params: [index, l.id],
-                    clientId,
-                }));
+                socket.send(
+                    JSON.stringify({
+                        type: 'EXECUTE_SQL',
+                        sql: 'UPDATE lists SET pos = ? WHERE id = ?',
+                        params: [index, l.id],
+                        clientId,
+                    }),
+                );
             }
         });
     } catch (e) {
@@ -750,7 +805,7 @@ export async function initStore(boardId: string) {
         lists: {},
         cards: {},
         connected: false,
-        syncing: false
+        syncing: false,
     });
 
     // PGlite init runs in background
@@ -768,4 +823,3 @@ export async function initStore(boardId: string) {
 }
 
 // Export store for components
-

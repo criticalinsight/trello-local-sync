@@ -1,13 +1,13 @@
 /**
  * ResearchDO - Durable Object for handling Deep Research Agent jobs
- * 
+ *
  * Uses Cloudflare Durable Object Alarms to poll Gemini API without
  * exceeding the Worker subrequest limit.
  */
 
 interface ResearchJob {
-    id: string;                    // Our job ID
-    interactionId: string;         // Gemini interaction ID
+    id: string; // Our job ID
+    interactionId: string; // Gemini interaction ID
     status: 'processing' | 'completed' | 'failed';
     input: string;
     outputs?: unknown[];
@@ -51,7 +51,7 @@ export class ResearchDO implements DurableObject {
     }
 
     private async handleStart(request: Request): Promise<Response> {
-        const body = await request.json() as { input: string; jobId: string };
+        const body = (await request.json()) as { input: string; jobId: string };
         const { input, jobId } = body;
 
         // Call Gemini API to start background interaction
@@ -68,7 +68,7 @@ export class ResearchDO implements DurableObject {
                     agent: 'deep-research-pro-preview-12-2025',
                     background: true,
                 }),
-            }
+            },
         );
 
         if (!geminiResponse.ok) {
@@ -78,23 +78,23 @@ export class ResearchDO implements DurableObject {
             if (status === 429 || status === 503) {
                 return new Response(
                     JSON.stringify({ error: `Rate limited: ${status}`, code: status }),
-                    { status: status, headers: { 'Content-Type': 'application/json' } }
+                    { status: status, headers: { 'Content-Type': 'application/json' } },
                 );
             }
-            return new Response(
-                JSON.stringify({ error: `Gemini API error: ${errorText}` }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
-            );
+            return new Response(JSON.stringify({ error: `Gemini API error: ${errorText}` }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
+            });
         }
 
-        const geminiData = await geminiResponse.json() as { id: string };
+        const geminiData = (await geminiResponse.json()) as { id: string };
         const interactionId = geminiData.id;
 
         if (!interactionId) {
-            return new Response(
-                JSON.stringify({ error: 'No interaction ID returned' }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
-            );
+            return new Response(JSON.stringify({ error: 'No interaction ID returned' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
+            });
         }
 
         // Store job state
@@ -117,9 +117,9 @@ export class ResearchDO implements DurableObject {
             JSON.stringify({
                 jobId,
                 interactionId,
-                status: 'processing'
+                status: 'processing',
             }),
-            { headers: { 'Content-Type': 'application/json' } }
+            { headers: { 'Content-Type': 'application/json' } },
         );
     }
 
@@ -127,10 +127,10 @@ export class ResearchDO implements DurableObject {
         const job = await this.state.storage.get<ResearchJob>('job');
 
         if (!job) {
-            return new Response(
-                JSON.stringify({ error: 'No job found' }),
-                { status: 404, headers: { 'Content-Type': 'application/json' } }
-            );
+            return new Response(JSON.stringify({ error: 'No job found' }), {
+                status: 404,
+                headers: { 'Content-Type': 'application/json' },
+            });
         }
 
         return new Response(
@@ -143,7 +143,7 @@ export class ResearchDO implements DurableObject {
                 createdAt: job.createdAt,
                 completedAt: job.completedAt,
             }),
-            { headers: { 'Content-Type': 'application/json' } }
+            { headers: { 'Content-Type': 'application/json' } },
         );
     }
 
@@ -171,7 +171,7 @@ export class ResearchDO implements DurableObject {
                     headers: {
                         'x-goog-api-key': this.env.GEMINI_API_KEY,
                     },
-                }
+                },
             );
 
             if (!pollResponse.ok) {
@@ -182,7 +182,7 @@ export class ResearchDO implements DurableObject {
                 return;
             }
 
-            const pollData = await pollResponse.json() as {
+            const pollData = (await pollResponse.json()) as {
                 status?: string;
                 outputs?: Array<{ text?: string; type?: string }>;
             };
@@ -193,7 +193,7 @@ export class ResearchDO implements DurableObject {
                 // Extract text from outputs
                 let text = '';
                 if (pollData.outputs && pollData.outputs.length > 0) {
-                    const textOutput = pollData.outputs.find(o => o.type === 'text');
+                    const textOutput = pollData.outputs.find((o) => o.type === 'text');
                     text = textOutput?.text || '';
                 }
 
@@ -206,8 +206,12 @@ export class ResearchDO implements DurableObject {
                 return;
             }
 
-            if (pollData.status === 'failed' || pollData.status === 'FAILED' ||
-                pollData.status === 'cancelled' || pollData.status === 'CANCELLED') {
+            if (
+                pollData.status === 'failed' ||
+                pollData.status === 'FAILED' ||
+                pollData.status === 'cancelled' ||
+                pollData.status === 'CANCELLED'
+            ) {
                 job.status = 'failed';
                 job.error = `Job ${pollData.status}`;
                 await this.state.storage.put('job', job);
@@ -217,7 +221,6 @@ export class ResearchDO implements DurableObject {
 
             // Still processing, set next alarm
             await this.state.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
-
         } catch (error) {
             console.error(`[ResearchDO] Alarm error:`, error);
             // Continue polling on transient errors

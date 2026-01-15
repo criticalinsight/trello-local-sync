@@ -5,14 +5,14 @@ export type PresentationTheme = 'document' | 'slides';
 export async function convertToPresentation(
     markdown: string,
     title: string,
-    theme: PresentationTheme
+    theme: PresentationTheme,
 ): Promise<string> {
     const contentHtml = await parseMarkdown(markdown);
 
     if (theme === 'slides') {
         // Split by HR (---) to create slides
         const slides = contentHtml.split('<hr>');
-        const slidesHtml = slides.map(s => `<div class="slide">${s}</div>`).join('');
+        const slidesHtml = slides.map((s) => `<div class="slide">${s}</div>`).join('');
 
         return wrapHtml(title, slidesHtml, SLIDE_CSS, 'slides-container');
     }

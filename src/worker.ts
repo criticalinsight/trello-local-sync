@@ -6,10 +6,10 @@ import { handleTelegramWebhook, registerWebhook } from './telegramBot';
 // Model configuration for Interactions API
 const GEMINI_MODELS = [
     'deep-research-pro-preview-12-2025', // Agent (background mode)
-    'gemini-3-pro-preview',               // Standard (sync)
+    'gemini-3-pro-preview', // Standard (sync)
 ] as const;
 
-type GeminiModel = typeof GEMINI_MODELS[number];
+type GeminiModel = (typeof GEMINI_MODELS)[number];
 
 const MODEL_CONFIG: Record<GeminiModel, { isAgent: boolean; requiresBackground: boolean }> = {
     'deep-research-pro-preview-12-2025': { isAgent: true, requiresBackground: true },
@@ -43,7 +43,6 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-
 export default {
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url);
@@ -53,10 +52,15 @@ export default {
         }
 
         // Interactions API Route: POST /api/ai/interact
-        if (request.method === 'POST' && (url.pathname === '/api/ai/interact' || url.pathname === '/api/ai/generate')) {
+        if (
+            request.method === 'POST' &&
+            (url.pathname === '/api/ai/interact' || url.pathname === '/api/ai/generate')
+        ) {
             try {
-                const body = await request.json() as InteractionRequest;
-                const requestedModel = (body.model || body.agent || GEMINI_MODELS[0]) as GeminiModel;
+                const body = (await request.json()) as InteractionRequest;
+                const requestedModel = (body.model ||
+                    body.agent ||
+                    GEMINI_MODELS[0]) as GeminiModel;
                 const config = MODEL_CONFIG[requestedModel];
 
                 // For agent models, use ResearchDO for async processing
@@ -75,8 +79,14 @@ export default {
                         if (!doResponse.ok) {
                             const errorText = await doResponse.text();
                             // Check for rate limit errors - fallback to sync model
-                            if (errorText.includes('429') || errorText.includes('503') || errorText.includes('RESOURCE_EXHAUSTED')) {
-                                console.log('[Worker] Agent rate limited, falling back to sync model');
+                            if (
+                                errorText.includes('429') ||
+                                errorText.includes('503') ||
+                                errorText.includes('RESOURCE_EXHAUSTED')
+                            ) {
+                                console.log(
+                                    '[Worker] Agent rate limited, falling back to sync model',
+                                );
                                 throw new Error('FALLBACK_TO_SYNC');
                             }
                             throw new Error(errorText);
@@ -87,26 +97,32 @@ export default {
                             headers: {
                                 'Content-Type': 'application/json',
                                 'X-Model-Used': requestedModel,
-                                ...corsHeaders
-                            }
+                                ...corsHeaders,
+                            },
                         });
                     } catch (agentError) {
                         const errorMsg = (agentError as Error).message;
                         // Fallback to sync model on rate limits
-                        if (errorMsg === 'FALLBACK_TO_SYNC' ||
+                        if (
+                            errorMsg === 'FALLBACK_TO_SYNC' ||
                             errorMsg.includes('429') ||
                             errorMsg.includes('503') ||
-                            errorMsg.includes('RESOURCE_EXHAUSTED')) {
+                            errorMsg.includes('RESOURCE_EXHAUSTED')
+                        ) {
                             console.log('[Worker] Falling back to gemini-3-pro-preview');
                             const fallbackModel = 'gemini-3-pro-preview' as GeminiModel;
-                            const result = await callInteractionsAPI(env.GEMINI_API_KEY, fallbackModel, body);
+                            const result = await callInteractionsAPI(
+                                env.GEMINI_API_KEY,
+                                fallbackModel,
+                                body,
+                            );
                             return new Response(JSON.stringify(result), {
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'X-Model-Used': fallbackModel,
                                     'X-Fallback-Reason': 'rate_limited',
-                                    ...corsHeaders
-                                }
+                                    ...corsHeaders,
+                                },
                             });
                         }
                         throw agentError;
@@ -115,29 +131,39 @@ export default {
 
                 // For standard models, use sync call with fallback
                 try {
-                    const result = await callInteractionsAPI(env.GEMINI_API_KEY, requestedModel, body);
+                    const result = await callInteractionsAPI(
+                        env.GEMINI_API_KEY,
+                        requestedModel,
+                        body,
+                    );
                     return new Response(JSON.stringify(result), {
                         headers: {
                             'Content-Type': 'application/json',
                             'X-Model-Used': requestedModel,
-                            ...corsHeaders
-                        }
+                            ...corsHeaders,
+                        },
                     });
                 } catch (syncError) {
                     const errorMsg = (syncError as Error).message;
                     // Try fallback if not already on fallback model
-                    if (requestedModel !== 'gemini-3-pro-preview' &&
-                        (errorMsg.includes('429') || errorMsg.includes('503'))) {
+                    if (
+                        requestedModel !== 'gemini-3-pro-preview' &&
+                        (errorMsg.includes('429') || errorMsg.includes('503'))
+                    ) {
                         console.log('[Worker] Sync model rate limited, trying fallback');
                         const fallbackModel = 'gemini-3-pro-preview' as GeminiModel;
-                        const result = await callInteractionsAPI(env.GEMINI_API_KEY, fallbackModel, body);
+                        const result = await callInteractionsAPI(
+                            env.GEMINI_API_KEY,
+                            fallbackModel,
+                            body,
+                        );
                         return new Response(JSON.stringify(result), {
                             headers: {
                                 'Content-Type': 'application/json',
                                 'X-Model-Used': fallbackModel,
                                 'X-Fallback-Reason': 'rate_limited',
-                                ...corsHeaders
-                            }
+                                ...corsHeaders,
+                            },
                         });
                     }
                     throw syncError;
@@ -146,7 +172,7 @@ export default {
                 console.error('[Worker] Error:', error);
                 return new Response(JSON.stringify({ error: (error as Error).message }), {
                     status: 500,
-                    headers: { 'Content-Type': 'application/json', ...corsHeaders }
+                    headers: { 'Content-Type': 'application/json', ...corsHeaders },
                 });
             }
         }
@@ -167,7 +193,7 @@ export default {
             if (!jobId) {
                 return new Response(JSON.stringify({ error: 'Missing job ID' }), {
                     status: 400,
-                    headers: { 'Content-Type': 'application/json', ...corsHeaders }
+                    headers: { 'Content-Type': 'application/json', ...corsHeaders },
                 });
             }
 
@@ -178,7 +204,7 @@ export default {
             const result = await doResponse.json();
 
             return new Response(JSON.stringify(result), {
-                headers: { 'Content-Type': 'application/json', ...corsHeaders }
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
         }
 
@@ -188,11 +214,13 @@ export default {
             if (!filename) return new Response('Missing filename', { status: 400 });
 
             await env.MEDIA_BUCKET.put(filename, request.body, {
-                httpMetadata: { contentType: request.headers.get('Content-Type') || 'application/octet-stream' }
+                httpMetadata: {
+                    contentType: request.headers.get('Content-Type') || 'application/octet-stream',
+                },
             });
 
             return new Response(JSON.stringify({ url: `/api/media/${filename}` }), {
-                headers: { 'Content-Type': 'application/json', ...corsHeaders }
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
         }
 
@@ -240,7 +268,7 @@ export default {
 
         return new Response(response.body, {
             status: response.status,
-            headers
+            headers,
         });
     },
 
@@ -250,7 +278,7 @@ export default {
         // For this architecture, let's assume we check a primary board or all connected DOs.
         // Since listing DOs is hard without a registry, we might need a Registry DO.
         // Fallback: This is a demo, we'll try to tick a fixed set of "active" boards if known
-        // or just log that the trigger fired. 
+        // or just log that the trigger fired.
         // Real implementation: Store list of board IDs with active schedules in KV or a Registry DO.
 
         console.log('[Worker] Cron Trigger fired:', event.cron, event.scheduledTime);
@@ -259,14 +287,14 @@ export default {
         const id = env.BOARD_DO.idFromName('default');
         const stub = env.BOARD_DO.get(id);
         ctx.waitUntil(stub.fetch('http://do/api/scheduler/tick', { method: 'POST' }));
-    }
+    },
 };
 
 // Call Gemini Interactions API (sync models only - agent models use ResearchDO)
 async function callInteractionsAPI(
     apiKey: string,
     model: GeminiModel,
-    request: InteractionRequest
+    request: InteractionRequest,
 ): Promise<unknown> {
     const config = MODEL_CONFIG[model];
     const baseUrl = 'https://generativelanguage.googleapis.com/v1beta/interactions';
@@ -298,11 +326,9 @@ async function callInteractionsAPI(
         throw new Error(`${response.status}: ${errorText}`);
     }
 
-    const data = await response.json() as Record<string, unknown>;
+    const data = (await response.json()) as Record<string, unknown>;
     return formatInteractionResponse(data);
 }
-
-
 
 // Format response to standard output
 function formatInteractionResponse(data: Record<string, unknown>): Record<string, unknown> {
@@ -333,4 +359,3 @@ function formatInteractionResponse(data: Record<string, unknown>): Record<string
         outputs: outputs || [],
     };
 }
-

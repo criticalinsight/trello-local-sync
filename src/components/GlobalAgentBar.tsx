@@ -8,16 +8,16 @@ import { promptStore } from '../promptStore';
 export const GlobalAgentBar: Component = () => {
     const activeAgents = createMemo(() => {
         return Object.values(promptStore.prompts).filter(
-            p => p.status === 'generating' || p.status === 'queued'
+            (p) => p.status === 'generating' || p.status === 'queued',
         );
     });
 
-    const generatingCount = createMemo(() =>
-        activeAgents().filter(p => p.status === 'generating').length
+    const generatingCount = createMemo(
+        () => activeAgents().filter((p) => p.status === 'generating').length,
     );
 
-    const queuedCount = createMemo(() =>
-        activeAgents().filter(p => p.status === 'queued').length
+    const queuedCount = createMemo(
+        () => activeAgents().filter((p) => p.status === 'queued').length,
     );
 
     return (
@@ -32,17 +32,13 @@ export const GlobalAgentBar: Component = () => {
                             <div class="w-2 h-2 bg-white rounded-full animate-pulse" />
                             <div class="absolute inset-0 w-2 h-2 bg-white rounded-full animate-ping opacity-50" />
                         </div>
-                        <span class="font-medium">
-                            {generatingCount()} running
-                        </span>
+                        <span class="font-medium">{generatingCount()} running</span>
                     </div>
                     <Show when={queuedCount() > 0}>
                         <span class="text-white/60">•</span>
                         <span class="text-white/70">{queuedCount()} queued</span>
                     </Show>
-                    <span class="text-white/50 text-[10px] ml-2">
-                        Press ESC to view details
-                    </span>
+                    <span class="text-white/50 text-[10px] ml-2">Press ESC to view details</span>
                 </div>
             </div>
         </Show>

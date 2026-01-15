@@ -1,6 +1,6 @@
 /**
  * AI Service Tests
- * 
+ *
  * Tests for the Gemini Interactions API integration
  * Time Complexity: O(1) for unit tests, O(n) for batch tests
  * Space Complexity: O(1) per test

@@ -5,9 +5,9 @@ import { createStore, produce } from 'solid-js/store';
 
 export interface Node {
     id: string;
-    key: string;       // Unique key/topic
-    value: string;     // The fact/memory content
-    tags: string[];    // Tags for categorization
+    key: string; // Unique key/topic
+    value: string; // The fact/memory content
+    tags: string[]; // Tags for categorization
     createdAt: number;
     updatedAt: number;
     usageCount: number;
@@ -17,8 +17,8 @@ export interface Edge {
     id: string;
     sourceId: string;
     targetId: string;
-    relation: string;  // e.g., 'related_to', 'part_of', 'defined_by'
-    weight: number;    // Strength of relationship
+    relation: string; // e.g., 'related_to', 'part_of', 'defined_by'
+    weight: number; // Strength of relationship
     createdAt: number;
 }
 
@@ -110,39 +110,41 @@ async function loadMemories() {
     const nodesResult = await pglite.query<any>(
         `SELECT id, key, value, tags, created_at, updated_at, usage_count 
          FROM nodes WHERE board_id = $1 ORDER BY updated_at DESC`,
-        [currentBoardId]
+        [currentBoardId],
     );
 
     // Load edges
     const edgesResult = await pglite.query<any>(
         `SELECT id, source_id, target_id, relation, weight, created_at 
          FROM edges WHERE board_id = $1`,
-        [currentBoardId]
+        [currentBoardId],
     );
 
-    setMemoryStore(produce((s) => {
-        s.nodes = {};
-        for (const row of nodesResult.rows) {
-            s.nodes[row.id] = {
-                id: row.id,
-                key: row.key,
-                value: row.value,
-                tags: JSON.parse(row.tags),
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
-                usageCount: row.usage_count,
-            };
-        }
+    setMemoryStore(
+        produce((s) => {
+            s.nodes = {};
+            for (const row of nodesResult.rows) {
+                s.nodes[row.id] = {
+                    id: row.id,
+                    key: row.key,
+                    value: row.value,
+                    tags: JSON.parse(row.tags),
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at,
+                    usageCount: row.usage_count,
+                };
+            }
 
-        s.edges = edgesResult.rows.map(row => ({
-            id: row.id,
-            sourceId: row.source_id,
-            targetId: row.target_id,
-            relation: row.relation,
-            weight: row.weight,
-            createdAt: row.created_at,
-        }));
-    }));
+            s.edges = edgesResult.rows.map((row) => ({
+                id: row.id,
+                sourceId: row.source_id,
+                targetId: row.target_id,
+                relation: row.relation,
+                weight: row.weight,
+                createdAt: row.created_at,
+            }));
+        }),
+    );
 }
 
 // ============= CRUD OPERATIONS =============
@@ -162,9 +164,11 @@ export async function addNode(key: string, value: string, tags: string[] = []): 
     };
 
     // Optimistic update
-    setMemoryStore(produce((s) => {
-        s.nodes[id] = node;
-    }));
+    setMemoryStore(
+        produce((s) => {
+            s.nodes[id] = node;
+        }),
+    );
 
     if (pglite) {
         await pglite.query(
@@ -174,7 +178,7 @@ export async function addNode(key: string, value: string, tags: string[] = []): 
              value = EXCLUDED.value,
              tags = EXCLUDED.tags,
              updated_at = EXCLUDED.updated_at`,
-            [id, node.key, node.value, JSON.stringify(tags), currentBoardId, now, now, 0]
+            [id, node.key, node.value, JSON.stringify(tags), currentBoardId, now, now, 0],
         );
     }
 
@@ -185,18 +189,20 @@ export async function addNode(key: string, value: string, tags: string[] = []): 
 export const addMemory = addNode;
 
 export async function updateNode(id: string, updates: Partial<Node>) {
-    setMemoryStore(produce((s) => {
-        if (s.nodes[id]) {
-            Object.assign(s.nodes[id], { ...updates, updatedAt: Date.now() });
-        }
-    }));
+    setMemoryStore(
+        produce((s) => {
+            if (s.nodes[id]) {
+                Object.assign(s.nodes[id], { ...updates, updatedAt: Date.now() });
+            }
+        }),
+    );
 
     if (pglite) {
         const node = memoryStore.nodes[id];
         if (node) {
             await pglite.query(
                 `UPDATE nodes SET value = $1, tags = $2, updated_at = $3 WHERE id = $4`,
-                [node.value, JSON.stringify(node.tags), node.updatedAt, id]
+                [node.value, JSON.stringify(node.tags), node.updatedAt, id],
             );
         }
     }
@@ -206,10 +212,12 @@ export async function updateNode(id: string, updates: Partial<Node>) {
 export const updateMemory = updateNode;
 
 export async function deleteNode(id: string) {
-    setMemoryStore(produce((s) => {
-        delete s.nodes[id];
-        s.edges = s.edges.filter(e => e.sourceId !== id && e.targetId !== id);
-    }));
+    setMemoryStore(
+        produce((s) => {
+            delete s.nodes[id];
+            s.edges = s.edges.filter((e) => e.sourceId !== id && e.targetId !== id);
+        }),
+    );
 
     if (pglite) {
         await pglite.query(`DELETE FROM nodes WHERE id = $1`, [id]);
@@ -219,7 +227,12 @@ export async function deleteNode(id: string) {
 // Legacy alias
 export const deleteMemory = deleteNode;
 
-export async function addEdge(sourceId: string, targetId: string, relation: string, weight = 1.0): Promise<string> {
+export async function addEdge(
+    sourceId: string,
+    targetId: string,
+    relation: string,
+    weight = 1.0,
+): Promise<string> {
     const id = crypto.randomUUID();
     const now = Date.now();
 
@@ -232,9 +245,11 @@ export async function addEdge(sourceId: string, targetId: string, relation: stri
         createdAt: now,
     };
 
-    setMemoryStore(produce((s) => {
-        s.edges.push(edge);
-    }));
+    setMemoryStore(
+        produce((s) => {
+            s.edges.push(edge);
+        }),
+    );
 
     if (pglite) {
         await pglite.query(
@@ -242,7 +257,7 @@ export async function addEdge(sourceId: string, targetId: string, relation: stri
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT(board_id, source_id, target_id, relation) DO UPDATE SET
              weight = EXCLUDED.weight`,
-            [id, sourceId, targetId, relation, weight, currentBoardId, now]
+            [id, sourceId, targetId, relation, weight, currentBoardId, now],
         );
     }
 
@@ -251,10 +266,7 @@ export async function addEdge(sourceId: string, targetId: string, relation: stri
 
 export async function incrementUsage(id: string) {
     if (pglite) {
-        await pglite.query(
-            `UPDATE nodes SET usage_count = usage_count + 1 WHERE id = $1`,
-            [id]
-        );
+        await pglite.query(`UPDATE nodes SET usage_count = usage_count + 1 WHERE id = $1`, [id]);
     }
 }
 
@@ -263,10 +275,11 @@ export async function incrementUsage(id: string) {
 export function searchNodes(query: string): Node[] {
     const term = query.toLowerCase();
     return Object.values(memoryStore.nodes)
-        .filter(m =>
-            m.key.toLowerCase().includes(term) ||
-            m.value.toLowerCase().includes(term) ||
-            m.tags.some(t => t.toLowerCase().includes(term))
+        .filter(
+            (m) =>
+                m.key.toLowerCase().includes(term) ||
+                m.value.toLowerCase().includes(term) ||
+                m.tags.some((t) => t.toLowerCase().includes(term)),
         )
         .sort((a, b) => b.updatedAt - a.updatedAt);
 }
@@ -277,7 +290,7 @@ export const searchMemories = searchNodes;
 /**
  * Retrieves a context string for the AI, prioritizing recently updated and related nodes.
  * If a query is provided, it uses keyword matching and relationship traversal.
- * 
+ *
  * Time Complexity (Query): O(N * K + E) where N = nodes, K = keywords, E = edges
  * Time Complexity (Default): O(N log N) for sorting
  * Space Complexity: O(N) for relationship traversal clusters
@@ -286,36 +299,39 @@ export function getMemoriesForContext(limit = 10, query?: string): string {
     let targetNodes: Node[] = [];
 
     if (query && query.trim()) {
-        const keywords = query.toLowerCase()
+        const keywords = query
+            .toLowerCase()
             .replace(/[^\w\s]/g, ' ')
             .split(/\s+/)
-            .filter(k => k.length > 2); // Filter out short stop-words
+            .filter((k) => k.length > 2); // Filter out short stop-words
 
         if (keywords.length > 0) {
             // 1. Find directly matching nodes with scores
-            const matches = Object.values(memoryStore.nodes).map(node => {
-                let baseScore = 0;
-                let keywordMatches = 0;
-                const nodeText = `${node.key} ${node.value} ${node.tags.join(' ')}`.toLowerCase();
+            const matches = Object.values(memoryStore.nodes)
+                .map((node) => {
+                    let baseScore = 0;
+                    let keywordMatches = 0;
+                    const nodeText =
+                        `${node.key} ${node.value} ${node.tags.join(' ')}`.toLowerCase();
 
-                for (const kw of keywords) {
-                    let matched = false;
-                    if (nodeText.includes(kw)) {
-                        baseScore += 1;
-                        matched = true;
+                    for (const kw of keywords) {
+                        let matched = false;
+                        if (nodeText.includes(kw)) {
+                            baseScore += 1;
+                            matched = true;
+                        }
+                        if (node.key.toLowerCase().includes(kw)) {
+                            baseScore += 4;
+                            matched = true;
+                        }
+                        if (matched) keywordMatches++;
                     }
-                    if (node.key.toLowerCase().includes(kw)) {
-                        baseScore += 4;
-                        matched = true;
-                    }
-                    if (matched) keywordMatches++;
-                }
 
-                // Square the keywordMatches to heavily favor nodes matching multiple terms
-                const finalScore = baseScore * (keywordMatches * keywordMatches);
-                return { node, score: finalScore };
-            })
-                .filter(m => m.score > 0)
+                    // Square the keywordMatches to heavily favor nodes matching multiple terms
+                    const finalScore = baseScore * (keywordMatches * keywordMatches);
+                    return { node, score: finalScore };
+                })
+                .filter((m) => m.score > 0)
                 .sort((a, b) => b.score - a.score);
 
             if (matches.length > 0) {
@@ -323,7 +339,7 @@ export function getMemoriesForContext(limit = 10, query?: string): string {
                 const maxScore = matches[0].score;
                 const threshold = Math.max(2, maxScore * 0.4);
 
-                const highConfidenceMatches = matches.filter(m => m.score >= threshold);
+                const highConfidenceMatches = matches.filter((m) => m.score >= threshold);
 
                 // 2. Traversal: Find neighbors of high-confidence matches
                 const clusters = new Set<string>();
@@ -332,15 +348,15 @@ export function getMemoriesForContext(limit = 10, query?: string): string {
 
                     // Add first-degree connections
                     const relatedIds = memoryStore.edges
-                        .filter(e => e.sourceId === match.node.id || e.targetId === match.node.id)
-                        .map(e => e.sourceId === match.node.id ? e.targetId : e.sourceId);
+                        .filter((e) => e.sourceId === match.node.id || e.targetId === match.node.id)
+                        .map((e) => (e.sourceId === match.node.id ? e.targetId : e.sourceId));
 
                     for (const id of relatedIds) clusters.add(id);
                 }
 
                 // 3. Final collection, sorted by recency among the relevant set
                 targetNodes = Array.from(clusters)
-                    .map(id => memoryStore.nodes[id])
+                    .map((id) => memoryStore.nodes[id])
                     .filter(Boolean)
                     .sort((a, b) => b.updatedAt - a.updatedAt)
                     .slice(0, limit);
@@ -359,13 +375,13 @@ export function getMemoriesForContext(limit = 10, query?: string): string {
 
     // Build context with simple relationship hints
     return targetNodes
-        .map(node => {
+        .map((node) => {
             const contextLine = `[MEMORY: ${node.key}] ${node.value}`;
 
             // Find related nodes
             const related = memoryStore.edges
-                .filter(e => e.sourceId === node.id || e.targetId === node.id)
-                .map(e => {
+                .filter((e) => e.sourceId === node.id || e.targetId === node.id)
+                .map((e) => {
                     const otherId = e.sourceId === node.id ? e.targetId : e.sourceId;
                     const otherNode = memoryStore.nodes[otherId];
                     return otherNode ? `${e.relation} ${otherNode.key}` : null;

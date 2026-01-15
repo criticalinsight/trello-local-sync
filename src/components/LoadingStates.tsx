@@ -45,21 +45,32 @@ export const SkeletonLoader: Component<{ lines?: number }> = (props) => {
  */
 export const AgentStageIndicator: Component<{ stage?: string }> = (props) => {
     const stages = ['Decomposing', 'Delegating', 'Synthesizing', 'Complete'];
-    const currentIndex = stages.findIndex(s => props.stage?.toLowerCase().includes(s.toLowerCase()));
+    const currentIndex = stages.findIndex((s) =>
+        props.stage?.toLowerCase().includes(s.toLowerCase()),
+    );
 
     return (
         <div class="flex items-center gap-2 text-xs text-slate-400">
             {stages.map((stage, i) => (
                 <>
-                    <div class={`flex items-center gap-1 ${i <= currentIndex ? 'text-purple-400' : ''}`}>
-                        <div class={`w-1.5 h-1.5 rounded-full ${i < currentIndex ? 'bg-emerald-500' :
-                                i === currentIndex ? 'bg-purple-500 animate-pulse' :
-                                    'bg-slate-600'
-                            }`} />
+                    <div
+                        class={`flex items-center gap-1 ${i <= currentIndex ? 'text-purple-400' : ''}`}
+                    >
+                        <div
+                            class={`w-1.5 h-1.5 rounded-full ${
+                                i < currentIndex
+                                    ? 'bg-emerald-500'
+                                    : i === currentIndex
+                                      ? 'bg-purple-500 animate-pulse'
+                                      : 'bg-slate-600'
+                            }`}
+                        />
                         <span>{stage}</span>
                     </div>
                     {i < stages.length - 1 && (
-                        <div class={`w-4 h-px ${i < currentIndex ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+                        <div
+                            class={`w-4 h-px ${i < currentIndex ? 'bg-emerald-500' : 'bg-slate-600'}`}
+                        />
                     )}
                 </>
             ))}

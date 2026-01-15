@@ -16,8 +16,19 @@ import { ThemeToggle } from './ThemeToggle';
 import { AnalyticsView } from './AnalyticsView';
 
 // Column configuration
-const columns: { status: PromptStatus; title: string; color: string; headerAction?: 'add' | 'runAll'; wipLimit?: number }[] = [
-    { status: 'draft', title: 'Draft Prompts', color: 'from-slate-600 to-slate-700', headerAction: 'add' },
+const columns: {
+    status: PromptStatus;
+    title: string;
+    color: string;
+    headerAction?: 'add' | 'runAll';
+    wipLimit?: number;
+}[] = [
+    {
+        status: 'draft',
+        title: 'Draft Prompts',
+        color: 'from-slate-600 to-slate-700',
+        headerAction: 'add',
+    },
     { status: 'queued', title: 'Queued', color: 'from-amber-600 to-amber-700' },
     { status: 'generating', title: 'Generating', color: 'from-blue-600 to-blue-700', wipLimit: 5 },
     { status: 'deployed', title: 'Deployed', color: 'from-emerald-600 to-emerald-700' },
@@ -25,20 +36,49 @@ const columns: { status: PromptStatus; title: string; color: string; headerActio
 
 // Icons
 const PlusIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
+    >
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
     </svg>
 );
 
 const PlayAllIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
+    >
+        <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z"
+        />
     </svg>
 );
 
 const HomeIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="w-6 h-6"
+    >
+        <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+        />
     </svg>
 );
 
@@ -88,11 +128,16 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
 
     const getPromptsForColumn = (status: PromptStatus) => {
         switch (status) {
-            case 'draft': return getDrafts();
-            case 'queued': return getQueued();
-            case 'generating': return getGenerating();
-            case 'deployed': return getDeployed();
-            default: return [];
+            case 'draft':
+                return getDrafts();
+            case 'queued':
+                return getQueued();
+            case 'generating':
+                return getGenerating();
+            case 'deployed':
+                return getDeployed();
+            default:
+                return [];
         }
     };
 
@@ -132,7 +177,11 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
         const count = getPromptsForColumn(status).length;
         if (count === 0) return;
 
-        if (confirm(`Are you sure you want to delete ALL ${count} ${status} prompts? This action cannot be undone.`)) {
+        if (
+            confirm(
+                `Are you sure you want to delete ALL ${count} ${status} prompts? This action cannot be undone.`,
+            )
+        ) {
             await deletePromptsByStatus(status);
         }
     };
@@ -171,15 +220,34 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
     };
 
     return (
-        <Show when={!isLoading()} fallback={
-            <div class="h-screen flex items-center justify-center text-slate-400">
-                <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span class="ml-3">Loading prompts...</span>
-            </div>
-        }>
+        <Show
+            when={!isLoading()}
+            fallback={
+                <div class="h-screen flex items-center justify-center text-slate-400">
+                    <svg
+                        class="animate-spin h-8 w-8 text-blue-500"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                    >
+                        <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                        ></circle>
+                        <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                    </svg>
+                    <span class="ml-3">Loading prompts...</span>
+                </div>
+            }
+        >
             <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/10 to-slate-900">
                 {/* Header */}
                 <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 sticky top-0 z-40">
@@ -196,7 +264,9 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                                 <h1 class="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                                     Prompt Engineering Board
                                 </h1>
-                                <p class="text-sm text-slate-500 font-mono">{props.boardId.slice(0, 8)}...</p>
+                                <p class="text-sm text-slate-500 font-mono">
+                                    {props.boardId.slice(0, 8)}...
+                                </p>
                             </div>
                         </div>
 
@@ -220,16 +290,28 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                             {/* Stats */}
                             <div class="flex items-center gap-4 text-sm">
                                 <span class="text-slate-400">
-                                    <span class="font-semibold text-white">{getDrafts().length}</span> drafts
+                                    <span class="font-semibold text-white">
+                                        {getDrafts().length}
+                                    </span>{' '}
+                                    drafts
                                 </span>
                                 <span class="text-slate-400">
-                                    <span class="font-semibold text-amber-400">{getQueued().length}</span> queued
+                                    <span class="font-semibold text-amber-400">
+                                        {getQueued().length}
+                                    </span>{' '}
+                                    queued
                                 </span>
                                 <span class="text-slate-400">
-                                    <span class="font-semibold text-blue-400">{getGenerating().length}</span> running
+                                    <span class="font-semibold text-blue-400">
+                                        {getGenerating().length}
+                                    </span>{' '}
+                                    running
                                 </span>
                                 <span class="text-slate-400">
-                                    <span class="font-semibold text-emerald-400">{getDeployed().length}</span> deployed
+                                    <span class="font-semibold text-emerald-400">
+                                        {getDeployed().length}
+                                    </span>{' '}
+                                    deployed
                                 </span>
                             </div>
 
@@ -249,21 +331,29 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                                 return (
                                     <div
                                         class={`flex-shrink-0 w-80 flex flex-col rounded-xl bg-slate-800/50 border transition-colors
-                                    ${isOverLimit
-                                                ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
-                                                : dragOverStatus() === col.status
-                                                    ? 'border-blue-500 bg-blue-900/20'
-                                                    : 'border-slate-700'}`}
+                                    ${
+                                        isOverLimit
+                                            ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
+                                            : dragOverStatus() === col.status
+                                              ? 'border-blue-500 bg-blue-900/20'
+                                              : 'border-slate-700'
+                                    }`}
                                         onDragOver={(e) => handleDragOver(e, col.status)}
                                         onDragLeave={handleDragLeave}
                                         onDrop={(e) => handleDrop(e, col.status)}
                                     >
                                         {/* Column Header */}
-                                        <div class={`px-4 py-3 rounded-t-xl bg-gradient-to-r ${col.color} flex items-center justify-between`}>
+                                        <div
+                                            class={`px-4 py-3 rounded-t-xl bg-gradient-to-r ${col.color} flex items-center justify-between`}
+                                        >
                                             <div class="flex items-center gap-2">
-                                                <h2 class="font-semibold text-white">{col.title}</h2>
+                                                <h2 class="font-semibold text-white">
+                                                    {col.title}
+                                                </h2>
                                                 <div class="flex items-center gap-2">
-                                                    <span class={`px-2 py-0.5 text-xs font-medium rounded-full ${isOverLimit ? 'bg-red-500 text-white animate-pulse' : 'bg-white/20'}`}>
+                                                    <span
+                                                        class={`px-2 py-0.5 text-xs font-medium rounded-full ${isOverLimit ? 'bg-red-500 text-white animate-pulse' : 'bg-white/20'}`}
+                                                    >
                                                         {count}
                                                     </span>
                                                     <Show when={isOverLimit}>
@@ -282,8 +372,19 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                                                             class="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-colors"
                                                             title="Delete all drafts"
                                                         >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                class="w-5 h-5"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                                stroke-width="2"
+                                                            >
+                                                                <path
+                                                                    stroke-linecap="round"
+                                                                    stroke-linejoin="round"
+                                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                                />
                                                             </svg>
                                                         </button>
                                                         <button
@@ -292,7 +393,9 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                                                             title="Run all drafts"
                                                         >
                                                             <PlayAllIcon />
-                                                            <span class="text-xs font-medium">Run All</span>
+                                                            <span class="text-xs font-medium">
+                                                                Run All
+                                                            </span>
                                                         </button>
                                                     </Show>
                                                     <button
@@ -313,7 +416,9 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                                                     type="text"
                                                     placeholder="Enter prompt title..."
                                                     value={newPromptTitle()}
-                                                    onInput={(e) => setNewPromptTitle(e.currentTarget.value)}
+                                                    onInput={(e) =>
+                                                        setNewPromptTitle(e.currentTarget.value)
+                                                    }
                                                     onKeyDown={handleKeyDown}
                                                     class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg
                                                text-white placeholder-slate-400 focus:outline-none focus:border-purple-500
@@ -322,7 +427,10 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                                                 />
                                                 <div class="flex justify-end gap-2 mt-2">
                                                     <button
-                                                        onClick={() => { setShowAddInput(false); setNewPromptTitle(''); }}
+                                                        onClick={() => {
+                                                            setShowAddInput(false);
+                                                            setNewPromptTitle('');
+                                                        }}
                                                         class="px-3 py-1 text-sm text-slate-400 hover:text-white transition-colors"
                                                     >
                                                         Cancel
@@ -349,7 +457,9 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                                             </For>
 
                                             {/* Empty state */}
-                                            <Show when={getPromptsForColumn(col.status).length === 0}>
+                                            <Show
+                                                when={getPromptsForColumn(col.status).length === 0}
+                                            >
                                                 <div class="text-center py-8 text-slate-500 text-sm">
                                                     <Show when={col.status === 'draft'}>
                                                         Click + to create your first prompt
@@ -385,8 +495,19 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                                         class="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-colors"
                                         title="Clear all errors"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="w-5 h-5"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                            />
                                         </svg>
                                     </button>
                                 </div>

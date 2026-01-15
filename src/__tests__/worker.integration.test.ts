@@ -1,8 +1,8 @@
 /**
  * @fileoverview Worker Endpoint Integration Tests
- * 
+ *
  * Tests the Cloudflare Worker API endpoints for AI interactions
- * 
+ *
  * Time Complexity: O(1) per test (network-bound)
  * Space Complexity: O(1)
  */
@@ -46,7 +46,7 @@ describe('Worker Endpoints', () => {
             });
 
             expect(response.ok).toBe(true);
-            const data = await response.json() as { outputs?: unknown[] };
+            const data = (await response.json()) as { outputs?: unknown[] };
             expect(data.outputs).toBeDefined();
         });
 
@@ -136,7 +136,7 @@ describe('Worker Endpoints', () => {
             });
 
             expect(response.ok).toBe(true);
-            const data = await response.json() as { url?: string };
+            const data = (await response.json()) as { url?: string };
             expect(data.url).toContain('/api/media/');
         });
 
@@ -179,7 +179,7 @@ describe('Worker Endpoints', () => {
             });
 
             expect(response.status).toBe(500);
-            const data = await response.json() as { error?: string };
+            const data = (await response.json()) as { error?: string };
             expect(data.error).toBeDefined();
         });
     });

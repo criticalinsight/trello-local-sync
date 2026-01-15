@@ -12,7 +12,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { initStore } from './store';
 import { initPromptStore } from './promptStore';
 import './index.css';
-import { polyfill } from "mobile-drag-drop";
+import { polyfill } from 'mobile-drag-drop';
 // import "mobile-drag-drop/default.css"; // We'll add custom minimal css or use default if needed
 
 // Initialize Drag & Drop Polyfill for touch devices
@@ -22,7 +22,7 @@ polyfill({
 });
 
 // Fix for iOS scrolling while dragging
-window.addEventListener('touchmove', function () { }, { passive: false });
+window.addEventListener('touchmove', function () {}, { passive: false });
 
 const App = () => {
     // Simple routing state
@@ -100,8 +100,19 @@ const App = () => {
                     onClick={() => navigate('/')}
                     title="Back to Home"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.5"
+                        stroke="currentColor"
+                        class="w-6 h-6"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+                        />
                     </svg>
                 </button>
             </Show>
@@ -109,7 +120,9 @@ const App = () => {
                 <PromptBoard
                     boardId={boardId()}
                     onNavigateHome={() => navigate('/')}
-                    onNavigatePresent={(promptId) => navigate(`/prompts/${boardId()}/present/${promptId}`)}
+                    onNavigatePresent={(promptId) =>
+                        navigate(`/prompts/${boardId()}/present/${promptId}`)
+                    }
                 />
             </Show>
             <Show when={page() === 'presentation'}>
@@ -130,6 +143,12 @@ const App = () => {
 
 const root = document.getElementById('root');
 if (root) {
-    render(() => <ErrorBoundary><App /></ErrorBoundary>, root);
+    render(
+        () => (
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        ),
+        root,
+    );
 }
-

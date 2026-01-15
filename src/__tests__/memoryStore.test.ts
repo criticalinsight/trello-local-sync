@@ -6,7 +6,7 @@ import {
     searchNodes,
     getMemoriesForContext,
     deleteNode,
-    memoryStore
+    memoryStore,
 } from '../memoryStore';
 
 // Mock PGlite
@@ -19,7 +19,7 @@ const mockPglite = {
 describe('MemoryStore (Relational Knowledge Graph)', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
-        // Reset store state manually for tests if needed, 
+        // Reset store state manually for tests if needed,
         // but initMemoryStore will handle most of it
         await initMemoryStore('test-board', mockPglite as any);
     });

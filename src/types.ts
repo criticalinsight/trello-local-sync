@@ -125,8 +125,8 @@ export interface PromptCard {
     workflow?: PromptWorkflow;
     // Autonomous Agent Fields
     agentMode?: AgentMode;
-    parentId?: string;      // For worker agents: link to coordinator
-    childIds?: string[];    // For coordinators: links to spawned workers
+    parentId?: string; // For worker agents: link to coordinator
+    childIds?: string[]; // For coordinators: links to spawned workers
     critique?: CritiqueConfig;
     tags?: string[];
 }

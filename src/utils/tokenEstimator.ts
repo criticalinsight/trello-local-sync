@@ -4,9 +4,9 @@
  */
 
 export const PRICING = {
-    'gemini-3-pro-preview': { input: 1.25, output: 5.00 }, // $ per 1M tokens
-    'gemini-3-flash-preview': { input: 0.10, output: 0.40 },
-    'deep-research-pro-preview-12-2025': { input: 10.00, output: 30.00 } // Estimated premium pricing
+    'gemini-3-pro-preview': { input: 1.25, output: 5.0 }, // $ per 1M tokens
+    'gemini-3-flash-preview': { input: 0.1, output: 0.4 },
+    'deep-research-pro-preview-12-2025': { input: 10.0, output: 30.0 }, // Estimated premium pricing
 } as const;
 
 export type PricingModel = keyof typeof PRICING;

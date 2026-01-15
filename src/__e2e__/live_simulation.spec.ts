@@ -6,7 +6,6 @@ test('Full lifecycle simulation on live site', async ({ page }) => {
     await page.goto('https://work.moecapital.com');
     await expect(page).toHaveTitle('Work');
 
-
     // Step 2: Create a new Prompt Board
     console.log('Creating new Prompt Board...');
     await page.click('text=New Prompt Board');
@@ -29,7 +28,9 @@ test('Full lifecycle simulation on live site', async ({ page }) => {
     // Step 5: Fill in the prompt
     console.log('Filling in prompt content...');
     const promptTextarea = page.locator('textarea[placeholder="Enter your prompt here..."]');
-    await promptTextarea.fill('Write a short encouraging message for an autonomous AI agent working on complex codebases.');
+    await promptTextarea.fill(
+        'Write a short encouraging message for an autonomous AI agent working on complex codebases.',
+    );
 
     // Step 6: Run the Prompt
     console.log('Triggering AI generation...');
@@ -49,7 +50,6 @@ test('Full lifecycle simulation on live site', async ({ page }) => {
     await expect(deployedBadge).toBeVisible({ timeout: 180000 }); // 3 mins for deep research if selected
     await page.screenshot({ path: 'lifecycle-deployed.png' });
     console.log('Phase: Deployed');
-
 
     // Step 8: Final visual check
     const output = page.locator('.prose'); // Markdown output container

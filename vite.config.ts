@@ -13,7 +13,7 @@ export default defineConfig({
                 manualChunks: {
                     // Vendor chunks
                     'solid-vendor': ['solid-js', 'solid-js/web', 'solid-js/store'],
-                    'pglite': ['@electric-sql/pglite'],
+                    pglite: ['@electric-sql/pglite'],
                     // Feature chunks
                     'ai-service': ['./src/aiService.ts'],
                     'memory-store': ['./src/memoryStore.ts'],

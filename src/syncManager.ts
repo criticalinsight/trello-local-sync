@@ -16,7 +16,7 @@ export class SyncManager {
     private isConnected: boolean = false;
     private flushInterval: any = null;
 
-    constructor() { }
+    constructor() {}
 
     async init(pglite: PGlite, boardId: string) {
         this.pglite = pglite;
@@ -43,7 +43,12 @@ export class SyncManager {
 
     private connect() {
         if (!navigator.onLine) return;
-        if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) return;
+        if (
+            this.socket &&
+            (this.socket.readyState === WebSocket.OPEN ||
+                this.socket.readyState === WebSocket.CONNECTING)
+        )
+            return;
 
         console.log('[SyncManager] Connecting WS...');
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -84,7 +89,7 @@ export class SyncManager {
             type: 'EXECUTE_SQL',
             sql,
             params,
-            createdAt: Date.now()
+            createdAt: Date.now(),
         };
 
         // 1. Persist to Queue
@@ -92,7 +97,13 @@ export class SyncManager {
             await this.pglite.query(
                 `INSERT INTO mutation_queue (id, board_id, type, data, created_at, synced)
                  VALUES ($1, $2, $3, $4, $5, 0)`,
-                [id, this.boardId, 'EXECUTE_SQL', JSON.stringify({ sql, params }), mutation.createdAt]
+                [
+                    id,
+                    this.boardId,
+                    'EXECUTE_SQL',
+                    JSON.stringify({ sql, params }),
+                    mutation.createdAt,
+                ],
             );
         }
 
@@ -106,20 +117,21 @@ export class SyncManager {
         if (!this.socket) return;
 
         try {
-            this.socket.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql: mutation.sql,
-                params: mutation.params,
-                clientId: this.clientId,
-                mutationId: mutation.id
-            }));
+            this.socket.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql: mutation.sql,
+                    params: mutation.params,
+                    clientId: this.clientId,
+                    mutationId: mutation.id,
+                }),
+            );
 
             // Mark as synced
             if (this.pglite) {
-                await this.pglite.query(
-                    'UPDATE mutation_queue SET synced = 1 WHERE id = $1',
-                    [mutation.id]
-                );
+                await this.pglite.query('UPDATE mutation_queue SET synced = 1 WHERE id = $1', [
+                    mutation.id,
+                ]);
                 // Optional: Delete immediately to keep table small
                 await this.pglite.query('DELETE FROM mutation_queue WHERE id = $1', [mutation.id]);
             }
@@ -133,8 +145,8 @@ export class SyncManager {
         if (!this.pglite || !this.isConnected || this.socket?.readyState !== WebSocket.OPEN) return;
 
         try {
-            const res = await this.pglite.query<{ id: string, data: string }>(
-                'SELECT id, data FROM mutation_queue WHERE synced = 0 ORDER BY created_at ASC LIMIT 50'
+            const res = await this.pglite.query<{ id: string; data: string }>(
+                'SELECT id, data FROM mutation_queue WHERE synced = 0 ORDER BY created_at ASC LIMIT 50',
             );
 
             if (res.rows.length === 0) return;
@@ -148,7 +160,7 @@ export class SyncManager {
                     type: 'EXECUTE_SQL',
                     sql: data.sql,
                     params: data.params,
-                    createdAt: 0 // Not needed for send
+                    createdAt: 0, // Not needed for send
                 };
                 await this.send(mutation);
             }
@@ -196,16 +208,18 @@ export class SyncManager {
                 created_at BIGINT NOT NULL
             )`,
             // Migration for existing tables: (Will fail safely if column exists)
-            `ALTER TABLE prompt_versions ADD COLUMN model TEXT`
+            `ALTER TABLE prompt_versions ADD COLUMN model TEXT`,
         ];
 
-        tables.forEach(sql => {
-            this.socket?.send(JSON.stringify({
-                type: 'EXECUTE_SQL',
-                sql,
-                params: [],
-                clientId: this.clientId
-            }));
+        tables.forEach((sql) => {
+            this.socket?.send(
+                JSON.stringify({
+                    type: 'EXECUTE_SQL',
+                    sql,
+                    params: [],
+                    clientId: this.clientId,
+                }),
+            );
         });
     }
 }

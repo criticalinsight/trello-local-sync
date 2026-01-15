@@ -1,9 +1,9 @@
 /**
  * @fileoverview Prompt Workflow E2E Tests
- * 
+ *
  * End-to-end tests for the complete prompt engineering workflow:
  * Draft → Queued → Generating → Deployed
- * 
+ *
  * Time Complexity: O(n) where n = number of prompts
  * Space Complexity: O(n) for store state
  */
@@ -66,10 +66,18 @@ const createVersion = (promptId: string, content: string): string => {
     return id;
 };
 
-const moveToQueued = (id: string) => { prompts[id].status = 'queued'; };
-const moveToGenerating = (id: string) => { prompts[id].status = 'generating'; };
-const moveToDeployed = (id: string) => { prompts[id].status = 'deployed'; };
-const moveToError = (id: string) => { prompts[id].status = 'error'; };
+const moveToQueued = (id: string) => {
+    prompts[id].status = 'queued';
+};
+const moveToGenerating = (id: string) => {
+    prompts[id].status = 'generating';
+};
+const moveToDeployed = (id: string) => {
+    prompts[id].status = 'deployed';
+};
+const moveToError = (id: string) => {
+    prompts[id].status = 'error';
+};
 
 describe('Prompt Workflow E2E', () => {
     beforeEach(() => {
@@ -139,19 +147,19 @@ describe('Prompt Workflow E2E', () => {
             }
 
             // All should be drafts
-            ids.forEach(id => expect(prompts[id].status).toBe('draft'));
+            ids.forEach((id) => expect(prompts[id].status).toBe('draft'));
 
             // Batch queue
-            ids.forEach(id => moveToQueued(id));
+            ids.forEach((id) => moveToQueued(id));
 
             // All should be queued
-            ids.forEach(id => expect(prompts[id].status).toBe('queued'));
+            ids.forEach((id) => expect(prompts[id].status).toBe('queued'));
         });
 
         test('limits concurrent executions', () => {
             const CONCURRENT_LIMIT = 5;
             const generatingCount = () =>
-                Object.values(prompts).filter(p => p.status === 'generating').length;
+                Object.values(prompts).filter((p) => p.status === 'generating').length;
 
             // Create 10 prompts
             const ids = [];
@@ -176,7 +184,7 @@ describe('Prompt Workflow E2E', () => {
             createVersion(promptId, 'Version 1');
 
             const versionCount = () =>
-                Object.values(versions).filter(v => v.promptId === promptId).length;
+                Object.values(versions).filter((v) => v.promptId === promptId).length;
 
             expect(versionCount()).toBe(1);
 
@@ -192,7 +200,7 @@ describe('Prompt Workflow E2E', () => {
             const v3 = createVersion(promptId, 'Third');
 
             const history = Object.values(versions)
-                .filter(v => v.promptId === promptId)
+                .filter((v) => v.promptId === promptId)
                 .sort((a, b) => parseInt(a.id.split('-')[1]) - parseInt(b.id.split('-')[1]));
 
             expect(history.length).toBe(3);

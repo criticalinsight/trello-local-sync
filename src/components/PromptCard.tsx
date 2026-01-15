@@ -10,7 +10,10 @@ interface PromptCardProps {
 }
 
 // Status colors and labels
-const statusConfig: Record<PromptStatus, { bg: string; text: string; label: string; pulse?: boolean }> = {
+const statusConfig: Record<
+    PromptStatus,
+    { bg: string; text: string; label: string; pulse?: boolean }
+> = {
     draft: { bg: 'bg-slate-600', text: 'text-slate-100', label: 'Draft' },
     queued: { bg: 'bg-amber-600', text: 'text-amber-100', label: 'Queued' },
     generating: { bg: 'bg-blue-600', text: 'text-blue-100', label: 'Generating', pulse: true },
@@ -20,22 +23,64 @@ const statusConfig: Record<PromptStatus, { bg: string; text: string; label: stri
 
 // Icons
 const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="w-4 h-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
+    >
+        <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+        />
     </svg>
 );
 
 const PlayIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="w-4 h-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
+    >
+        <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+        />
+        <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
     </svg>
 );
 
 const SpinnerIcon = () => (
-    <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    <svg
+        class="animate-spin w-4 h-4"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+    >
+        <circle
+            class="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            stroke-width="4"
+        ></circle>
+        <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
     </svg>
 );
 
@@ -80,8 +125,10 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
         >
             {/* Header with status and actions */}
             <div class="flex items-center justify-between mb-2">
-                <span class={`px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1.5
-                              ${config().bg} ${config().text} ${config().pulse ? 'animate-pulse' : ''}`}>
+                <span
+                    class={`px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1.5
+                              ${config().bg} ${config().text} ${config().pulse ? 'animate-pulse' : ''}`}
+                >
                     <Show when={props.prompt.status === 'generating'}>
                         <SpinnerIcon />
                     </Show>
@@ -102,18 +149,12 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
             </div>
 
             {/* Title */}
-            <h3 class="font-medium text-white mb-2 truncate">
-                {props.prompt.title}
-            </h3>
+            <h3 class="font-medium text-white mb-2 truncate">{props.prompt.title}</h3>
 
             {/* Content Preview */}
             <Show when={truncatedContent()}>
-                <p class="text-sm text-slate-400 line-clamp-3 mb-2">
-                    {truncatedContent()}
-                </p>
-                <p class="text-sm text-slate-400 line-clamp-3 mb-2">
-                    {truncatedContent()}
-                </p>
+                <p class="text-sm text-slate-400 line-clamp-3 mb-2">{truncatedContent()}</p>
+                <p class="text-sm text-slate-400 line-clamp-3 mb-2">{truncatedContent()}</p>
             </Show>
 
             {/* Tags */}

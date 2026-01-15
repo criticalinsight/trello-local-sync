@@ -1,4 +1,3 @@
-
 import { Component, createSignal, createEffect, onMount, Show } from 'solid-js';
 import { getCurrentVersion, getPromptsByStatus, promptStore } from '../promptStore';
 import { convertToPresentation, PresentationTheme } from '../presentation/converter';
@@ -84,8 +83,19 @@ export const PresentationView: Component<ViewProps> = (props) => {
                         class="p-2 hover:bg-slate-100 rounded-full text-slate-500"
                         title="Close Presentation"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="w-6 h-6"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M6 18L18 6M6 6l12 12"
+                            />
                         </svg>
                     </button>
                     <h1 class="font-bold text-lg truncate max-w-md">{title()}</h1>
@@ -136,7 +146,9 @@ export const PresentationView: Component<ViewProps> = (props) => {
                         <div class="w-full max-w-2xl space-y-4">
                             <div class="flex items-center gap-3 mb-6">
                                 <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                                <span class="text-slate-600 font-medium">Generating content...</span>
+                                <span class="text-slate-600 font-medium">
+                                    Generating content...
+                                </span>
                             </div>
                             <SkeletonLoader lines={1} class="h-8 w-3/4" />
                             <SkeletonLoader lines={3} />

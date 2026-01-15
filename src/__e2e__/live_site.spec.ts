@@ -5,7 +5,7 @@ test.describe('Live Site Verification', () => {
         // Navigate to the live site
         const response = await page.goto('https://work.moecapital.com', {
             waitUntil: 'domcontentloaded',
-            timeout: 30000
+            timeout: 30000,
         });
 
         // Check response status
@@ -22,7 +22,7 @@ test.describe('Live Site Verification', () => {
         // Take screenshot
         await page.screenshot({
             path: 'live-site-verification.png',
-            fullPage: true
+            fullPage: true,
         });
 
         // Verify key elements exist

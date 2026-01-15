@@ -6,34 +6,44 @@ export const AgentDashboard: Component = () => {
     // Get all active agents (generating or queued)
     const activeAgents = createMemo(() => {
         return Object.values(promptStore.prompts).filter(
-            p => p.status === 'generating' || p.status === 'queued'
+            (p) => p.status === 'generating' || p.status === 'queued',
         );
     });
 
     // Get coordinators with their workers
     const coordinators = createMemo(() => {
         return Object.values(promptStore.prompts).filter(
-            p => p.agentMode === 'coordinator' && p.childIds?.length
+            (p) => p.agentMode === 'coordinator' && p.childIds?.length,
         );
     });
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'generating': return 'bg-amber-500';
-            case 'queued': return 'bg-blue-500';
-            case 'deployed': return 'bg-emerald-500';
-            case 'error': return 'bg-red-500';
-            default: return 'bg-slate-500';
+            case 'generating':
+                return 'bg-amber-500';
+            case 'queued':
+                return 'bg-blue-500';
+            case 'deployed':
+                return 'bg-emerald-500';
+            case 'error':
+                return 'bg-red-500';
+            default:
+                return 'bg-slate-500';
         }
     };
 
     const getStatusLabel = (status: string) => {
         switch (status) {
-            case 'generating': return 'Running';
-            case 'queued': return 'Queued';
-            case 'deployed': return 'Complete';
-            case 'error': return 'Failed';
-            default: return status;
+            case 'generating':
+                return 'Running';
+            case 'queued':
+                return 'Queued';
+            case 'deployed':
+                return 'Complete';
+            case 'error':
+                return 'Failed';
+            default:
+                return status;
         }
     };
 
@@ -57,7 +67,11 @@ export const AgentDashboard: Component = () => {
                     <div class="max-h-64 overflow-y-auto p-3 space-y-2">
                         <For each={activeAgents()}>
                             {(agent) => (
-                                <AgentItem agent={agent} getStatusColor={getStatusColor} getStatusLabel={getStatusLabel} />
+                                <AgentItem
+                                    agent={agent}
+                                    getStatusColor={getStatusColor}
+                                    getStatusLabel={getStatusLabel}
+                                />
                             )}
                         </For>
 
@@ -86,14 +100,19 @@ const AgentItem: Component<{
     return (
         <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-all group">
             <div class="flex items-center gap-3">
-                <div class={`w-2 h-2 rounded-full ${props.getStatusColor(props.agent.status)} ${props.agent.status === 'generating' ? 'animate-pulse' : ''}`} />
+                <div
+                    class={`w-2 h-2 rounded-full ${props.getStatusColor(props.agent.status)} ${props.agent.status === 'generating' ? 'animate-pulse' : ''}`}
+                />
                 <span class="text-sm text-white font-medium truncate flex-1">
                     {props.agent.title}
                 </span>
-                <span class={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${props.agent.status === 'generating'
-                        ? 'bg-amber-500/20 text-amber-300'
-                        : 'bg-blue-500/20 text-blue-300'
-                    }`}>
+                <span
+                    class={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                        props.agent.status === 'generating'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-blue-500/20 text-blue-300'
+                    }`}
+                >
                     {props.getStatusLabel(props.agent.status)}
                 </span>
             </div>
@@ -113,19 +132,30 @@ const CoordinatorItem: Component<{
 }> = (props) => {
     const workers = createMemo(() => {
         return (props.coordinator.childIds || [])
-            .map(id => promptStore.prompts[id])
+            .map((id) => promptStore.prompts[id])
             .filter(Boolean);
     });
 
-    const completedCount = createMemo(() =>
-        workers().filter(w => w.status === 'deployed' || w.status === 'error').length
+    const completedCount = createMemo(
+        () => workers().filter((w) => w.status === 'deployed' || w.status === 'error').length,
     );
 
     return (
         <div class="p-3 bg-slate-800/50 rounded-xl border border-purple-500/30">
             <div class="flex items-center gap-3 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-4 h-4 text-purple-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
                 </svg>
                 <span class="text-sm text-purple-300 font-semibold truncate flex-1">
                     {props.coordinator.title}
@@ -140,9 +170,15 @@ const CoordinatorItem: Component<{
                 <For each={workers()}>
                     {(worker) => (
                         <div class="flex items-center gap-2 text-xs">
-                            <div class={`w-1.5 h-1.5 rounded-full ${props.getStatusColor(worker.status)}`} />
-                            <span class="text-slate-400 truncate flex-1">{worker.title.replace('[Worker] ', '')}</span>
-                            <span class={`${worker.status === 'deployed' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                            <div
+                                class={`w-1.5 h-1.5 rounded-full ${props.getStatusColor(worker.status)}`}
+                            />
+                            <span class="text-slate-400 truncate flex-1">
+                                {worker.title.replace('[Worker] ', '')}
+                            </span>
+                            <span
+                                class={`${worker.status === 'deployed' ? 'text-emerald-400' : 'text-slate-500'}`}
+                            >
                                 {props.getStatusLabel(worker.status)}
                             </span>
                         </div>
