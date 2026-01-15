@@ -373,6 +373,9 @@ export async function addCard(listId: string, title: string, recordHistory = tru
     // 1. Instant UI
     setStore('cards', id, card);
 
+    // Emit event
+    emitBoardEvent({ type: 'card_added', cardId: id, listId });
+
     try {
         // 2. Persist
         if (pglite) {
@@ -476,6 +479,9 @@ export async function updateCardDetails(cardId: string, updates: Partial<Card>, 
 
     // 1. Instant UI
     setStore('cards', cardId, updates);
+
+    // Emit event
+    emitBoardEvent({ type: 'card_updated', cardId, data: updates });
 
     try {
         // Prepare arrays for batch update if needed
