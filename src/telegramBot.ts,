@@ -1,0 +1,83 @@
+
+export interface Env {
+    TELEGRAM_BOT_TOKEN: string;
+}
+
+interface TelegramUpdate {
+    update_id: number;
+    message?: {
+        message_id: number;
+        from: {
+            id: number;
+            is_bot: boolean;
+            first_name: string;
+            username?: string;
+        };
+        chat: {
+            id: number;
+            type: string;
+        };
+        date: number;
+        text?: string;
+    };
+}
+
+export async function handleTelegramWebhook(request: Request, env: Env): Promise<Response> {
+    try {
+        const update = await request.json() as TelegramUpdate;
+        
+        // Basic Logging
+        console.log('[Telegram] Received update:', update.update_id);
+
+        if (update.message && update.message.text) {
+            const chatId = update.message.chat.id;
+            const text = update.message.text;
+
+            // Simple Echo/Start command
+            if (text.startsWith('/start')) {
+                await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, 
+                    "👋 **Hello!** I am Gemini Ops.\n\nI'm ready to help you manage your AI board.\nUse /help to see what I can do."
+                );
+            } else if (text.startsWith('/ping')) {
+                await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🏓 Pong! System is online.");
+            } else {
+                 // Echo for now (Debugging)
+                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `Received: ${text}`);
+            }
+        }
+
+        return new Response('OK');
+    } catch (error) {
+        console.error('[Telegram] Key Error:', error);
+        return new Response('Error', { status: 500 });
+    }
+}
+
+export async function registerWebhook(env: Env, host: string): Promise<Response> {
+    if (!env.TELEGRAM_BOT_TOKEN) {
+        return new Response('Missing TELEGRAM_BOT_TOKEN', { status: 500 });
+    }
+
+    const webhookUrl = `https://${host}/api/telegram/webhook`;
+    const apiUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+
+    const response = await fetch(apiUrl);
+    const result = await response.json();
+
+    return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+    });
+}
+
+async function sendTelegramMessage(token: string, chatId: number, text: string) {
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            chat_id: chatId,
+            text: text,
+            parse_mode: 'Markdown'
+        })
+    });
+}
