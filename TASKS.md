@@ -1,13 +1,11 @@
 # Ralph Tasks
 
-## Active Task
-- [ ] UX Polish (Phase 8)
-
-## Backlog
-- [ ] Agent Status Dashboard
-- [ ] Polished Interactions (Animations, Snackbars)
+## Active
+- Project maintenance
 
 ## Completed
+- [x] Phase 9: Observability & Polish
+- [x] Phase 8: UX Polish
 - [x] Phase 7: Autonomous Agents
 - [x] Phase 4: Smart Automation
 - [x] Phase 3: Resilience & Memory
