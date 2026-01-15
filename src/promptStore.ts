@@ -10,6 +10,7 @@ import type {
     PromptSyncMessage,
     PromptWorkflow,
 } from './types';
+import { generateTags } from './utils/autoTagger';
 import { syncManager } from './syncManager';
 
 // ============= STATE =============
@@ -126,7 +127,8 @@ export async function initPromptPGlite(boardId: string) {
             starred INTEGER DEFAULT 0,
             archived INTEGER DEFAULT 0,
             schedule_json TEXT,
-            workflow_json TEXT
+            workflow_json TEXT,
+            tags TEXT
         );
     `);
 
@@ -158,6 +160,12 @@ export async function initPromptPGlite(boardId: string) {
     } catch (e) {
         // Column already exists, ignore
     }
+    // Migration: Add tags column to prompts if not exists
+    try {
+        await pglite.exec(`ALTER TABLE prompts ADD COLUMN tags TEXT;`); // Stored as JSON string
+    } catch (e) {
+        // Column already exists, ignore
+    }
 
     // Subscribe to board events
     const { onBoardEvent } = await import('./store');
@@ -176,7 +184,8 @@ export async function initPromptPGlite(boardId: string) {
             output TEXT,
             created_at BIGINT NOT NULL,
             execution_time INTEGER,
-            error TEXT
+            error TEXT,
+            model TEXT
         );
     `);
 
@@ -224,7 +233,7 @@ async function loadPromptsFromDB() {
     const promptsResult = await pglite.query<any>(
         `SELECT id, title, board_id as "boardId", status, current_version_id as "currentVersionId", 
          pos, created_at as "createdAt", deployed_at as "deployedAt", 
-         starred = 1 as starred, archived = 1 as archived, schedule_json, workflow_json
+         starred = 1 as starred, archived = 1 as archived, schedule_json, workflow_json, tags
          FROM prompts WHERE board_id = $1 AND archived = 0 ORDER BY pos`,
         [currentBoardId]
     );
@@ -245,15 +254,34 @@ async function loadPromptsFromDB() {
         s.prompts = {};
         s.versions = {};
 
-        for (const row of promptsResult.rows) {
-            s.prompts[row.id] = {
-                ...row,
-                starred: Boolean(row.starred),
-                archived: Boolean(row.archived),
+        const promptsMap: Record<string, PromptCard> = {};
+        promptsResult.rows.forEach((row: any) => {
+            let tags: string[] = [];
+            try {
+                if (row.tags) {
+                    tags = JSON.parse(row.tags);
+                }
+            } catch (e) {
+                console.warn('Failed to parse tags for prompt', row.id, e);
+            }
+
+            promptsMap[row.id] = {
+                id: row.id,
+                title: row.title,
+                boardId: row.boardId,
+                status: row.status as PromptStatus,
+                currentVersionId: row.currentVersionId,
+                pos: row.pos,
+                createdAt: row.createdAt,
+                deployedAt: row.deployedAt,
+                starred: row.starred ? true : false,
+                archived: row.archived ? true : false,
                 schedule: row.schedule_json ? JSON.parse(row.schedule_json) : undefined,
-                workflow: row.workflow_json ? JSON.parse(row.workflow_json) : undefined
+                workflow: row.workflow_json ? JSON.parse(row.workflow_json) : undefined,
+                tags: tags
             };
-        }
+        });
+        s.prompts = promptsMap;
 
         for (const row of (versionsResult.rows as any[])) {
             s.versions[row.id] = {
@@ -288,6 +316,7 @@ export async function addPrompt(title: string): Promise<string> {
         status: 'draft',
         pos,
         createdAt: now,
+        tags: []
     };
 
     // Update store immediately (optimistic)
@@ -298,15 +327,15 @@ export async function addPrompt(title: string): Promise<string> {
     // Persist to DB
     if (pglite) {
         await pglite.query(
-            `INSERT INTO prompts (id, title, board_id, status, pos, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [id, title, currentBoardId, 'draft', pos, now]
+            `INSERT INTO prompts (id, title, board_id, status, pos, created_at, tags)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [id, title, currentBoardId, 'draft', pos, now, JSON.stringify([])]
         );
 
         // Sync
         await syncManager.enqueue(
-            `INSERT INTO prompts (id, title, board_id, status, pos, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-            [id, title, currentBoardId, 'draft', pos, now]
+            `INSERT INTO prompts (id, title, board_id, status, pos, created_at, tags) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [id, title, currentBoardId, 'draft', pos, now, JSON.stringify([])]
         );
     }
 
@@ -368,6 +397,10 @@ export async function updatePrompt(id: string, updates: Partial<PromptCard>) {
                 fields.push(`workflow_json = $${idx++}`);
                 values.push(JSON.stringify(updates.workflow));
             }
+            if (updates.tags !== undefined) {
+                fields.push(`tags = $${idx++}`);
+                values.push(JSON.stringify(updates.tags));
+            }
 
             if (fields.length > 0) {
                 values.push(id);
@@ -421,6 +454,14 @@ export async function createVersion(
 ): Promise<string> {
     const id = genId();
     const now = Date.now();
+
+    // Auto-Tagging
+    if (content) {
+        const newTags = generateTags(content);
+        if (newTags.length > 0) {
+            await updatePrompt(promptId, { tags: newTags });
+        }
+    }
 
     const version: PromptVersion = {
         id,
@@ -476,6 +517,14 @@ export async function updateVersion(id: string, updates: Partial<PromptVersion>)
     }));
 
     if (pglite) {
+        // Auto-Tagging on update if content changed
+        if (updates.content !== undefined) {
+            const newTags = generateTags(updates.content);
+            if (newTags.length > 0) {
+                await updatePrompt(existing.promptId, { tags: newTags });
+            }
+        }
+
         const fields: string[] = [];
         const values: unknown[] = [];
         let idx = 1;
