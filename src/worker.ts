@@ -206,7 +206,30 @@ export default {
             return stub.fetch(request);
         }
 
-        return env.ASSETS.fetch(request);
+        // Serve static assets with appropriate caching
+        const response = await env.ASSETS.fetch(request);
+
+        // Add cache headers based on file type
+        const responseUrl = new URL(request.url);
+        const headers = new Headers(response.headers);
+
+        // Hashed assets (e.g., index-abc123.js) can be cached forever
+        if (responseUrl.pathname.match(/\.[a-f0-9]{8,}\.(js|css|wasm|data)$/)) {
+            headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+        // HTML should always be revalidated to get latest version
+        else if (responseUrl.pathname.endsWith('.html') || responseUrl.pathname === '/') {
+            headers.set('Cache-Control', 'no-cache, must-revalidate');
+        }
+        // Other assets: short cache with revalidation
+        else {
+            headers.set('Cache-Control', 'public, max-age=3600, must-revalidate');
+        }
+
+        return new Response(response.body, {
+            status: response.status,
+            headers
+        });
     },
 
     // Handle Cron Triggers
