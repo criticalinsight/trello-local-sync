@@ -153,6 +153,11 @@ export async function initPromptPGlite(boardId: string) {
     } catch (e) {
         // Column already exists, ignore
     }
+    try {
+        await pglite.exec(`ALTER TABLE prompt_versions ADD COLUMN model TEXT;`);
+    } catch (e) {
+        // Column already exists, ignore
+    }
 
     // Subscribe to board events
     const { onBoardEvent } = await import('./store');
@@ -225,9 +230,8 @@ async function loadPromptsFromDB() {
     );
 
     // Load versions
-    const versionsResult = await pglite.query<PromptVersion>(
-        `SELECT v.id, v.prompt_id as "promptId", v.content, v.system_instructions as "systemInstructions",
-         v.temperature, v.top_p as "topP", v.max_tokens as "maxTokens", v.output,
+    `SELECT v.id, v.prompt_id as "promptId", v.content, v.system_instructions as "systemInstructions",
+         v.temperature, v.top_p as "topP", v.max_tokens as "maxTokens", v.model, v.output,
          v.created_at as "createdAt", v.execution_time as "executionTime", v.error
          FROM prompt_versions v
          INNER JOIN prompts p ON v.prompt_id = p.id
@@ -436,9 +440,9 @@ export async function createVersion(
     // Persist to DB
     if (pglite) {
         await pglite.query(
-            `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [id, promptId, content, systemInstructions || null, parameters.temperature, parameters.topP, parameters.maxTokens, now]
+            `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [id, promptId, content, systemInstructions || null, parameters.temperature, parameters.topP, parameters.maxTokens, parameters.model || null, now]
         );
 
         await pglite.query(
@@ -448,8 +452,8 @@ export async function createVersion(
 
         // Sync
         await syncManager.enqueue(
-            `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, promptId, content, systemInstructions || null, parameters.temperature, parameters.topP, parameters.maxTokens, now]
+            `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, promptId, content, systemInstructions || null, parameters.temperature, parameters.topP, parameters.maxTokens, parameters.model || null, now]
         );
 
         await syncManager.enqueue(
@@ -497,6 +501,10 @@ export async function updateVersion(id: string, updates: Partial<PromptVersion>)
         if (updates.parameters?.maxTokens !== undefined) {
             fields.push(`max_tokens = $${idx++}`);
             values.push(updates.parameters.maxTokens);
+        }
+        if (updates.parameters?.model !== undefined) {
+            fields.push(`model = $${idx++}`);
+            values.push(updates.parameters.model);
         }
         if (updates.executionTime !== undefined) {
             fields.push(`execution_time = $${idx++}`);
