@@ -362,15 +362,22 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                             </div>
                         </Show>
                     </div>
+                </Show>
 
-                    {/* Playground Modal */}
-                    <Show when={selectedPromptId()}>
-                        <PromptPlayground
-                            promptId={selectedPromptId()!}
-                            onClose={handleClosePlayground}
-                            onPresent={() => props.onNavigatePresent?.(selectedPromptId()!)}
-                        />
-                    </Show>
+                <Show when={view() === 'analytics'}>
+                    <div class="h-[calc(100vh-80px)] overflow-y-auto">
+                        <AnalyticsView />
+                    </div>
+                </Show>
+
+                {/* Playground Modal */}
+                <Show when={selectedPromptId()}>
+                    <PromptPlayground
+                        promptId={selectedPromptId()!}
+                        onClose={handleClosePlayground}
+                        onPresent={() => props.onNavigatePresent?.(selectedPromptId()!)}
+                    />
+                </Show>
             </div>
         </Show>
     );
