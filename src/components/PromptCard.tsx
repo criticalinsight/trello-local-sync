@@ -111,6 +111,22 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
                 <p class="text-sm text-slate-400 line-clamp-3 mb-2">
                     {truncatedContent()}
                 </p>
+                <p class="text-sm text-slate-400 line-clamp-3 mb-2">
+                    {truncatedContent()}
+                </p>
+            </Show>
+
+            {/* Tags */}
+            <Show when={props.prompt.tags && props.prompt.tags.length > 0}>
+                <div class="flex flex-wrap gap-1 mb-2">
+                    <For each={props.prompt.tags}>
+                        {(tag) => (
+                            <span class="px-1.5 py-0.5 text-[10px] bg-slate-700 text-slate-300 rounded border border-slate-600">
+                                {tag}
+                            </span>
+                        )}
+                    </For>
+                </div>
             </Show>
 
             {/* Footer with metadata */}
