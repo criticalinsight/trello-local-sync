@@ -290,22 +290,34 @@ export function getMemoriesForContext(limit = 10, query?: string): string {
         if (keywords.length > 0) {
             // 1. Find directly matching nodes with scores
             const matches = Object.values(memoryStore.nodes).map(node => {
-                let score = 0;
+                let baseScore = 0;
+                let keywordMatches = 0;
                 const nodeText = `${node.key} ${node.value} ${node.tags.join(' ')}`.toLowerCase();
 
                 for (const kw of keywords) {
-                    if (nodeText.includes(kw)) score += 1;
-                    if (node.key.toLowerCase().includes(kw)) score += 2; // Primary key match weight
+                    let matched = false;
+                    if (nodeText.includes(kw)) {
+                        baseScore += 1;
+                        matched = true;
+                    }
+                    if (node.key.toLowerCase().includes(kw)) {
+                        baseScore += 4;
+                        matched = true;
+                    }
+                    if (matched) keywordMatches++;
                 }
-                return { node, score };
+
+                // Square the keywordMatches to heavily favor nodes matching multiple terms
+                const finalScore = baseScore * (keywordMatches * keywordMatches);
+                return { node, score: finalScore };
             })
                 .filter(m => m.score > 0)
                 .sort((a, b) => b.score - a.score);
 
             if (matches.length > 0) {
-                // Determine a threshold (e.g., at least 50% of the max score)
+                // Determine a threshold (favoring top results)
                 const maxScore = matches[0].score;
-                const threshold = Math.max(2, maxScore * 0.5); // Minimum score of 2 to avoid weak matches like stop-words
+                const threshold = Math.max(2, maxScore * 0.4);
 
                 const highConfidenceMatches = matches.filter(m => m.score >= threshold);
 
