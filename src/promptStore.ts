@@ -398,6 +398,10 @@ export async function deletePrompt(id: string) {
     if (pglite) {
         await pglite.query(`DELETE FROM prompt_versions WHERE prompt_id = $1`, [id]);
         await pglite.query(`DELETE FROM prompts WHERE id = $1`, [id]);
+
+        // Sync
+        await syncManager.enqueue(`DELETE FROM prompt_versions WHERE prompt_id = ?`, [id]);
+        await syncManager.enqueue(`DELETE FROM prompts WHERE id = ?`, [id]);
     }
 }
 
@@ -439,6 +443,17 @@ export async function createVersion(
 
         await pglite.query(
             `UPDATE prompts SET current_version_id = $1 WHERE id = $2`,
+            [id, promptId]
+        );
+
+        // Sync
+        await syncManager.enqueue(
+            `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, promptId, content, systemInstructions || null, parameters.temperature, parameters.topP, parameters.maxTokens, now]
+        );
+
+        await syncManager.enqueue(
+            `UPDATE prompts SET current_version_id = ? WHERE id = ?`,
             [id, promptId]
         );
     }
@@ -496,6 +511,13 @@ export async function updateVersion(id: string, updates: Partial<PromptVersion>)
             values.push(id);
             await pglite.query(
                 `UPDATE prompt_versions SET ${fields.join(', ')} WHERE id = $${idx}`,
+                values
+            );
+
+            // Sync
+            const syncFields = fields.map(f => f.split('=')[0] + '= ?');
+            await syncManager.enqueue(
+                `UPDATE prompt_versions SET ${syncFields.join(', ')} WHERE id = ?`,
                 values
             );
         }
