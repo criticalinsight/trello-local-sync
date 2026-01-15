@@ -199,20 +199,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 <div class="flex-1 flex overflow-hidden">
                     {/* Left Panel - Editor */}
                     <div class="w-1/2 flex flex-col border-r border-slate-700 overflow-y-auto">
-                        {/* System Instructions */}
-                        <div class="p-4 border-b border-slate-700">
-                            <label class="block text-sm font-medium text-slate-400 mb-2">System Instructions</label>
-                            <textarea
-                                value={systemInstructions()}
-                                onInput={(e) => { setSystemInstructions(e.currentTarget.value); markChanged(); }}
-                                placeholder="Optional system context..."
-                                class="w-full h-20 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg
-                                       text-white placeholder-slate-500 resize-none focus:outline-none
-                                       focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm"
-                            />
-                        </div>
-
-                        {/* Prompt Content */}
+                        {/* Prompt Content - VISIBLE FIRST */}
                         <div class="flex-1 p-4">
                             <label class="block text-sm font-medium text-slate-400 mb-2">Prompt</label>
                             <textarea
@@ -224,6 +211,30 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                        focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                             />
                         </div>
+
+                        {/* System Instructions - Collapsible */}
+                        <details class="border-t border-slate-700">
+                            <summary class="p-4 cursor-pointer text-sm font-medium text-slate-400 hover:text-slate-300 
+                                           flex items-center gap-2 select-none">
+                                <svg class="w-4 h-4 transition-transform details-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                </svg>
+                                System Instructions
+                                <Show when={systemInstructions()}>
+                                    <span class="px-1.5 py-0.5 text-xs bg-purple-600/30 text-purple-300 rounded">set</span>
+                                </Show>
+                            </summary>
+                            <div class="px-4 pb-4">
+                                <textarea
+                                    value={systemInstructions()}
+                                    onInput={(e) => { setSystemInstructions(e.currentTarget.value); markChanged(); }}
+                                    placeholder="Optional system context..."
+                                    class="w-full h-20 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg
+                                           text-white placeholder-slate-500 resize-none focus:outline-none
+                                           focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm"
+                                />
+                            </div>
+                        </details>
                     </div>
 
                     {/* Right Panel - Output Preview */}
