@@ -60,6 +60,33 @@ export class BoardDO extends DurableObject {
         details TEXT,
         created_at INTEGER NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS prompts (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        board_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        pos REAL NOT NULL,
+        created_at INTEGER NOT NULL,
+        tags TEXT,
+        current_version_id TEXT,
+        deployed_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS prompt_versions (
+        id TEXT PRIMARY KEY,
+        prompt_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        system_instructions TEXT,
+        temperature REAL,
+        top_p REAL,
+        max_tokens INTEGER,
+        model TEXT,
+        execution_time INTEGER,
+        output TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (prompt_id) REFERENCES prompts(id)
+      );
     `);
 
         // Migration for existing databases
