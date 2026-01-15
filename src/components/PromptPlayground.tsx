@@ -19,6 +19,7 @@ import { PROMPT_TEMPLATES, type PromptTemplate } from '../data/templates';
 import { TemplateModal } from './TemplateModal';
 import { GEMINI_MODELS, generate, type GeminiModel } from '../aiService';
 import { VersionDiff } from './VersionDiff';
+import { estimateTokens, estimateCost, formatCost } from '../utils/tokenEstimator';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -262,6 +263,17 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     </div>
 
                     <div class="flex items-center gap-2">
+                        {/* Token Badge */}
+                        <div class="flex items-center gap-2 mr-4 px-3 py-1.5 bg-slate-800 rounded border border-slate-700 text-xs shadow-sm">
+                            <span class={`font-medium ${stats().tokens > 30000 ? 'text-red-400' : stats().tokens > 10000 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                                ~{stats().tokens.toLocaleString()} tokens
+                            </span>
+                            <span class="text-slate-500">|</span>
+                            <span class="text-slate-400">
+                                {formatCost(stats().cost)}
+                            </span>
+                        </div>
+
                         <Show when={props.onPresent}>
                             <button
                                 onClick={props.onPresent}
