@@ -714,23 +714,37 @@ export class BoardDO extends DurableObject<Env> {
             const params = JSON.parse(task.parameters);
             console.log(`[BoardDO] Executing task: ${task.id}`);
 
-            const response = await fetch('http://127.0.0.1/api/ai/generate', {
+            // Use Gemini Interactions API with the configured API key
+            const apiKey = this.env.GEMINI_API_KEY;
+            if (!apiKey) {
+                throw new Error('GEMINI_API_KEY not configured in worker environment');
+            }
+
+            // Use Interactions API endpoint (same as worker.ts)
+            const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+            const model = params.model || 'gemini-2.0-flash';
+
+            const response = await fetch(apiUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey,
+                },
                 body: JSON.stringify({
                     input: task.prompt_content,
-                    generationConfig: {
-                        temperature: params.temperature,
-                        topP: params.topP,
-                        maxOutputTokens: params.maxTokens,
-                    },
+                    model: model,
                 }),
             });
 
-            if (!response.ok) throw new Error(`AI Service Error: ${response.status}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Gemini Interactions API Error ${response.status}: ${errorText}`);
+            }
 
-            const result = (await response.json()) as any;
-            const output = result.text || result.content || JSON.stringify(result);
+            const data = (await response.json()) as any;
+            // Extract text from Interactions API response format
+            const outputs = data.outputs || [];
+            const output = outputs[0]?.text || outputs[0]?.content || JSON.stringify(data);
             const now = Date.now();
 
             // 1. Log Result
@@ -744,7 +758,7 @@ export class BoardDO extends DurableObject<Env> {
                 task.id,
                 output,
                 now,
-                result.executionTime || 0,
+                0, // Interactions API doesn't return executionTime
             );
 
             // 2. Update Prompt Version with output
@@ -753,7 +767,7 @@ export class BoardDO extends DurableObject<Env> {
                 UPDATE prompt_versions SET output = ?, execution_time = ? WHERE id = ?
             `,
                 output,
-                result.executionTime || 0,
+                0, // Interactions API doesn't return executionTime
                 task.current_version_id,
             );
 
@@ -785,7 +799,7 @@ export class BoardDO extends DurableObject<Env> {
                 await sendNotification(
                     this.env.TELEGRAM_BOT_TOKEN,
                     this.env as any,
-                    `✅ **Job Complete!**\n\nPrompt: ${promptTitle}\nDuration: ${result.executionTime}ms\n\nPreview:\n${output.substring(0, 100)}...`,
+                    `✅ **Job Complete!**\n\nPrompt: ${promptTitle}\n\nPreview:\n${output.substring(0, 100)}...`,
                 );
             }
 
