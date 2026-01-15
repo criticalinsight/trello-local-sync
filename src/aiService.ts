@@ -19,7 +19,10 @@ import type { PromptParameters } from './types';
 /** Available Gemini models in priority order */
 export const GEMINI_MODELS = [
     'deep-research-pro-preview-12-2025', // Agent model (requires background mode)
-    'gemini-3-pro-preview', // Standard model (sync)
+    'gemini-3-pro-preview', // Standard Pro (sync)
+    'gemini-3-flash', // Fast Flash (sync)
+    'gemini-2.5-pro', // Stable Pro (sync)
+    'gemini-2.5-flash', // Stable Flash (sync) - highest free tier limits
 ] as const;
 
 /** Type for supported Gemini model identifiers */
@@ -39,6 +42,9 @@ const MODEL_CONFIG: Readonly<
 > = {
     'deep-research-pro-preview-12-2025': { isAgent: true, requiresBackground: true },
     'gemini-3-pro-preview': { isAgent: false, requiresBackground: false },
+    'gemini-3-flash': { isAgent: false, requiresBackground: false },
+    'gemini-2.5-pro': { isAgent: false, requiresBackground: false },
+    'gemini-2.5-flash': { isAgent: false, requiresBackground: false },
 };
 
 // ============= CONFIGURATION =============

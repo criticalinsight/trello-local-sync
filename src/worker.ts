@@ -6,7 +6,10 @@ import { handleTelegramWebhook, registerWebhook } from './telegramBot';
 // Model configuration for Interactions API
 const GEMINI_MODELS = [
     'deep-research-pro-preview-12-2025', // Agent (background mode)
-    'gemini-3-pro-preview', // Standard (sync)
+    'gemini-3-pro-preview', // Standard Pro (sync)
+    'gemini-3-flash', // Fast Flash (sync)
+    'gemini-2.5-pro', // Stable Pro (sync)
+    'gemini-2.5-flash', // Stable Flash (sync) - highest free tier limits
 ] as const;
 
 type GeminiModel = (typeof GEMINI_MODELS)[number];
@@ -14,6 +17,9 @@ type GeminiModel = (typeof GEMINI_MODELS)[number];
 const MODEL_CONFIG: Record<GeminiModel, { isAgent: boolean; requiresBackground: boolean }> = {
     'deep-research-pro-preview-12-2025': { isAgent: true, requiresBackground: true },
     'gemini-3-pro-preview': { isAgent: false, requiresBackground: false },
+    'gemini-3-flash': { isAgent: false, requiresBackground: false },
+    'gemini-2.5-pro': { isAgent: false, requiresBackground: false },
+    'gemini-2.5-flash': { isAgent: false, requiresBackground: false },
 };
 
 import { Env } from './types';
@@ -102,8 +108,8 @@ export default {
                             errorMsg.includes('503') ||
                             errorMsg.includes('RESOURCE_EXHAUSTED')
                         ) {
-                            console.log('[Worker] Falling back to gemini-3-pro-preview');
-                            const fallbackModel = 'gemini-3-pro-preview' as GeminiModel;
+                            console.log('[Worker] Falling back to gemini-2.5-flash');
+                            const fallbackModel = 'gemini-2.5-flash' as GeminiModel;
                             const result = await callInteractionsAPI(
                                 env.GEMINI_API_KEY,
                                 fallbackModel,
@@ -140,11 +146,11 @@ export default {
                     const errorMsg = (syncError as Error).message;
                     // Try fallback if not already on fallback model
                     if (
-                        requestedModel !== 'gemini-3-pro-preview' &&
+                        requestedModel !== 'gemini-2.5-flash' &&
                         (errorMsg.includes('429') || errorMsg.includes('503'))
                     ) {
                         console.log('[Worker] Sync model rate limited, trying fallback');
-                        const fallbackModel = 'gemini-3-pro-preview' as GeminiModel;
+                        const fallbackModel = 'gemini-2.5-flash' as GeminiModel;
                         const result = await callInteractionsAPI(
                             env.GEMINI_API_KEY,
                             fallbackModel,
