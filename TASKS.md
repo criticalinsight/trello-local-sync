@@ -1,13 +1,16 @@
 # Ralph Tasks
 
 ## Active Task
-- [ ] Scheduled Prompts (Cron) (Phase 4)
+- [ ] Strategic Scale (Phase 6)
 
 ## Backlog
-- [ ] Triggered Workflows
-- [ ] Output Pipelines (Slack/Notion)
+- [ ] SDK/API Access
+- [ ] A/B Testing Prompts
+- [ ] Cost Dashboard
 
 ## Completed
+- [x] Triggered Workflows (Board Events)
+- [x] Scheduled Prompts (Cron)
 - [x] Context Injection Logic (Intent-Based Retrieval)
 - [x] Persistent Memory System (Relational Knowledge Graph)
 - [x] Fixed PromptBoard Loading Hang
