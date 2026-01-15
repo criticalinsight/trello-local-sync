@@ -12,9 +12,7 @@
   - [x] Auto-updating service worker
   - [x] Cache-control headers
 
-## 🔮 Future (Phase 11)
-- [ ] Offline-first sync
-- [ ] Collaborative editing
-- [ ] Template library
-- [ ] Analytics dashboard
-- [ ] Voice input
+## 🚀 Refactoring & Deployment (Phase 11)
+- [ ] /test @[/refactor] @[/test] - Comprehensive refactor and verification <!-- id: p11_0 -->
+- [ ] Update documentation after refactor <!-- id: p11_1 -->
+- [ ] @[/c] with authlogin - Production deployment <!-- id: p11_2 -->
