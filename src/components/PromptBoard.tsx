@@ -15,10 +15,10 @@ import { ThemeToggle } from './ThemeToggle';
 import { AnalyticsView } from './AnalyticsView';
 
 // Column configuration
-const columns: { status: PromptStatus; title: string; color: string; headerAction?: 'add' | 'runAll' }[] = [
+const columns: { status: PromptStatus; title: string; color: string; headerAction?: 'add' | 'runAll'; wipLimit?: number }[] = [
     { status: 'draft', title: 'Draft Prompts', color: 'from-slate-600 to-slate-700', headerAction: 'add' },
     { status: 'queued', title: 'Queued', color: 'from-amber-600 to-amber-700' },
-    { status: 'generating', title: 'Generating', color: 'from-blue-600 to-blue-700' },
+    { status: 'generating', title: 'Generating', color: 'from-blue-600 to-blue-700', wipLimit: 5 },
     { status: 'deployed', title: 'Deployed', color: 'from-emerald-600 to-emerald-700' },
 ];
 
@@ -232,104 +232,118 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                 <Show when={view() === 'board'}>
                     <div class="flex gap-4 p-6 overflow-x-auto min-h-[calc(100vh-80px)]">
                         <For each={columns}>
-                            {(col) => (
-                                <div
-                                    class={`flex-shrink-0 w-80 flex flex-col rounded-xl bg-slate-800/50 border transition-colors
-                                    ${dragOverStatus() === col.status
-                                            ? 'border-blue-500 bg-blue-900/20'
-                                            : 'border-slate-700'}`}
-                                    onDragOver={(e) => handleDragOver(e, col.status)}
-                                    onDragLeave={handleDragLeave}
-                                    onDrop={(e) => handleDrop(e, col.status)}
-                                >
-                                    {/* Column Header */}
-                                    <div class={`px-4 py-3 rounded-t-xl bg-gradient-to-r ${col.color} flex items-center justify-between`}>
-                                        <div class="flex items-center gap-2">
-                                            <h2 class="font-semibold text-white">{col.title}</h2>
-                                            <span class="px-2 py-0.5 text-xs font-medium bg-white/20 rounded-full">
-                                                {getPromptsForColumn(col.status).length}
-                                            </span>
+                            {(col) => {
+                                const count = getPromptsForColumn(col.status).length;
+                                const isOverLimit = col.wipLimit && count > col.wipLimit;
+
+                                return (
+                                    <div
+                                        class={`flex-shrink-0 w-80 flex flex-col rounded-xl bg-slate-800/50 border transition-colors
+                                    ${isOverLimit
+                                                ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
+                                                : dragOverStatus() === col.status
+                                                    ? 'border-blue-500 bg-blue-900/20'
+                                                    : 'border-slate-700'}`}
+                                        onDragOver={(e) => handleDragOver(e, col.status)}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={(e) => handleDrop(e, col.status)}
+                                    >
+                                        {/* Column Header */}
+                                        <div class={`px-4 py-3 rounded-t-xl bg-gradient-to-r ${col.color} flex items-center justify-between`}>
+                                            <div class="flex items-center gap-2">
+                                                <h2 class="font-semibold text-white">{col.title}</h2>
+                                                <div class="flex items-center gap-2">
+                                                    <span class={`px-2 py-0.5 text-xs font-medium rounded-full ${isOverLimit ? 'bg-red-500 text-white animate-pulse' : 'bg-white/20'}`}>
+                                                        {count}
+                                                    </span>
+                                                    <Show when={isOverLimit}>
+                                                        <span class="text-xs text-red-200 font-medium whitespace-nowrap">
+                                                            (Limit: {col.wipLimit})
+                                                        </span>
+                                                    </Show>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex items-center gap-1">
+                                                <Show when={col.status === 'draft'}>
+                                                    <button
+                                                        onClick={() => setShowAddInput(true)}
+                                                        class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                                                        title="Add new prompt"
+                                                    >
+                                                        <PlusIcon />
+                                                    </button>
+                                                    <Show when={getDrafts().length > 0}>
+                                                        <button
+                                                            onClick={handleRunAll}
+                                                            class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1"
+                                                            title="Run all drafts"
+                                                        >
+                                                            <PlayAllIcon />
+                                                            <span class="text-xs font-medium">Run All</span>
+                                                        </button>
+                                                    </Show>
+                                                </Show>
+                                            </div>
                                         </div>
 
-                                        <div class="flex items-center gap-1">
-                                            <Show when={col.status === 'draft'}>
-                                                <button
-                                                    onClick={() => setShowAddInput(true)}
-                                                    class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-                                                    title="Add new prompt"
-                                                >
-                                                    <PlusIcon />
-                                                </button>
-                                                <Show when={getDrafts().length > 0}>
+                                        {/* Add New Prompt Input */}
+                                        <Show when={showAddInput() && col.status === 'draft'}>
+                                            <div class="p-3 border-b border-slate-700">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Enter prompt title..."
+                                                    value={newPromptTitle()}
+                                                    onInput={(e) => setNewPromptTitle(e.currentTarget.value)}
+                                                    onKeyDown={handleKeyDown}
+                                                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg
+                                               text-white placeholder-slate-400 focus:outline-none focus:border-purple-500
+                                               focus:ring-1 focus:ring-purple-500"
+                                                    autofocus
+                                                />
+                                                <div class="flex justify-end gap-2 mt-2">
                                                     <button
-                                                        onClick={handleRunAll}
-                                                        class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1"
-                                                        title="Run all drafts"
+                                                        onClick={() => { setShowAddInput(false); setNewPromptTitle(''); }}
+                                                        class="px-3 py-1 text-sm text-slate-400 hover:text-white transition-colors"
                                                     >
-                                                        <PlayAllIcon />
-                                                        <span class="text-xs font-medium">Run All</span>
+                                                        Cancel
                                                     </button>
-                                                </Show>
+                                                    <button
+                                                        onClick={handleAddPrompt}
+                                                        class="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded transition-colors"
+                                                    >
+                                                        Add
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </Show>
+
+                                        {/* Cards */}
+                                        <div class="flex-1 p-3 space-y-3 overflow-y-auto">
+                                            <For each={getPromptsForColumn(col.status)}>
+                                                {(prompt) => (
+                                                    <PromptCard
+                                                        prompt={prompt}
+                                                        onOpen={handleOpenPlayground}
+                                                    />
+                                                )}
+                                            </For>
+
+                                            {/* Empty state */}
+                                            <Show when={getPromptsForColumn(col.status).length === 0}>
+                                                <div class="text-center py-8 text-slate-500 text-sm">
+                                                    <Show when={col.status === 'draft'}>
+                                                        Click + to create your first prompt
+                                                    </Show>
+                                                    <Show when={col.status !== 'draft'}>
+                                                        No prompts yet
+                                                    </Show>
+                                                </div>
                                             </Show>
                                         </div>
                                     </div>
-
-                                    {/* Add New Prompt Input */}
-                                    <Show when={showAddInput() && col.status === 'draft'}>
-                                        <div class="p-3 border-b border-slate-700">
-                                            <input
-                                                type="text"
-                                                placeholder="Enter prompt title..."
-                                                value={newPromptTitle()}
-                                                onInput={(e) => setNewPromptTitle(e.currentTarget.value)}
-                                                onKeyDown={handleKeyDown}
-                                                class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg
-                                               text-white placeholder-slate-400 focus:outline-none focus:border-purple-500
-                                               focus:ring-1 focus:ring-purple-500"
-                                                autofocus
-                                            />
-                                            <div class="flex justify-end gap-2 mt-2">
-                                                <button
-                                                    onClick={() => { setShowAddInput(false); setNewPromptTitle(''); }}
-                                                    class="px-3 py-1 text-sm text-slate-400 hover:text-white transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    onClick={handleAddPrompt}
-                                                    class="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded transition-colors"
-                                                >
-                                                    Add
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </Show>
-
-                                    {/* Cards */}
-                                    <div class="flex-1 p-3 space-y-3 overflow-y-auto">
-                                        <For each={getPromptsForColumn(col.status)}>
-                                            {(prompt) => (
-                                                <PromptCard
-                                                    prompt={prompt}
-                                                    onOpen={handleOpenPlayground}
-                                                />
-                                            )}
-                                        </For>
-
-                                        {/* Empty state */}
-                                        <Show when={getPromptsForColumn(col.status).length === 0}>
-                                            <div class="text-center py-8 text-slate-500 text-sm">
-                                                <Show when={col.status === 'draft'}>
-                                                    Click + to create your first prompt
-                                                </Show>
-                                                <Show when={col.status !== 'draft'}>
-                                                    No prompts yet
-                                                </Show>
-                                            </div>
-                                        </Show>
-                                    </div>
-                                </div>
-                            )}
+                                );
+                            }}
                         </For>
 
                         {/* Error Column (shown only if there are errors) */}
