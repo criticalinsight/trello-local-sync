@@ -102,6 +102,7 @@ interface GenerateResponse {
     interactionId?: string;
     executionTime: number;
     extractedMemories?: Array<{ key: string; value: string }>;
+    extractedRelations?: Array<{ sourceKey: string; relationType: string; targetKey: string }>;
 }
 
 interface InteractionRequest {
@@ -171,6 +172,24 @@ function parseMemories(content: string): Array<{ key: string; value: string }> {
         }
     }
     return memories;
+}
+
+// Helper to extract relations from content
+function parseRelations(content: string): Array<{ sourceKey: string; relationType: string; targetKey: string }> {
+    const relations: Array<{ sourceKey: string; relationType: string; targetKey: string }> = [];
+    const regex = /\[RELATION:\s*([^ ]+)\s*->\s*([^ ]+)\s*->\s*([^\]]+)\]/g;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+        if (match[1] && match[2] && match[3]) {
+            relations.push({
+                sourceKey: match[1].trim(),
+                relationType: match[2].trim(),
+                targetKey: match[3].trim()
+            });
+        }
+    }
+    return relations;
 }
 
 // Generate with a specific model

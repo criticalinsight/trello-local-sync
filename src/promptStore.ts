@@ -536,7 +536,7 @@ async function executePrompt(promptId: string) {
         const { getMemoriesForContext, addMemory } = await import('./memoryStore');
 
         // 1. Context Injection
-        const contextMemories = getMemoriesForContext(10);
+        const contextMemories = getMemoriesForContext(10, version.content);
 
         const result = await generateWithFallback({
             prompt: version.content,
@@ -545,10 +545,26 @@ async function executePrompt(promptId: string) {
             contextMemories,
         });
 
-        // 2. Memory Extraction
+        // 2. Memory & Relation Extraction
+        const { addEdge } = await import('./memoryStore');
+
         if (result.extractedMemories && result.extractedMemories.length > 0) {
             for (const mem of result.extractedMemories) {
                 await addMemory(mem.key, mem.value, ['auto-extracted']);
+            }
+        }
+
+        // Handle extracted relations from result (if any)
+        if ((result as any).extractedRelations && (result as any).extractedRelations.length > 0) {
+            for (const rel of (result as any).extractedRelations) {
+                // Find node IDs for source and target keys
+                const nodes = Object.values((await import('./memoryStore')).memoryStore.nodes);
+                const source = nodes.find(n => n.key === rel.sourceKey);
+                const target = nodes.find(n => n.key === rel.targetKey);
+
+                if (source && target) {
+                    await addEdge(source.id, target.id, rel.relationType);
+                }
             }
         }
 
