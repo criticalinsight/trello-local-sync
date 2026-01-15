@@ -16,12 +16,9 @@ timeline
     Phase 3 : Resilience & Memory (Current) : ResearchDO (Long Polling)
             : Rate Limit Fallbacks
             : Persistence Context (Memory)
-    Phase 4 : Automation & Integration : Scheduled Prompts (Cron)
+    Phase 4 : Automation & Integration (Complete) : Scheduled Prompts (Cron)
             : Triggered Workflows
-            : Output Pipelines (Slack/Notion)
-    Phase 5 : Knowledge & Visuals : RAG Integration
-            : Knowledge Graphs
-            : Presentation Mode
+    Phase 5 : Knowledge & Visuals (Skipped)
     Phase 6 : Ecosystem & Analytics : SDK/API Access
             : A/B Test Variants
             : Performance Analytics
@@ -29,20 +26,13 @@ timeline
 
 ## 3. Detailed Development Tracks
 
-### 🛠 Phase 3: Resilience & Memory (Current Focus)
-**Goal:** Enhance AI reliability and context preservation.
-- [x] **Durable Object Polling:** Move long-running tasks to `ResearchDO` with alarms to bypass Worker limits.
-- [x] **Rate Limit Fallbacks:** Automatic transition to `gemini-3-pro-preview` when agent quotas are hit.
-- [ ] **Persistent Memory System:** Implement a relational knowledge graph for long-term user context.
-- [ ] **Context Injection:** Automatic retrieval of relevant "memories" based on current prompt intent.
-
-### 🔄 Phase 4: Smart Automation
+### 🛠 Phase 4: Smart Automation (Complete)
 **Goal:** Transition from passive prompting to active workflows.
-- [ ] **Scheduled Prompts:** Cron-style execution within `BoardDO` for recurring intelligence tasks.
-- [ ] **Triggered Workflows:** Webhooks that trigger prompt execution based on external events.
-- [ ] **Output Pipelines:** Direct integration to route generated content to external tools (Slack, Notion, Email).
+- [x] **Scheduled Prompts:** Cron-style execution within `BoardDO` for recurring intelligence tasks.
+- [x] **Triggered Workflows:** Automated prompt execution based on board events.
+- [s] **Output Pipelines:** (Skipped per user request)
 
-### 🧠 Phase 5: Knowledge Engine & Visuals
+### ⏩ Phase 5: Knowledge Engine & Visuals (Skipped)
 **Goal:** Deepen the utility of AI outputs and visual representation.
 - [ ] **RAG Integration:** Vector-based search over user-uploaded documents for high-accuracy context.
 - [ ] **Knowledge Graphs:** Visual mapping of relationships between prompts, memories, and outputs.
