@@ -2,9 +2,8 @@
 
 # Ralph Autonomous Loop
 # ---------------------
-# This script runs the Ralph autonomous driver in a loop,
-# handles rate limits with a 1-hour sleep, and syncs
-# all changes to GitHub after each iteration.
+# Internal logging
+exec >> ralph.log 2>&1
 
 while true; do
   echo "--- Starting Ralph Iteration: $(date) ---"
