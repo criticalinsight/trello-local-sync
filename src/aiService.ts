@@ -194,9 +194,12 @@ async function generateWithModel(
 If the user provides important facts, preferences, or project details that should be remembered, 
 output them at the END of your response in this format:
 [MEMORY: key] value
+[RELATION: source_key -> relation_type -> target_key] (Optional)
+
 Example:
 [MEMORY: user_role] Senior Developer
-[MEMORY: project_goal] Build a local-first Kanban app`;
+[MEMORY: project_goal] Build a local-first Kanban app
+[RELATION: user_role -> owns -> project_goal]`;
 
     const payload: InteractionRequest = {
         input: request.prompt,
