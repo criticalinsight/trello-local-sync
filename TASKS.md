@@ -8,6 +8,7 @@
 - [ ] Scheduled Prompts (Cron)
 
 ## Completed
+- [x] AI Kanban Persistence Fixes
 - [x] ResearchDO Polling Architecture
 - [x] Rate Limit Fallbacks
 - [x] ROADMAP.md Generation
