@@ -1,7 +1,9 @@
 import { DurableObject } from 'cloudflare:workers';
+import { sendNotification } from './telegramBot';
 
 interface Env {
     BOARD_DO: DurableObjectNamespace;
+    TELEGRAM_BOT_TOKEN: string;
 }
 
 // Batch threshold - writes are batched if >50 requests/sec
@@ -409,6 +411,15 @@ export class BoardDO extends DurableObject {
                 `, now, nextRun, task.id);
             }
 
+            // 5. Notify via Telegram
+            if (this.env.TELEGRAM_BOT_TOKEN) {
+                const promptTitle = task.title || 'Untitled Prompt';
+                await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any,
+                    `✅ **Job Complete!**\n\nPrompt: ${promptTitle}\nDuration: ${result.executionTime}ms\n\nPreview:\n${output.substring(0, 100)}...`
+                );
+            }
+
+
             console.log(`[BoardDO] Task complete: ${task.id}`);
 
         } catch (error) {
@@ -423,6 +434,14 @@ export class BoardDO extends DurableObject {
                     UPDATE scheduled_tasks SET next_run = ? WHERE id = ?
                 `, Date.now() + 60000, task.id);
             }
+
+            // Notify via Telegram
+            if (this.env.TELEGRAM_BOT_TOKEN) {
+                await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any,
+                    `❌ **Job Failed!**\n\nPrompt: ${task.id}\nError: ${error.message}`
+                );
+            }
+
         }
     }
 }
