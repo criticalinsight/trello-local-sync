@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test('End-to-end visual simulation on live site', async ({ page }) => {
-    // Step 1: Navigate to the live site with cache refresh
-    console.log('Navigating to live site...');
-    await page.goto('https://work.moecapital.com');
-    // Refresh to ensure fresh state/cache
-    await page.reload();
+    // Step 1: Navigate to the live site with cache bypass
+    console.log('Navigating to live site with cache bypass...');
+    await page.goto('https://work.moecapital.com/?t=' + Date.now());
     await expect(page).toHaveTitle('Work');
 
     // Step 2: Create a new Prompt Board
