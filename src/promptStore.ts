@@ -170,7 +170,7 @@ async function loadPromptsFromDB() {
     const promptsResult = await pglite.query<any>(
         `SELECT id, title, board_id as "boardId", status, current_version_id as "currentVersionId", 
          pos, created_at as "createdAt", deployed_at as "deployedAt", 
-         starred = 1 as starred, archived = 1 as archived, schedule_json
+         starred = 1 as starred, archived = 1 as archived, schedule_json, workflow_json
          FROM prompts WHERE board_id = $1 AND archived = 0 ORDER BY pos`,
         [currentBoardId]
     );
@@ -196,7 +196,8 @@ async function loadPromptsFromDB() {
                 ...row,
                 starred: Boolean(row.starred),
                 archived: Boolean(row.archived),
-                schedule: row.schedule_json ? JSON.parse(row.schedule_json) : undefined
+                schedule: row.schedule_json ? JSON.parse(row.schedule_json) : undefined,
+                workflow: row.workflow_json ? JSON.parse(row.workflow_json) : undefined
             };
         }
 
@@ -301,6 +302,10 @@ export async function updatePrompt(id: string, updates: Partial<PromptCard>) {
             if (updates.schedule !== undefined) {
                 fields.push(`schedule_json = $${idx++}`);
                 values.push(JSON.stringify(updates.schedule));
+            }
+            if (updates.workflow !== undefined) {
+                fields.push(`workflow_json = $${idx++}`);
+                values.push(JSON.stringify(updates.workflow));
             }
 
             if (fields.length > 0) {
