@@ -169,6 +169,67 @@ export class BoardDO extends DurableObject {
             return Response.json({ success: true, result });
         }
 
+        if (url.pathname === '/api/refine') {
+            const body = await request.json() as { promptId: string };
+            const prompt = this.ctx.storage.sql.exec('SELECT * FROM prompts WHERE id = $1', body.promptId).one() as any;
+            if (!prompt) return new Response('Prompt not found', { status: 404 });
+
+            const version = this.ctx.storage.sql.exec('SELECT * FROM prompt_versions WHERE id = $1', prompt.current_version_id).one() as any;
+            if (!version) return new Response('Version not found', { status: 404 });
+
+            // Call AI to refine
+            const refinementPrompt = `
+                I have a prompt that needs improvement. 
+                TITLE: ${prompt.title}
+                CURRENT CONTENT: "${version.content}"
+                
+                Please:
+                1. Critique the current prompt (strengths/weaknesses).
+                2. Provide an improved version of the prompt content.
+                
+                Respond in JSON format:
+                {
+                  "critique": "...",
+                  "improvedContent": "..."
+                }
+            `;
+
+            const aiResponse = await fetch('http://127.0.0.1/api/ai/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ input: refinementPrompt })
+            });
+
+            const aiData = await aiResponse.json() as any;
+            const aiText = aiData.text || aiData.content || "";
+
+            try {
+                // Extract JSON from AI text (standardizing)
+                const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+                const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : aiText);
+
+                const newVersionId = crypto.randomUUID();
+                const now = Date.now();
+
+                // Create new version
+                this.ctx.storage.sql.exec(`
+                    INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, newVersionId, prompt.id, parsed.improvedContent, version.system_instructions, version.temperature, version.top_p, version.max_tokens, version.model, now);
+
+                // Update prompt
+                this.ctx.storage.sql.exec('UPDATE prompts SET current_version_id = ? WHERE id = ?', newVersionId, prompt.id);
+
+                return Response.json({
+                    success: true,
+                    critique: parsed.critique,
+                    newContent: parsed.improvedContent
+                });
+            } catch (e) {
+                return Response.json({ success: false, error: 'Failed to parse AI refinement', raw: aiText }, { status: 500 });
+            }
+        }
+
         // Scheduler API routing
         if (url.pathname.startsWith('/api/scheduler/')) {
             return this.handleSchedulerRequest(url, request);
