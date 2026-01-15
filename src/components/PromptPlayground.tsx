@@ -14,6 +14,7 @@ import {
 import type { PromptVersion, PromptParameters, PromptWorkflow } from '../types';
 import { ScheduleModal } from './ScheduleModal';
 import { WorkflowModal } from './WorkflowModal';
+import { showSnackbar } from './Snackbar';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -96,6 +97,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
             getParams()
         );
         setHasUnsavedChanges(false);
+        showSnackbar('Prompt saved', 'success');
     };
 
     // Run the prompt (creates new version with output)
@@ -104,8 +106,10 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
         if (hasUnsavedChanges()) {
             await handleSave();
         }
+        showSnackbar('Agent started', 'info');
         await runSinglePrompt(props.promptId);
         setIsRunning(false);
+        showSnackbar('Generation complete', 'success');
     };
 
     // Revert to a specific version
