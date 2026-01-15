@@ -157,10 +157,10 @@ async function loadPromptsFromDB() {
     if (!pglite) return;
 
     // Load prompts
-    const promptsResult = await pglite.query<PromptCard>(
+    const promptsResult = await pglite.query<any>(
         `SELECT id, title, board_id as "boardId", status, current_version_id as "currentVersionId", 
          pos, created_at as "createdAt", deployed_at as "deployedAt", 
-         starred = 1 as starred, archived = 1 as archived
+         starred = 1 as starred, archived = 1 as archived, schedule_json
          FROM prompts WHERE board_id = $1 AND archived = 0 ORDER BY pos`,
         [currentBoardId]
     );
@@ -186,6 +186,7 @@ async function loadPromptsFromDB() {
                 ...row,
                 starred: Boolean(row.starred),
                 archived: Boolean(row.archived),
+                schedule: row.schedule_json ? JSON.parse(row.schedule_json) : undefined
             };
         }
 
@@ -286,6 +287,10 @@ export async function updatePrompt(id: string, updates: Partial<PromptCard>) {
             if (updates.archived !== undefined) {
                 fields.push(`archived = $${idx++}`);
                 values.push(updates.archived ? 1 : 0);
+            }
+            if (updates.schedule !== undefined) {
+                fields.push(`schedule_json = $${idx++}`);
+                values.push(JSON.stringify(updates.schedule));
             }
 
             if (fields.length > 0) {
@@ -622,19 +627,17 @@ export async function schedulePrompt(
     const prompt = promptStore.prompts[promptId];
     if (!prompt) return;
 
-    // Optimistic update
-    setPromptStore(produce(state => {
-        if (state.prompts[promptId]) {
-            state.prompts[promptId].schedule = {
-                cron,
-                enabled,
-                lastRun: state.prompts[promptId].schedule?.lastRun,
-                nextRun: Date.now(), // Placeholder
-            };
-        }
-    }));
+    const schedule = {
+        cron,
+        enabled,
+        lastRun: prompt.schedule?.lastRun,
+        nextRun: prompt.schedule?.nextRun,
+    };
 
-    // Send to Server
+    // Update locally (state and DB)
+    await updatePrompt(promptId, { schedule });
+
+    // Sync to Server
     const version = getCurrentVersion(promptId);
     const payload = {
         id: crypto.randomUUID(),
@@ -642,11 +645,14 @@ export async function schedulePrompt(
         content: version?.content || '',
         system: version?.systemInstructions || '',
         params: version?.parameters || defaultParameters,
-        cron
+        cron,
+        enabled
     };
 
     try {
         const workerUrl = import.meta.env.VITE_AI_WORKER_URL || '';
+        if (!workerUrl) return;
+
         const response = await fetch(`${workerUrl}/api/scheduler/schedule?board=${currentBoardId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -654,10 +660,9 @@ export async function schedulePrompt(
         });
 
         if (!response.ok) {
-            throw new Error('Failed to schedule prompt');
+            throw new Error('Failed to schedule prompt on server');
         }
     } catch (error) {
-        console.error('Schedule failed:', error);
-        // Revert on failure? For now just log.
+        console.error('Schedule sync failed:', error);
     }
 }
