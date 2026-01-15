@@ -1,7 +1,7 @@
 # Strategic Roadmap: Work (Local-First AI Engine)
 
 ## 1. Vision & Strategy
-Our mission is to build the world's most responsive, reliable, and intelligent productivity engine.
+Build the world's most responsive, reliable, and intelligent productivity engine.
 
 ## 2. Visual Timeline
 ```mermaid
@@ -10,33 +10,33 @@ timeline
     Phase 1-4 : Foundation to Automation (Complete)
     Phase 7 : Autonomous Agents (Complete)
     Phase 8 : UX Polish (Complete)
-    Phase 9 : Advanced UX & Observability (Current)
+    Phase 9 : Observability & Polish (Current)
 ```
 
-## 3. Phase 9: Advanced UX & Observability (Next)
+## 3. Phase 9: Observability & Polish (Current)
 
-**Based on visual testing insights:**
+**From visual testing insights:**
 
-### 🌳 Agent Orchestration Tree View
-- Real-time hierarchical view of Coordinator → Workers
-- Inline status updates within the prompt card
+### 🔄 Reactive Board Lanes
+- Auto-move cards between lanes (Draft → Generating → Deployed) based on execution state
 
-### 📐 Side-Panel Editor
-- Replace modal with collapsible right panel
-- Keep board context visible during editing
+### � Global Agent Bar  
+- Persistent progress indicator at top/bottom of Board view
+- Track background tasks without opening Playground
 
-### 📊 Granular Progress Feedback
-- "Thinking Trace" stages: Decomposing → Delegating → Synthesizing
-- Live token counter and estimated time
+### 🌊 Interactive Loading States
+- Streaming-text effect in output preview
+- Skeleton loaders in Presentation mode
 
-### 🛡 Resilient Error Handling
-- Global error toast with "Retry" and "Show Logs" options
-- Timeout fallbacks for stuck agents
+### � Contextual Agent Logs
+- Expandable mini-log in Agent Dashboard
+- Show "Decomposing...", "Synthesizing..." stages
 
-### 📚 Interactive Prompt Templates
-- Quick-start gallery: Research Assistant, Code Reviewer, etc.
-- Empty-state onboarding with template picker
+### � Mobile-Adaptive Playground
+- Stacked/tabbed layout for mobile and tablet
 
-### 🔴 Live Preview Mode
-- Real-time streaming output in presentation view
-- No need to wait for full completion
+### ⌨️ Keyboard Shortcuts Onboarding
+- Subtle tooltips promoting ⌘+Enter, ⌘+S, Esc
+
+### � Board-Playground Sync
+- Lane counts update in real-time during generation
