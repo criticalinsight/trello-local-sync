@@ -65,7 +65,7 @@ export const ScheduleModal: Component<ScheduleModalProps> = (props) => {
                         Schedule Prompt
                     </h2>
                     <button
-                        onClick={props.onClose}
+                        onClick={() => props.onClose()}
                         class="text-slate-400 hover:text-white transition-colors"
                     >
                         <svg
@@ -146,7 +146,7 @@ export const ScheduleModal: Component<ScheduleModalProps> = (props) => {
                 {/* Footer */}
                 <div class="px-6 py-4 bg-slate-800/20 border-t border-slate-700 flex justify-end gap-3">
                     <button
-                        onClick={props.onClose}
+                        onClick={() => props.onClose()}
                         class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl transition-all"
                     >
                         Cancel
@@ -170,12 +170,12 @@ export const ScheduleModal: Component<ScheduleModalProps> = (props) => {
                                     r="10"
                                     stroke="currentColor"
                                     stroke-width="4"
-                                 />
+                                />
                                 <path
                                     class="opacity-75"
                                     fill="currentColor"
                                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                 />
+                                />
                             </svg>
                         </Show>
                         {saving() ? 'Syncing...' : 'Save Schedule'}

@@ -265,12 +265,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                         r="10"
                                         stroke="currentColor"
                                         stroke-width="4"
-                                     />
+                                    />
                                     <path
                                         class="opacity-75"
                                         fill="currentColor"
                                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                     />
+                                    />
                                 </svg>
                                 Running
                             </span>
@@ -343,6 +343,49 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 </svg>
                             </button>
                         </Show>
+
+                        {/* Automation Buttons (Phase 11) */}
+                        <button
+                            onClick={() => setShowSchedule(true)}
+                            class={`p-2 rounded-lg transition-colors ${prompt()?.schedule?.enabled ? 'text-purple-400 bg-purple-900/20' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                            title={prompt()?.schedule?.enabled ? 'Scheduled' : 'Schedule Prompt'}
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="w-5 h-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                            </svg>
+                        </button>
+
+                        <button
+                            onClick={() => setShowWorkflow(true)}
+                            class={`p-2 rounded-lg transition-colors ${prompt()?.workflow?.enabled ? 'text-emerald-400 bg-emerald-900/20' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                            title={prompt()?.workflow?.enabled ? 'Workflow Active' : 'Configure Workflow'}
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="w-5 h-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                                />
+                            </svg>
+                        </button>
                         <button
                             onClick={props.onClose}
                             class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
@@ -516,12 +559,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                                 r="10"
                                                 stroke="currentColor"
                                                 stroke-width="4"
-                                             />
+                                            />
                                             <path
                                                 class="opacity-75"
                                                 fill="currentColor"
                                                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                             />
+                                            />
                                         </svg>
                                         <span class="text-xs animate-pulse">Comparing...</span>
                                     </div>
@@ -827,24 +870,6 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             Templates
                         </button>
                         <button
-                            onClick={() => setShowSchedule(true)}
-                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${prompt()?.schedule?.enabled
-                                ? 'bg-amber-900/30 border-amber-500/50 text-amber-200 hover:bg-amber-900/50'
-                                : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
-                                }`}
-                        >
-                            {prompt()?.schedule?.enabled ? 'Scheduled' : 'Schedule'}
-                        </button>
-                        <button
-                            onClick={() => setShowWorkflow(true)}
-                            class={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${prompt()?.workflow?.enabled
-                                ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
-                                : 'bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 border-slate-600'
-                                }`}
-                        >
-                            {prompt()?.workflow?.enabled ? 'Workflow' : 'Workflow'}
-                        </button>
-                        <button
                             onClick={handleSave}
                             disabled={!hasUnsavedChanges()}
                             class="px-4 py-2 text-sm font-medium rounded-lg transition-colors
@@ -874,12 +899,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                         r="10"
                                         stroke="currentColor"
                                         stroke-width="4"
-                                     />
+                                    />
                                     <path
                                         class="opacity-75"
                                         fill="currentColor"
                                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                     />
+                                    />
                                 </svg>
                             </Show>
                             <Show when={!(isRunning() || prompt()?.status === 'generating')}>

@@ -66,7 +66,9 @@ export class BoardDO extends DurableObject<Env> {
         created_at INTEGER NOT NULL,
         tags TEXT,
         current_version_id TEXT,
-        deployed_at INTEGER
+        deployed_at INTEGER,
+        workflow JSON,
+        schedule JSON
       );
 
       CREATE TABLE IF NOT EXISTS prompt_versions (
@@ -101,6 +103,12 @@ export class BoardDO extends DurableObject<Env> {
             } catch { }
             try {
                 this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN due_date INTEGER');
+            } catch { }
+            try {
+                this.ctx.storage.sql.exec('ALTER TABLE prompts ADD COLUMN workflow JSON');
+            } catch { }
+            try {
+                this.ctx.storage.sql.exec('ALTER TABLE prompts ADD COLUMN schedule JSON');
             } catch { }
         } catch (e) {
             console.warn('Migration warning:', e);
@@ -504,10 +512,86 @@ export class BoardDO extends DurableObject<Env> {
                 }),
                 clientId,
             );
+
+            // Phase 11: Check for workflows if this was a card update
+            this.processWorkflowTriggers(sql, params);
+
         } catch (e) {
             console.error('SQL execution error:', e);
             sender.send(JSON.stringify({ type: 'ERROR', message: String(e) }));
         }
+    }
+
+    private async processWorkflowTriggers(sql: string, params: unknown[]) {
+        const sqlUpper = sql.toUpperCase();
+        let triggerType: string | null = null;
+        let cardId: string | null = null;
+        let listId: string | null = null;
+        let tags: string | null = null;
+
+        if (sqlUpper.includes('INSERT INTO CARDS')) {
+            triggerType = 'card_added';
+            // Assuming standard INSERT INTO cards (id, title, list_id, ...) VALUES (?, ?, ?, ...)
+            // We'd need to parse params or fetch the card. Safer to fetch.
+        } else if (sqlUpper.includes('UPDATE CARDS SET LIST_ID')) {
+            triggerType = 'card_moved';
+        } else if (sqlUpper.includes('UPDATE CARDS SET TAGS')) {
+            triggerType = 'card_tagged';
+        }
+
+        if (!triggerType) return;
+
+        // Fetch all active workflows
+        const workflows = [...this.ctx.storage.sql.exec('SELECT id, workflow FROM prompts WHERE workflow IS NOT NULL').toArray()];
+
+        for (const row of workflows) {
+            try {
+                const config = JSON.parse(row.workflow as string);
+                if (!config.enabled || !config.triggers) continue;
+
+                for (const trigger of config.triggers) {
+                    if (trigger.type === triggerType) {
+                        // Check trigger conditions (listId, tag)
+                        // For simplicity in MVP, we trigger if the type matches.
+                        // Ideally we check if trigger.config.listId matches current listId.
+
+                        console.log(`[Workflow] Triggering prompt ${row.id} for event ${triggerType}`);
+
+                        // Queue prompt execution
+                        // Use a short delay or background task to avoid blocking
+                        this.executePromptById(row.id as string);
+                    }
+                }
+            } catch (e) {
+                console.error('Workflow parsing failed:', e);
+            }
+        }
+    }
+
+    private async executePromptById(promptId: string) {
+        // Find current version
+        const prompt = this.ctx.storage.sql.exec('SELECT * FROM prompts WHERE id = ?', promptId).one() as any;
+        if (!prompt || !prompt.current_version_id) return;
+
+        const version = this.ctx.storage.sql.exec('SELECT * FROM prompt_versions WHERE id = ?', prompt.current_version_id).one() as any;
+        if (!version) return;
+
+        // Construct task
+        const task = {
+            id: promptId,
+            prompt_content: version.content,
+            system_instructions: version.system_instructions,
+            parameters: JSON.stringify({
+                temperature: version.temperature,
+                topP: version.top_p,
+                maxTokens: version.max_tokens,
+                model: version.model,
+            }),
+            current_version_id: prompt.current_version_id,
+            title: prompt.title
+        };
+
+        await this.executeTask(task);
     }
 
     // Helper to execute SQL and ensure it's awaited
