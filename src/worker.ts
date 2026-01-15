@@ -1,6 +1,5 @@
 // Worker entry point for Cloudflare
 export { BoardDO } from './BoardDO';
-export { BoardDO } from './BoardDO';
 export { ResearchDO } from './ResearchDO';
 import { handleTelegramWebhook, registerWebhook } from './telegramBot';
 
@@ -21,7 +20,6 @@ interface Env {
     BOARD_DO: DurableObjectNamespace;
     RESEARCH_DO: DurableObjectNamespace;
     ASSETS: Fetcher;
-    MEDIA_BUCKET: R2Bucket;
     MEDIA_BUCKET: R2Bucket;
     GEMINI_API_KEY: string;
     TELEGRAM_BOT_TOKEN: string;
