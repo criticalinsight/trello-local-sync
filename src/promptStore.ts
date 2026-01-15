@@ -47,6 +47,36 @@ const defaultParameters: PromptParameters = {
     maxTokens: 2048,
 };
 
+// ============= BOARD EVENT HANDLER =============
+
+async function handleBoardEvent(event: { type: string; cardId: string; listId?: string; data?: any }) {
+    // Find prompts with active workflows matching this event
+    const activePrompts = Object.values(promptStore.prompts).filter(p =>
+        p.workflow?.enabled &&
+        p.workflow.triggers.some(t => {
+            if (t.type === 'card_added' && event.type === 'card_added') {
+                return !t.config?.listId || t.config.listId === event.listId;
+            }
+            if (t.type === 'card_moved' && event.type === 'card_moved') {
+                return !t.config?.listId || t.config.listId === event.listId;
+            }
+            if (t.type === 'card_tagged' && event.type === 'card_updated' && event.data?.tags) {
+                return !t.config?.tag || event.data.tags.includes(t.config.tag);
+            }
+            return false;
+        })
+    );
+
+    if (activePrompts.length > 0) {
+        console.log(`[Workflow] Triggering ${activePrompts.length} prompts for event: ${event.type}`);
+        for (const prompt of activePrompts) {
+            // Dynamically import to avoid circular dependency
+            const { runSinglePrompt } = await import('./promptStore');
+            runSinglePrompt(prompt.id);
+        }
+    }
+}
+
 // ============= DATABASE INITIALIZATION =============
 
 export async function initPromptPGlite(boardId: string) {
