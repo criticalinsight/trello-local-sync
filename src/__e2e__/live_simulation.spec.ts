@@ -38,11 +38,11 @@ test('Full lifecycle simulation on live site', async ({ page }) => {
     // Step 7: Observe transitions thru phases
     console.log('Monitoring status transitions...');
 
-    // Wait for 'Generating' status (pulses) in the card badge
-    const generatingBadge = page.locator('.animate-pulse').filter({ hasText: 'Generating' });
-    await expect(generatingBadge).toBeVisible({ timeout: 15000 });
-    await page.screenshot({ path: 'lifecycle-generating.png' });
-    console.log('Phase: Generating');
+    // Wait for 'Running' status in the playground button
+    const runningBtn = page.locator('button').filter({ hasText: /Running/i });
+    await expect(runningBtn).toBeVisible({ timeout: 15000 });
+    await page.screenshot({ path: 'lifecycle-running.png' });
+    console.log('Phase: Running');
 
     // Wait for 'Deployed' status in the card badge
     const deployedBadge = page.locator('.bg-emerald-600').filter({ hasText: 'Deployed' });
