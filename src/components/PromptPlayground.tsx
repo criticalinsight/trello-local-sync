@@ -318,37 +318,144 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     </div>
                 </div>
 
-                {/* Version Timeline */}
-                <div class="px-6 py-3 border-t border-slate-700 bg-slate-800/30">
-                    <div class="flex items-center gap-4">
-                        <span class="text-sm text-slate-400">Version History:</span>
-                        <div class="flex items-center gap-2">
-                            <For each={versions()}>
-                                {(version, index) => {
-                                    const isCurrent = () => version.id === prompt()?.currentVersionId;
-                                    const hasOutput = () => !!version.output;
+                {/* Enhanced Version History Panel */}
+                <div class="border-t border-slate-700 bg-slate-800/30">
+                    {/* Header Row */}
+                    <div class="px-6 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <button
+                                onClick={() => setShowVersionPanel(!showVersionPanel())}
+                                class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+                            >
+                                <svg
+                                    class={`w-4 h-4 transition-transform ${showVersionPanel() ? 'rotate-90' : ''}`}
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                </svg>
+                                Version History
+                                <span class="px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded">
+                                    {versions().length}
+                                </span>
+                            </button>
 
-                                    return (
-                                        <button
-                                            onClick={() => handleRevert(version.id)}
-                                            title={`Version ${index() + 1} - ${new Date(version.createdAt).toLocaleTimeString()}`}
-                                            class={`w-3 h-3 rounded-full transition-all ${isCurrent()
-                                                ? 'bg-purple-500 ring-2 ring-purple-400/50'
-                                                : hasOutput()
-                                                    ? 'bg-slate-500 hover:bg-slate-400'
-                                                    : 'bg-slate-700 hover:bg-slate-600'
-                                                }`}
-                                        />
-                                    );
-                                }}
-                            </For>
+                            {/* Quick dots */}
+                            <div class="flex items-center gap-1">
+                                <For each={versions().slice(-8)}>
+                                    {(version, index) => {
+                                        const isCurrent = () => version.id === prompt()?.currentVersionId;
+                                        const hasOutput = () => !!version.output;
+                                        const isCompare = () => compareVersionId() === version.id;
+
+                                        return (
+                                            <button
+                                                onClick={() => handleRevert(version.id)}
+                                                onContextMenu={(e) => { e.preventDefault(); setCompareVersionId(version.id); }}
+                                                title={`v${versions().length - 7 + index()} - ${new Date(version.createdAt).toLocaleTimeString()}${hasOutput() ? ' ✓' : ''}`}
+                                                class={`w-2.5 h-2.5 rounded-full transition-all ${isCompare()
+                                                        ? 'bg-amber-500 ring-2 ring-amber-400/50'
+                                                        : isCurrent()
+                                                            ? 'bg-purple-500 ring-2 ring-purple-400/50'
+                                                            : hasOutput()
+                                                                ? 'bg-emerald-500/60 hover:bg-emerald-400'
+                                                                : 'bg-slate-700 hover:bg-slate-600'
+                                                    }`}
+                                            />
+                                        );
+                                    }}
+                                </For>
+                            </div>
                         </div>
-                        <Show when={versions().length > 0}>
+
+                        <div class="flex items-center gap-3">
+                            <Show when={versions().length > 1}>
+                                <button
+                                    onClick={() => setCompareMode(!compareMode())}
+                                    class={`px-2 py-1 text-xs font-medium rounded transition-colors ${compareMode()
+                                            ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50'
+                                            : 'bg-slate-700 text-slate-400 hover:text-white border border-slate-600'
+                                        }`}
+                                >
+                                    {compareMode() ? 'Exit Compare' : 'Compare'}
+                                </button>
+                            </Show>
                             <span class="text-xs text-slate-500">
                                 v{versions().findIndex(v => v.id === prompt()?.currentVersionId) + 1} of {versions().length}
                             </span>
-                        </Show>
+                        </div>
                     </div>
+
+                    {/* Expanded Version Cards */}
+                    <Show when={showVersionPanel()}>
+                        <div class="px-6 pb-4 max-h-48 overflow-y-auto">
+                            <div class="grid grid-cols-4 gap-2">
+                                <For each={versions()}>
+                                    {(version, index) => {
+                                        const isCurrent = () => version.id === prompt()?.currentVersionId;
+                                        const hasOutput = () => !!version.output;
+                                        const isCompare = () => compareVersionId() === version.id;
+
+                                        return (
+                                            <button
+                                                onClick={() => compareMode() ? setCompareVersionId(version.id) : handleRevert(version.id)}
+                                                class={`p-2 rounded-lg text-left transition-all border ${isCompare()
+                                                        ? 'bg-amber-900/30 border-amber-500/50'
+                                                        : isCurrent()
+                                                            ? 'bg-purple-900/30 border-purple-500/50'
+                                                            : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                                                    }`}
+                                            >
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <span class="text-xs font-medium text-white">v{index() + 1}</span>
+                                                    <Show when={hasOutput()}>
+                                                        <span class="w-2 h-2 rounded-full bg-emerald-500" title="Has output" />
+                                                    </Show>
+                                                </div>
+                                                <div class="text-xs text-slate-500 truncate">
+                                                    {new Date(version.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                                <Show when={version.output}>
+                                                    <div class="text-xs text-slate-400 truncate mt-1">
+                                                        {version.output.slice(0, 40)}...
+                                                    </div>
+                                                </Show>
+                                            </button>
+                                        );
+                                    }}
+                                </For>
+                            </div>
+                        </div>
+                    </Show>
+
+                    {/* Comparison View */}
+                    <Show when={compareMode() && compareVersionId()}>
+                        <div class="px-6 pb-4 border-t border-slate-700 pt-3">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xs text-amber-400 font-medium">Comparing:</span>
+                                <span class="px-2 py-0.5 text-xs bg-amber-900/30 text-amber-300 rounded">
+                                    v{versions().findIndex(v => v.id === compareVersionId()) + 1}
+                                </span>
+                                <span class="text-xs text-slate-500">vs</span>
+                                <span class="px-2 py-0.5 text-xs bg-purple-900/30 text-purple-300 rounded">
+                                    v{versions().findIndex(v => v.id === prompt()?.currentVersionId) + 1} (current)
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 max-h-40 overflow-y-auto">
+                                <div class="p-3 bg-slate-900 rounded-lg border border-amber-800/30">
+                                    <div class="text-xs text-amber-400 mb-2">Previous Output</div>
+                                    <div class="text-sm text-slate-300 whitespace-pre-wrap">
+                                        {promptStore.versions[compareVersionId()!]?.output || 'No output'}
+                                    </div>
+                                </div>
+                                <div class="p-3 bg-slate-900 rounded-lg border border-purple-800/30">
+                                    <div class="text-xs text-purple-400 mb-2">Current Output</div>
+                                    <div class="text-sm text-slate-300 whitespace-pre-wrap">
+                                        {currentVersion()?.output || 'No output'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Show>
                 </div>
 
                 {/* Footer Actions */}
