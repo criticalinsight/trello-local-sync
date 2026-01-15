@@ -52,6 +52,14 @@ export class BoardDO extends DurableObject {
         key TEXT PRIMARY KEY,
         value TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS activity_log (
+        id TEXT PRIMARY KEY,
+        event TEXT NOT NULL,
+        entity_id TEXT,
+        details TEXT,
+        created_at INTEGER NOT NULL
+      );
     `);
 
         // Migration for existing databases
@@ -228,6 +236,20 @@ export class BoardDO extends DurableObject {
             } catch (e) {
                 return Response.json({ success: false, error: 'Failed to parse AI refinement', raw: aiText }, { status: 500 });
             }
+        }
+
+        if (url.pathname === '/api/log') {
+            const body = await request.json() as { event: string; entityId?: string; details?: string };
+            this.ctx.storage.sql.exec(`
+                INSERT INTO activity_log (id, event, entity_id, details, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            `, crypto.randomUUID(), body.event, body.entityId, body.details, Date.now());
+            return Response.json({ success: true });
+        }
+
+        if (url.pathname === '/api/logs') {
+            const result = this.ctx.storage.sql.exec('SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 20').toArray();
+            return Response.json({ success: true, result });
         }
 
         // Scheduler API routing
