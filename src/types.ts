@@ -62,6 +62,7 @@ export interface PromptParameters {
     temperature: number;
     topP: number;
     maxTokens: number;
+    model?: string;
 }
 
 export interface PromptVersion {
