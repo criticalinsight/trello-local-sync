@@ -34,6 +34,7 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
             const [cmd, ...args] = text.split(' ');
 
             if (cmd === '/start') {
+                await saveChatId(chatId, env);
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId,
                     "👋 **Welcome to Gemini Ops!**\n\nI am your mobile command center for AI prompt engineering.\n\n" +
                     "🚀 **Quick Start:**\n" +
@@ -44,6 +45,7 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                     "- `/status` - View board health"
                 );
             } else if (cmd === '/help') {
+                await saveChatId(chatId, env);
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId,
                     "🛠 **Available Commands:**\n\n" +
                     "📥 **Capture:**\n" +
@@ -233,4 +235,32 @@ async function sendTelegramMessage(token: string, chatId: number, text: string) 
             parse_mode: 'Markdown'
         })
     });
+}
+
+async function saveChatId(chatId: number, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: "INSERT INTO settings (key, value) VALUES ('telegram_owner_chat_id', $1) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params: [String(chatId)]
+        })
+    });
+}
+
+export async function sendNotification(token: string, env: Env, text: string) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: "SELECT value FROM settings WHERE key = 'telegram_owner_chat_id'"
+        })
+    });
+    const data = await response.json() as { result: any[] };
+    if (data.result && data.result.length > 0) {
+        const chatId = parseInt(data.result[0].value);
+        await sendTelegramMessage(token, chatId, text);
+    }
 }
