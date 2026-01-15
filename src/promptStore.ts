@@ -69,10 +69,12 @@ export async function initPromptPGlite(boardId: string) {
     }
 
     try {
+        // Sanitize boardId for IndexDB name
+        const dbName = `prompt-board-${boardId.replace(/[^a-zA-Z0-9-]/g, '_')}`;
         // Create new PGlite instance for prompts
-        pglite = new PGlite(`idb://prompt-board-${boardId}`);
+        pglite = new PGlite(`idb://${dbName}`);
         await pglite.waitReady;
-        console.log('[PromptStore] PGlite ready');
+        console.log(`[PromptStore] PGlite ready: ${dbName}`);
     } catch (e) {
         console.error('[PromptStore] PGlite failed to initialize', e);
         throw e;

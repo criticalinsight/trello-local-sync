@@ -8,6 +8,7 @@
 - [ ] Scheduled Prompts (Cron)
 
 ## Completed
+- [x] Fixed PromptBoard Loading Hang
 - [x] AI Kanban Persistence Fixes
 - [x] ResearchDO Polling Architecture
 - [x] Rate Limit Fallbacks

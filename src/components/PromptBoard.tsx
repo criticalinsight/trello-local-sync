@@ -61,7 +61,10 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
     createEffect(async () => {
         const id = props.boardId;
         console.log(`[PromptBoard] boardId changed: ${id}`);
-        if (!id) return;
+        if (!id) {
+            setIsLoading(false);
+            return;
+        }
 
         try {
             setIsLoading(true);
