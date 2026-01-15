@@ -77,6 +77,8 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleRunPrompt(chatId, args[0], env);
             } else if (cmd === '/refine') {
                 await handleRefinePrompt(chatId, args[0], env);
+            } else if (cmd === '/logs') {
+                await handleLogs(chatId, env);
             } else {
                 await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "❓ Unknown command. Try /help.");
             }
@@ -200,6 +202,7 @@ async function handleRefinePrompt(chatId: number, promptId: string, env: Env) {
 
     if (response.status === 200) {
         const data = await response.json() as any;
+        await logActivity(env, 'prompt_refined', promptId, `AI Refinement version created`);
         const msg = `✨ **Prompt Refined!**\n\n**New Content:**\n${data.newContent}\n\n**Critique:**\n${data.critique}\n\nA new version has been created. Use \`/run ${promptId}\` to test it.`;
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
     } else {
@@ -243,6 +246,7 @@ async function handleNewPrompt(chatId: number, titleText: string, env: Env) {
         })
     });
 
+    await logActivity(env, 'prompt_created', id, `Quick Draft created via Telegram: ${title}`);
     await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `📝 **Draft Created!**\n\nTitle: ${title}\nID: \`${id}\``);
 }
 
@@ -394,4 +398,30 @@ export async function sendNotification(token: string, env: Env, text: string) {
         const chatId = parseInt(data.result[0].value);
         await sendTelegramMessage(token, chatId, text);
     }
+}
+
+async function handleLogs(chatId: number, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/logs');
+    const data = await response.json() as { result: any[] };
+
+    if (data.result && data.result.length > 0) {
+        let logMsg = "📋 **Recent Activity:**\n\n";
+        data.result.forEach(log => {
+            const date = new Date(log.created_at).toLocaleTimeString();
+            logMsg += `[${date}] **${log.event.toUpperCase()}**\n${log.details || ''}\n\n`;
+        });
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, logMsg);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "📋 No activity logs found.");
+    }
+}
+
+async function logActivity(env: Env, event: string, entityId?: string, details?: string) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    await stub.fetch('http://do/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, entityId, details })
+    });
 }
