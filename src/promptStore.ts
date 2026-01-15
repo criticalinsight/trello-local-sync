@@ -93,16 +93,26 @@ export async function initPromptPGlite(boardId: string) {
             deployed_at INTEGER,
             starred INTEGER DEFAULT 0,
             archived INTEGER DEFAULT 0,
-            schedule_json TEXT
+            schedule_json TEXT,
+            workflow_json TEXT
         );
     `);
 
-    // Migration: Add schedule_json if it doesn't exist
+    // Migration: Add columns if they don't exist
     try {
         await pglite.exec(`ALTER TABLE prompts ADD COLUMN schedule_json TEXT;`);
     } catch (e) {
         // Column already exists, ignore
     }
+    try {
+        await pglite.exec(`ALTER TABLE prompts ADD COLUMN workflow_json TEXT;`);
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    // Subscribe to board events
+    const { onBoardEvent } = await import('./store');
+    onBoardEvent(handleBoardEvent);
 
     // Create versions table
     await pglite.exec(`
