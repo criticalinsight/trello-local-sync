@@ -598,11 +598,19 @@ export async function revertToVersion(promptId: string, versionId: string) {
 
 // ============= STATUS TRANSITIONS =============
 
-export async function moveToQueued(promptId: string) {
+export async function moveToQueued(promptId: string, priority: 'high' | 'normal' = 'normal') {
     await updatePrompt(promptId, { status: 'queued' });
     setPromptStore(produce((s) => {
         if (!s.executionQueue.includes(promptId)) {
-            s.executionQueue.push(promptId);
+            if (priority === 'high') {
+                s.executionQueue.unshift(promptId); // Add to front
+            } else {
+                s.executionQueue.push(promptId); // Add to back
+            }
+        } else if (priority === 'high') {
+            // If already queued but high priority, move to front
+            s.executionQueue = s.executionQueue.filter(id => id !== promptId);
+            s.executionQueue.unshift(promptId);
         }
     }));
 }
@@ -657,7 +665,7 @@ export async function runAllDrafts() {
 export async function runSinglePrompt(promptId: string) {
     // Immediate visual feedback - card moves to Generating lane right away
     await moveToGenerating(promptId);
-    await moveToQueued(promptId);
+    await moveToQueued(promptId, 'high');
     await processExecutionQueue();
 }
 
