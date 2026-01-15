@@ -91,6 +91,19 @@ export interface PromptWorkflow {
     triggers: WorkflowTrigger[];
 }
 
+// ============= AUTONOMOUS AGENT TYPES =============
+
+export type AgentMode = 'single' | 'coordinator' | 'worker';
+
+export interface CritiqueConfig {
+    enabled: boolean;
+    maxRetries: number;
+    currentRetry?: number;
+    lastScore?: number;
+    lastFeedback?: string;
+    constraints?: string; // Natural language constraints for the critic
+}
+
 export interface PromptCard {
     id: string;
     title: string;
@@ -109,6 +122,11 @@ export interface PromptCard {
         nextRun?: number;
     };
     workflow?: PromptWorkflow;
+    // Autonomous Agent Fields
+    agentMode?: AgentMode;
+    parentId?: string;      // For worker agents: link to coordinator
+    childIds?: string[];    // For coordinators: links to spawned workers
+    critique?: CritiqueConfig;
 }
 
 export interface PromptBoardMeta {
