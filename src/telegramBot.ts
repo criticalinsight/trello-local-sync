@@ -445,3 +445,126 @@ async function logActivity(env: Env, event: string, entityId?: string, details?:
         body: JSON.stringify({ event, entityId, details })
     });
 }
+
+async function handleSearch(chatId: number, query: string, env: Env) {
+    if (!query) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Please provide a search query. Example: `/search Draft` ");
+        return;
+    }
+
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+    });
+
+    const data = await response.json() as { result: any[] };
+    if (data.result && data.result.length > 0) {
+        let list = `🔍 **Search Results for "${query}":**\n\n`;
+        data.result.forEach(row => {
+            list += `• **${row.title}**\nID: \`${row.id}\`\n\n`;
+        });
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, list);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🔍 No results found for "${query}".`);
+    }
+}
+
+async function handleTags(chatId: number, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/tags');
+    const data = await response.json() as { tags: string[] };
+
+    if (data.tags && data.tags.length > 0) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🏷 **Board Tags:**\n\n${data.tags.map(t => `#${t}`).join(' ')}\n\nUse \`/tag [name]\` to filter.`);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🏷 No tags found on the board.");
+    }
+}
+
+async function handleTagFilter(chatId: number, tag: string, env: Env) {
+    if (!tag) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Please provide a tag name. Example: `/tag image` ");
+        return;
+    }
+
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: "SELECT id, title FROM prompts WHERE tags LIKE $1 LIMIT 10",
+            params: [`%${tag}%`]
+        })
+    });
+
+    const data = await response.json() as { result: any[] };
+    if (data.result && data.result.length > 0) {
+        let list = `🏷 **Prompts tagged #${tag}:**\n\n`;
+        data.result.forEach(row => {
+            list += `• ${row.title}\nID: \`${row.id}\`\n\n`;
+        });
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, list);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🏷 No prompts found with tag #${tag}.`);
+    }
+}
+
+async function handleStats(chatId: number, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/analytics');
+    const data = await response.json() as { stats: any };
+
+    if (data.stats) {
+        let msg = "📊 **Board Health & Analytics:**\n\n";
+        msg += `⏱ **Avg Execution:** ${Math.round(data.stats.averageExecutionTime)}ms\n\n`;
+
+        msg += "**Status Distribution:**\n";
+        data.stats.distribution.forEach((d: any) => {
+            msg += `• ${d.status.toUpperCase()}: ${d.count}\n`;
+        });
+
+        msg += "\n**Model Usage:**\n";
+        data.stats.models.forEach((m: any) => {
+            msg += `• ${m.model}: ${m.count}\n`;
+        });
+
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "📊 Unable to fetch analytics.");
+    }
+}
+
+async function handleAgents(chatId: number, env: Env) {
+    const msg = "🤖 **Available Gemini Models & Agents:**\n\n" +
+        "⚡ **Models:**\n" +
+        "- `gemini-1.5-flash` (Speed/Efficiency)\n" +
+        "- `gemini-1.5-pro` (Reasoning/Complex)\n" +
+        "- `gemini-2.0-flash-exp` (Next-gen Fast)\n\n" +
+        "🧠 **Specialized Agents:**\n" +
+        "- `deep-research-pro` (Multimodal analysis)\n\n" +
+        "Use `/assign [id] [model]` to change a prompt's configuration.";
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
+}
+
+async function handleAssign(chatId: number, promptId: string, model: string, env: Env) {
+    if (!promptId || !model) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Format: `/assign [id] [model]`\nUse `/agents` to see available names.");
+        return;
+    }
+
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promptId, model })
+    });
+
+    if (response.ok) {
+        await logActivity(env, 'model_assigned', promptId, `Assigned model: ${model}`);
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🤖 **Success!** Prompt \`${promptId}\` is now using **${model}**.`);
+    } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `❌ **Assignment failed.** Status: ${response.status}`);
+    }
+}
