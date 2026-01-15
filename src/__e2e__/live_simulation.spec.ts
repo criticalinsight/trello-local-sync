@@ -25,12 +25,17 @@ test('Full lifecycle simulation on live site', async ({ page }) => {
     console.log('Opening Playground...');
     await page.click('text=Live End-to-End Simulation');
 
-    // Step 5: Fill in the prompt
+    // Step 5: Fill in the prompt using type() to trigger onInput events
     console.log('Filling in prompt content...');
     const promptTextarea = page.locator('textarea[placeholder="Enter your prompt here..."]');
-    await promptTextarea.fill(
+    await promptTextarea.click();
+    await promptTextarea.clear();
+    await page.keyboard.type(
         'Write a short encouraging message for an autonomous AI agent working on complex codebases.',
+        { delay: 10 }
     );
+    await page.waitForTimeout(500);
+    await page.waitForTimeout(500);
 
     // Step 6: Run the Prompt
     console.log('Triggering AI generation...');

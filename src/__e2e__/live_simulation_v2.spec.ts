@@ -26,10 +26,13 @@ test('End-to-end visual simulation on live site', async ({ page }) => {
     const lastCard = page.locator('.group.bg-slate-800').last();
     await lastCard.click();
 
-    // Step 5: Fill in the prompt
+    // Step 5: Fill in the prompt using type() to trigger onInput events
     console.log('Filling in prompt content...');
     const promptTextarea = page.locator('textarea[placeholder="Enter your prompt here..."]');
-    await promptTextarea.fill('Write a 3-sentence vision statement for an AI-first workspace.');
+    await promptTextarea.click();
+    await promptTextarea.clear();
+    await page.keyboard.type('Write a 3-sentence vision statement for an AI-first workspace.', { delay: 10 });
+    await page.waitForTimeout(500);
 
     // Step 6: Run the Prompt
     console.log('Triggering AI generation...');
