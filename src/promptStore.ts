@@ -92,9 +92,17 @@ export async function initPromptPGlite(boardId: string) {
             created_at INTEGER NOT NULL,
             deployed_at INTEGER,
             starred INTEGER DEFAULT 0,
-            archived INTEGER DEFAULT 0
+            archived INTEGER DEFAULT 0,
+            schedule_json TEXT
         );
     `);
+
+    // Migration: Add schedule_json if it doesn't exist
+    try {
+        await pglite.exec(`ALTER TABLE prompts ADD COLUMN schedule_json TEXT;`);
+    } catch (e) {
+        // Column already exists, ignore
+    }
 
     // Create versions table
     await pglite.exec(`
