@@ -278,6 +278,7 @@ Example:
         const executionTime = Date.now() - startTime;
         const content = extractContent(data);
         const extractedMemories = parseMemories(content);
+        const extractedRelations = parseRelations(content);
 
         return {
             content,
@@ -285,6 +286,7 @@ Example:
             interactionId: data.id,
             executionTime,
             extractedMemories,
+            extractedRelations,
         };
     } catch (error) {
         clearTimeout(timeoutId);
@@ -328,6 +330,7 @@ async function pollJobStatus(
                 const executionTime = Date.now() - startTime;
                 const content = data.text || extractContent(data);
                 const extractedMemories = parseMemories(content);
+                const extractedRelations = parseRelations(content);
 
                 return {
                     content,
@@ -335,6 +338,7 @@ async function pollJobStatus(
                     interactionId: jobId,
                     executionTime,
                     extractedMemories,
+                    extractedRelations,
                 };
             }
 
