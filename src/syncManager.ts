@@ -59,6 +59,7 @@ export class SyncManager {
         this.socket.onopen = () => {
             console.log('[SyncManager] WS Connected');
             this.isConnected = true;
+            this.ensureSchema(); // Ensure remote tables exist
             this.flushQueue();
         };
 
@@ -154,6 +155,55 @@ export class SyncManager {
         } catch (e) {
             console.error('[SyncManager] Flush failed', e);
         }
+    }
+
+    private ensureSchema() {
+        if (!this.socket) return;
+        console.log('[SyncManager] Ensuring remote schema...');
+
+        const tables = [
+            `CREATE TABLE IF NOT EXISTS prompts (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                board_id TEXT NOT NULL,
+                status TEXT DEFAULT 'draft',
+                current_version_id TEXT,
+                pos REAL NOT NULL,
+                created_at BIGINT NOT NULL,
+                deployed_at BIGINT,
+                starred INTEGER DEFAULT 0,
+                archived INTEGER DEFAULT 0,
+                schedule_json TEXT,
+                workflow_json TEXT
+            )`,
+            `CREATE TABLE IF NOT EXISTS prompt_versions (
+                id TEXT PRIMARY KEY,
+                prompt_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                system_instructions TEXT,
+                temperature REAL DEFAULT 0.7,
+                top_p REAL DEFAULT 0.9,
+                max_tokens INTEGER DEFAULT 2048,
+                output TEXT,
+                created_at BIGINT NOT NULL,
+                execution_time INTEGER,
+                error TEXT
+            )`,
+            `CREATE TABLE IF NOT EXISTS prompt_boards (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                created_at BIGINT NOT NULL
+            )`
+        ];
+
+        tables.forEach(sql => {
+            this.socket?.send(JSON.stringify({
+                type: 'EXECUTE_SQL',
+                sql,
+                params: [],
+                clientId: this.clientId
+            }));
+        });
     }
 }
 
