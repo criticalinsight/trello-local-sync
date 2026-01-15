@@ -39,14 +39,21 @@ timeline
 
 ---
 
-## Phase 11: Next Frontiers (Future)
+### Phase 11: Templates, Sync & Diffing
+- **Template Library**: Pre-built prompts for Coding, Writing, Analysis
+- **Offline Sync**: Mutation queue with auto-retry
+- **Version Diffing**: Side-by-side output comparison
+- **Enhanced Version History**: Expandable panel with version cards
+
+---
+
+## Phase 12: Analytics & Media (Future)
 
 ### Ideas
 | Feature | Description |
 |---------|-------------|
-| **Offline-first sync** | Background sync when connectivity restored |
-| **Collaborative editing** | Real-time multi-user prompt collaboration |
-| **Template library** | Pre-built prompt templates for common tasks |
-| **Analytics dashboard** | Usage metrics and generation statistics |
-| **Voice input** | Speech-to-text for prompt entry |
-| **Version diffing** | Compare outputs between prompt versions |
+| **Analytics Dashboard** | Usage metrics (tokens, latency), cost estimation |
+| **Schema Sync** | Ensure server DB schema matches client for robust sync |
+| **Media Attachments** | R2 uploads for images/docs in prompts |
+| **Voice Input** | Speech-to-text for fast prompting |
+| **Collaborative Editing** | Real-time multi-user cursor presence |
