@@ -252,6 +252,55 @@ export class BoardDO extends DurableObject {
             return Response.json({ success: true, result });
         }
 
+        if (url.pathname === '/api/search') {
+            const body = await request.json() as { query: string };
+            const q = `%${body.query}%`;
+            const result = this.ctx.storage.sql.exec(`
+                SELECT p.id, p.title, v.content 
+                FROM prompts p 
+                LEFT JOIN prompt_versions v ON p.current_version_id = v.id 
+                WHERE p.title LIKE $1 OR v.content LIKE $1
+                LIMIT 10
+            `, q).toArray();
+            return Response.json({ success: true, result });
+        }
+
+        if (url.pathname === '/api/tags') {
+            const result = this.ctx.storage.sql.exec('SELECT tags FROM prompts').toArray();
+            const allTags = new Set<string>();
+            result.forEach((row: any) => {
+                try {
+                    const tags = JSON.parse(row.tags || '[]');
+                    tags.forEach((t: string) => allTags.add(t));
+                } catch (e) { }
+            });
+            return Response.json({ success: true, tags: Array.from(allTags) });
+        }
+
+        if (url.pathname === '/api/analytics') {
+            const counts = this.ctx.storage.sql.exec('SELECT status, COUNT(*) as count FROM prompts GROUP BY status').toArray();
+            const avgTime = this.ctx.storage.sql.exec('SELECT AVG(execution_time) as avg FROM prompt_versions WHERE execution_time > 0').one() as any;
+            const modelDist = this.ctx.storage.sql.exec('SELECT model, COUNT(*) as count FROM prompt_versions GROUP BY model').toArray();
+
+            return Response.json({
+                success: true,
+                stats: {
+                    distribution: counts,
+                    averageExecutionTime: avgTime?.avg || 0,
+                    models: modelDist
+                }
+            });
+        }
+
+        if (url.pathname === '/api/assign') {
+            const body = await request.json() as { promptId: string, model: string };
+            const prompt = this.ctx.storage.sql.exec('SELECT current_version_id FROM prompts WHERE id = ?', body.promptId).one() as any;
+            if (!prompt) return new Response('Prompt not found', { status: 404 });
+
+            this.ctx.storage.sql.exec('UPDATE prompt_versions SET model = ? WHERE id = ?', body.model, prompt.current_version_id);
+            return Response.json({ success: true });
+        }
+
         // Scheduler API routing
         if (url.pathname.startsWith('/api/scheduler/')) {
             return this.handleSchedulerRequest(url, request);
