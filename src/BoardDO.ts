@@ -118,6 +118,50 @@ export class BoardDO extends DurableObject {
             });
         }
 
+        if (url.pathname === '/api/run') {
+            const body = await request.json() as { promptId: string };
+            // Trigger run asynchronously to avoid timing out the request
+            // We'll return a 202 Accepted
+            this.ctx.blockConcurrencyWhile(async () => {
+                const prompt = this.ctx.storage.sql.exec('SELECT * FROM prompts WHERE id = $1', body.promptId).one() as any;
+                if (!prompt) return;
+
+                const version = this.ctx.storage.sql.exec('SELECT * FROM prompt_versions WHERE id = $1', prompt.current_version_id).one() as any;
+                if (!version) return;
+
+                // Update status to generating
+                this.ctx.storage.sql.exec('UPDATE prompts SET status = "generating" WHERE id = $1', body.promptId);
+
+                // Construct task object for internal processTask method (to be added/refactored)
+                const task = {
+                    id: body.promptId,
+                    prompt_content: version.content,
+                    parameters: JSON.stringify({
+                        temperature: version.temperature,
+                        topP: version.top_p,
+                        maxTokens: version.max_tokens,
+                        model: version.model
+                    }),
+                    current_version_id: prompt.current_version_id
+                };
+
+                // Use the same logic as processScheduledTasks but refactored
+                await this.executeTask(task);
+            });
+            return Response.json({ success: true, message: 'Execution started' }, { status: 202 });
+        }
+
+        if (url.pathname === '/api/latest') {
+            const result = this.ctx.storage.sql.exec(`
+                SELECT p.title, v.output, v.created_at, p.id 
+                FROM prompts p 
+                JOIN prompt_versions v ON p.current_version_id = v.id 
+                WHERE v.output IS NOT NULL 
+                ORDER BY v.created_at DESC LIMIT 1
+            `).one() as any;
+            return Response.json({ success: true, result });
+        }
+
         // Scheduler API routing
         if (url.pathname.startsWith('/api/scheduler/')) {
             return this.handleSchedulerRequest(url, request);
