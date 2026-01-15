@@ -65,6 +65,11 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const [showSchedule, setShowSchedule] = createSignal(false);
     const [showWorkflow, setShowWorkflow] = createSignal(false);
 
+    // Version history state
+    const [showVersionPanel, setShowVersionPanel] = createSignal(false);
+    const [compareMode, setCompareMode] = createSignal(false);
+    const [compareVersionId, setCompareVersionId] = createSignal<string | null>(null);
+
     // Initialize from current version
     createEffect(() => {
         const v = currentVersion();
@@ -353,12 +358,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                                 onContextMenu={(e) => { e.preventDefault(); setCompareVersionId(version.id); }}
                                                 title={`v${versions().length - 7 + index()} - ${new Date(version.createdAt).toLocaleTimeString()}${hasOutput() ? ' ✓' : ''}`}
                                                 class={`w-2.5 h-2.5 rounded-full transition-all ${isCompare()
-                                                        ? 'bg-amber-500 ring-2 ring-amber-400/50'
-                                                        : isCurrent()
-                                                            ? 'bg-purple-500 ring-2 ring-purple-400/50'
-                                                            : hasOutput()
-                                                                ? 'bg-emerald-500/60 hover:bg-emerald-400'
-                                                                : 'bg-slate-700 hover:bg-slate-600'
+                                                    ? 'bg-amber-500 ring-2 ring-amber-400/50'
+                                                    : isCurrent()
+                                                        ? 'bg-purple-500 ring-2 ring-purple-400/50'
+                                                        : hasOutput()
+                                                            ? 'bg-emerald-500/60 hover:bg-emerald-400'
+                                                            : 'bg-slate-700 hover:bg-slate-600'
                                                     }`}
                                             />
                                         );
@@ -372,8 +377,8 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 <button
                                     onClick={() => setCompareMode(!compareMode())}
                                     class={`px-2 py-1 text-xs font-medium rounded transition-colors ${compareMode()
-                                            ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50'
-                                            : 'bg-slate-700 text-slate-400 hover:text-white border border-slate-600'
+                                        ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50'
+                                        : 'bg-slate-700 text-slate-400 hover:text-white border border-slate-600'
                                         }`}
                                 >
                                     {compareMode() ? 'Exit Compare' : 'Compare'}
@@ -399,10 +404,10 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                             <button
                                                 onClick={() => compareMode() ? setCompareVersionId(version.id) : handleRevert(version.id)}
                                                 class={`p-2 rounded-lg text-left transition-all border ${isCompare()
-                                                        ? 'bg-amber-900/30 border-amber-500/50'
-                                                        : isCurrent()
-                                                            ? 'bg-purple-900/30 border-purple-500/50'
-                                                            : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                                                    ? 'bg-amber-900/30 border-amber-500/50'
+                                                    : isCurrent()
+                                                        ? 'bg-purple-900/30 border-purple-500/50'
+                                                        : 'bg-slate-800 border-slate-700 hover:border-slate-600'
                                                     }`}
                                             >
                                                 <div class="flex items-center justify-between mb-1">
