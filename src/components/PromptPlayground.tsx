@@ -17,6 +17,7 @@ import { WorkflowModal } from './WorkflowModal';
 import { showSnackbar } from './Snackbar';
 import { PROMPT_TEMPLATES, type PromptTemplate } from '../data/templates';
 import { TemplateModal } from './TemplateModal';
+import { GEMINI_MODELS, generate, type GeminiModel } from '../aiService';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -83,6 +84,13 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const [compareMode, setCompareMode] = createSignal(false);
     const [compareVersionId, setCompareVersionId] = createSignal<string | null>(null);
 
+    // Model Comparison State (Phase 13)
+    const [showModelComparison, setShowModelComparison] = createSignal(false);
+    const [comparisonModel, setComparisonModel] = createSignal<GeminiModel>(GEMINI_MODELS[0] === 'deep-research-pro-preview-12-2025' ? 'gemini-3-pro-preview' : GEMINI_MODELS[0]);
+    const [comparisonOutput, setComparisonOutput] = createSignal('');
+    const [comparisonIsRunning, setComparisonIsRunning] = createSignal(false);
+    const [comparisonError, setComparisonError] = createSignal('');
+
     // Initialize from current version
     createEffect(() => {
         const v = currentVersion();
@@ -125,8 +133,42 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
             await handleSave();
         }
         showSnackbar('Agent started', 'info');
-        await runSinglePrompt(props.promptId);
-        setIsRunning(false);
+
+        try {
+            if (showModelComparison()) {
+                // Parallel execution
+                setComparisonIsRunning(true);
+                setComparisonError('');
+
+                const primaryPromise = runSinglePrompt(props.promptId);
+
+                const comparisonPromise = (async () => {
+                    try {
+                        const output = await generate(content(), systemInstructions(), {
+                            ...getParams(),
+                            model: comparisonModel() // Use selected model override
+                        } as any); // Type cast due to extended params
+                        setComparisonOutput(output);
+                    } catch (e) {
+                        setComparisonError((e as Error).message);
+                    } finally {
+                        setComparisonIsRunning(false);
+                    }
+                })();
+
+                await primaryPromise;
+                // We don't await comparisonPromise here to let primary finish independently, 
+                // but for UI correctness we might want to track both?
+                // Actually, runSinglePrompt is awaited, so primary is done. 
+                // Comparison runs in background if slower.
+            } else {
+                await runSinglePrompt(props.promptId);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsRunning(false);
+        }
         showSnackbar('Generation complete', 'success');
     };
 
@@ -190,6 +232,33 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         </Show>
                     </div>
 
+                    </div>
+
+                    {/* Comparison Control */}
+                    <div class="flex items-center gap-3 px-4 border-l border-slate-700 mx-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={showModelComparison()} 
+                                onChange={(e) => setShowModelComparison(e.currentTarget.checked)}
+                                class="w-4 h-4 rounded border-slate-600 text-purple-600 focus:ring-purple-500 bg-slate-700"
+                            />
+                            <span class="text-sm text-slate-300">Compare Models</span>
+                        </label>
+                        
+                        <Show when={showModelComparison()}>
+                            <select
+                                value={comparisonModel()}
+                                onChange={(e) => setComparisonModel(e.currentTarget.value as GeminiModel)}
+                                class="bg-slate-800 border border-slate-600 text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-purple-500"
+                            >
+                                <For each={['gemini-3-pro-preview', 'deep-research-pro-preview-12-2025']}> 
+                                    {(model) => <option value={model}>{model}</option>}
+                                </For>
+                            </select>
+                        </Show>
+                    </div>
+
                     <div class="flex items-center gap-2">
                         <Show when={props.onPresent}>
                             <button
@@ -216,7 +285,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 {/* Split View Content */}
                 <div class="flex-1 flex overflow-hidden">
                     {/* Left Panel - Editor */}
-                    <div class="w-1/2 flex flex-col border-r border-slate-700 overflow-y-auto">
+                    <div class={`${showModelComparison() ? 'w-1/3 min-w-[300px]' : 'w-1/2'} flex flex-col border-r border-slate-700 overflow-y-auto transition-all`}>
                         {/* Prompt Content - VISIBLE FIRST */}
                         <div class="flex-1 p-4">
                             <label class="block text-sm font-medium text-slate-400 mb-2">Prompt</label>
@@ -256,9 +325,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                     </div>
 
                     {/* Right Panel - Output Preview */}
-                    <div class="w-1/2 flex flex-col bg-slate-850 overflow-y-auto">
-                        <div class="p-4 border-b border-slate-700">
-                            <label class="block text-sm font-medium text-slate-400">Output Preview</label>
+                    <div class={`${showModelComparison() ? 'w-1/3' : 'w-1/2'} flex flex-col bg-slate-850 overflow-y-auto border-l border-slate-700`}>
+                        <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                            <label class="block text-sm font-medium text-slate-400">Primary Output</label>
+                            <span class="text-xs text-slate-500 px-2 py-1 bg-slate-800 rounded">
+                                {promptStore.versions[prompt()?.currentVersionId || '']?.parameters?.model || 'Default'}
+                            </span>
                         </div>
 
                         <div class="flex-1 p-4 overflow-y-auto">
@@ -285,6 +357,50 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             </Show>
                         </div>
                     </div>
+
+                    {/* Comparison Panel */}
+                    <Show when={showModelComparison()}>
+                         <div class="w-1/3 flex flex-col bg-slate-900 overflow-y-auto border-l border-slate-700">
+                            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                                <label class="block text-sm font-medium text-amber-400">Comparison Output</label>
+                                <span class="text-xs text-amber-500/80 px-2 py-1 bg-amber-900/10 rounded border border-amber-900/30">
+                                    {comparisonModel()}
+                                </span>
+                            </div>
+
+                            <div class="flex-1 p-4 overflow-y-auto">
+                                <Show when={comparisonIsRunning()}>
+                                    <div class="flex flex-col items-center justify-center h-full text-amber-500/50 gap-3">
+                                        <svg class="animate-spin w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                        </svg>
+                                        <span class="text-xs animate-pulse">Comparing...</span>
+                                    </div>
+                                </Show>
+
+                                <Show when={!comparisonIsRunning() && comparisonOutput()}>
+                                    <div
+                                        class="prose prose-invert prose-slate max-w-none text-slate-300"
+                                        innerHTML={renderMarkdown(comparisonOutput())}
+                                    />
+                                </Show>
+                                
+                                <Show when={comparisonError()}>
+                                    <div class="mt-4 p-4 bg-red-900/20 border border-red-800 rounded-lg">
+                                        <p class="text-red-400 text-sm font-medium">Comparison Error</p>
+                                        <p class="text-red-300 text-sm mt-1">{comparisonError()}</p>
+                                    </div>
+                                </Show>
+
+                                <Show when={!comparisonIsRunning() && !comparisonOutput() && !comparisonError()}>
+                                    <div class="text-center py-12 text-slate-600">
+                                        <p>Ready to compare</p>
+                                    </div>
+                                </Show>
+                            </div>
+                        </div>
+                    </Show>
                 </div>
 
                 {/* Parameter Controls */}
@@ -568,7 +684,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 onClose={() => setShowTemplates(false)}
                 onSelect={handleLoadTemplate}
             />
-        </div>
+        </div >
     );
 };
 
