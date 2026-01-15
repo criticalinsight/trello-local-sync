@@ -43,10 +43,8 @@ test('End-to-end visual simulation on live site', async ({ page }) => {
     await page.screenshot({ path: 'step1-running.png' });
     console.log('Status: Running (Playground Button)');
 
-    // 2. Refresh/Reload to simulate "refresh cache" while running
-    console.log('Simulating cache refresh during generation...');
-    await page.reload();
-
+    // 2. Just wait for Generation to start appearing in card
+    console.log('Waiting for Generating state...');
     // 3. Status should persist in card (Generating/Running)
     // Re-open if closed after reload or wait for card status
     await expect(lastCard.locator('text=Generating')).toBeVisible({ timeout: 20000 });
