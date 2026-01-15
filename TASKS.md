@@ -1,13 +1,11 @@
 # Ralph Tasks
 
 ## Active Task
-- [ ] UX Enhancement (Phase 8)
+- [ ] UX Polish (Phase 8)
 
 ## Backlog
-- [ ] Premium Theming (Light/Dark/System)
-- [ ] Keyboard Navigation & Command Palette
 - [ ] Agent Status Dashboard
-- [ ] Streamlined Onboarding
+- [ ] Polished Interactions (Animations, Snackbars)
 
 ## Completed
 - [x] Phase 7: Autonomous Agents
