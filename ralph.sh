@@ -6,10 +6,10 @@
 exec >> ralph.log 2>&1
 
 while true; do
-  echo "--- Starting Ralph Iteration: $(date) ---"
+  echo "--- Starting Ralph Iteration: $(date) ---" | tee -a ralph.log
   
-  # Run the driver
-  ./.ralph_venv/bin/python3 ralph_driver.py
+  # Run the driver with explicit redirection and null input to avoid descriptor issues
+  PYTHONUNBUFFERED=1 ./.ralph_venv/bin/python3 ralph_driver.py < /dev/null >> ralph.log 2>&1
   EXIT_CODE=$?
 
   # Check for 429 (Rate Limit) - Exit code 42 signaled by driver
