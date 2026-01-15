@@ -7,3 +7,4 @@ dist
 .DS_Store
 .ralph_venv
 .agent
+ralph.log
