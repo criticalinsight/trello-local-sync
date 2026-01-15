@@ -109,6 +109,15 @@ export class BoardDO extends DurableObject {
             return Response.json({ lists, cards });
         }
 
+        if (url.pathname === '/api/sql') {
+            const body = await request.json() as { sql: string; params?: unknown[] };
+            const result = this.ctx.storage.sql.exec(body.sql, ...(body.params || []));
+            return Response.json({
+                success: true,
+                result: [...result.toArray()]
+            });
+        }
+
         // Scheduler API routing
         if (url.pathname.startsWith('/api/scheduler/')) {
             return this.handleSchedulerRequest(url, request);
