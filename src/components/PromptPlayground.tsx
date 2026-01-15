@@ -18,6 +18,7 @@ import { showSnackbar } from './Snackbar';
 import { PROMPT_TEMPLATES, type PromptTemplate } from '../data/templates';
 import { TemplateModal } from './TemplateModal';
 import { GEMINI_MODELS, generate, type GeminiModel } from '../aiService';
+import { VersionDiff } from './VersionDiff';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -90,6 +91,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const [comparisonOutput, setComparisonOutput] = createSignal('');
     const [comparisonIsRunning, setComparisonIsRunning] = createSignal(false);
     const [comparisonError, setComparisonError] = createSignal('');
+    const [showDiff, setShowDiff] = createSignal(false);
 
     // Initialize from current version
     createEffect(() => {
@@ -363,9 +365,19 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         <div class="w-1/3 flex flex-col bg-slate-900 overflow-y-auto border-l border-slate-700">
                             <div class="p-4 border-b border-slate-700 flex justify-between items-center">
                                 <label class="block text-sm font-medium text-amber-400">Comparison Output</label>
-                                <span class="text-xs text-amber-500/80 px-2 py-1 bg-amber-900/10 rounded border border-amber-900/30">
-                                    {comparisonModel()}
-                                </span>
+                                <div class="flex items-center gap-2">
+                                    <Show when={comparisonOutput()}>
+                                        <button
+                                            onClick={() => setShowDiff(!showDiff())}
+                                            class={`px-2 py-0.5 text-xs rounded border transition-colors ${showDiff() ? 'bg-amber-900/50 border-amber-500 text-amber-200' : 'border-slate-600 text-slate-400 hover:text-white'}`}
+                                        >
+                                            {showDiff() ? 'Hide Diff' : 'Diff'}
+                                        </button>
+                                    </Show>
+                                    <span class="text-xs text-amber-500/80 px-2 py-1 bg-amber-900/10 rounded border border-amber-900/30">
+                                        {comparisonModel()}
+                                    </span>
+                                </div>
                             </div>
 
                             <div class="flex-1 p-4 overflow-y-auto">
@@ -380,10 +392,21 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 </Show>
 
                                 <Show when={!comparisonIsRunning() && comparisonOutput()}>
-                                    <div
-                                        class="prose prose-invert prose-slate max-w-none text-slate-300"
-                                        innerHTML={renderMarkdown(comparisonOutput())}
-                                    />
+                                    <Show
+                                        when={showDiff()}
+                                        fallback={
+                                            <div
+                                                class="prose prose-invert prose-slate max-w-none text-slate-300"
+                                                innerHTML={renderMarkdown(comparisonOutput())}
+                                            />
+                                        }
+                                    >
+                                        <VersionDiff
+                                            oldText={currentVersion()?.output || ''}
+                                            newText={comparisonOutput()}
+                                            mode="words"
+                                        />
+                                    </Show>
                                 </Show>
 
                                 <Show when={comparisonError()}>
