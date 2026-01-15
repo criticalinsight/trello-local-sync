@@ -277,6 +277,32 @@ function logAction(undo: () => Promise<void>, redo: () => Promise<void>) {
     history.redo = []; // Clear redo stack
 }
 
+// ============= EVENT SYSTEM =============
+export type BoardEventType = 'card_added' | 'card_moved' | 'card_deleted' | 'card_updated';
+
+export interface BoardEvent {
+    type: BoardEventType;
+    cardId: string;
+    listId?: string; // current or target list
+    data?: any;
+}
+
+type BoardEventListener = (event: BoardEvent) => void;
+const listeners: BoardEventListener[] = [];
+
+export function onBoardEvent(listener: BoardEventListener) {
+    listeners.push(listener);
+    return () => {
+        const idx = listeners.indexOf(listener);
+        if (idx !== -1) listeners.splice(idx, 1);
+    };
+}
+
+function emitBoardEvent(event: BoardEvent) {
+    console.log(`[Store] Event emitted: ${event.type}`, event);
+    listeners.forEach(l => l(event));
+}
+
 // ============= PUBLIC ACTIONS =============
 
 // Move card to new position
@@ -297,6 +323,9 @@ export async function moveCard(cardId: string, newListId: string, newPos: number
 
     // 1. INSTANT UI UPDATE (0ms)
     setStore('cards', cardId, { listId: newListId, pos: newPos });
+
+    // Emit event
+    emitBoardEvent({ type: 'card_moved', cardId, listId: newListId });
 
     try {
         // 2. PERSIST TO BROWSER DB

@@ -76,6 +76,21 @@ export interface PromptVersion {
     error?: string;
 }
 
+export type TriggerType = 'card_added' | 'card_moved' | 'card_tagged';
+
+export interface WorkflowTrigger {
+    type: TriggerType;
+    config?: {
+        listId?: string;
+        tag?: string;
+    };
+}
+
+export interface PromptWorkflow {
+    enabled: boolean;
+    triggers: WorkflowTrigger[];
+}
+
 export interface PromptCard {
     id: string;
     title: string;
@@ -93,6 +108,7 @@ export interface PromptCard {
         lastRun?: number;
         nextRun?: number;
     };
+    workflow?: PromptWorkflow;
 }
 
 export interface PromptBoardMeta {
