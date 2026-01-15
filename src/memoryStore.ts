@@ -277,6 +277,10 @@ export const searchMemories = searchNodes;
 /**
  * Retrieves a context string for the AI, prioritizing recently updated and related nodes.
  * If a query is provided, it uses keyword matching and relationship traversal.
+ * 
+ * Time Complexity (Query): O(N * K + E) where N = nodes, K = keywords, E = edges
+ * Time Complexity (Default): O(N log N) for sorting
+ * Space Complexity: O(N) for relationship traversal clusters
  */
 export function getMemoriesForContext(limit = 10, query?: string): string {
     let targetNodes: Node[] = [];

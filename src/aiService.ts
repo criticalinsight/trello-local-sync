@@ -129,7 +129,12 @@ export class AIError extends Error {
     }
 }
 
-// Main generation function with fallback
+/**
+ * Main generation function with fallback logic.
+ * 
+ * Time Complexity: O(M * R) where M = number of models in chain, R = request latency
+ * Space Complexity: O(C) where C = size of context/memories being processed
+ */
 export async function generateWithFallback(
     request: GenerateRequest
 ): Promise<GenerateResponse> {
