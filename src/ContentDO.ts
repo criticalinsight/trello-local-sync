@@ -202,21 +202,65 @@ export class ContentDO extends DurableObject {
     private async notifySignal(intel: any, sourceId: string) {
         const relevance = intel.relevance_score || 0;
 
-        // 1. Send to Telegram immediately (Alert)
+        // 1. Generate Fingerprint (Normalized summary + tickers)
+        const fingerprint = `${intel.summary.toLowerCase().trim()}:${intel.tickers.sort().join(',')}`;
+
+        // 2. Check for Duplicates in BoardDO (within last 6 hours)
+        const boardStub = this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default'));
+        const checkSql = `SELECT id FROM signals WHERE fingerprint = ? AND created_at > ?`;
+        const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
+
+        const checkResponse = await boardStub.fetch('http://do/api/sql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql: checkSql, params: [fingerprint, sixHoursAgo] })
+        });
+
+        const checkResult = await checkResponse.json() as any;
+        if (checkResult.result && checkResult.result.length > 0) {
+            console.log(`[ContentDO] Duplicate signal detected (fingerprint: ${fingerprint}), skipping.`);
+            return;
+        }
+
+        // 3. Persist to signals table
+        const signalId = crypto.randomUUID();
+        const saveSql = `
+            INSERT INTO signals (id, fingerprint, summary, sentiment, tickers, relevance, source_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        await boardStub.fetch('http://do/api/sql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sql: saveSql,
+                params: [
+                    signalId,
+                    fingerprint,
+                    intel.summary,
+                    intel.sentiment,
+                    JSON.stringify(intel.tickers),
+                    relevance,
+                    sourceId,
+                    Date.now()
+                ]
+            })
+        });
+
+        // 4. Send to Telegram immediately (Alert)
         if (this.env.TELEGRAM_BOT_TOKEN) {
             const msg = `🚨 **Intel: ${intel.summary}**\n` +
                 `📈 Sentiment: ${intel.sentiment.toUpperCase()}\n` +
                 `🎯 Tickers: ${intel.tickers.join(', ')}\n` +
                 `🎯 Relevance: ${relevance}%`;
 
-            await this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default')).fetch('http://do/api/admin/broadcast', {
+            await boardStub.fetch('http://do/api/admin/broadcast', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: msg })
             });
         }
 
-        // 2. Auto-Create Kanban Card if High Relevance
+        // 5. Auto-Create Kanban Card if High Relevance
         if (relevance >= 80) {
             console.log(`[ContentDO] High relevance signal (${relevance}%), creating card...`);
 
@@ -244,14 +288,14 @@ export class ContentDO extends DurableObject {
                 JSON.stringify(['intel', ...intel.tickers])
             ];
 
-            await this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default')).fetch('http://do/api/sql', {
+            await boardStub.fetch('http://do/api/sql', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sql, params })
             });
 
             // Log activity
-            await this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default')).fetch('http://do/api/log_activity', {
+            await boardStub.fetch('http://do/api/log_activity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
