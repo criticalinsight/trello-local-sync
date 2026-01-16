@@ -23,6 +23,7 @@ import { estimateTokens, estimateCost, formatCost } from '../utils/tokenEstimato
 import { PromptHistoryView } from './PromptHistoryView';
 import { AVAILABLE_TOOLS, type HelperTool } from '../utils/mcpMapper';
 import { analyzePromptForParams } from '../utils/promptAnalyzer';
+import { findBestMatchingTemplate } from '../utils/templateMatcher';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -164,6 +165,24 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
         } else {
             setDetectedIntent('default');
         }
+    });
+
+    // Dynamic Template Matching (Phase 19)
+    const [suggestedTemplate, setSuggestedTemplate] = createSignal<PromptTemplate | null>(null);
+
+    createEffect(() => {
+        const text = content();
+        // Very simple debounce
+        const timer = setTimeout(() => {
+            const match = findBestMatchingTemplate(text);
+            // Don't suggest if we are already using that template content roughly
+            if (match && !text.includes(match.content.substring(0, 20))) {
+                setSuggestedTemplate(match);
+            } else {
+                setSuggestedTemplate(null);
+            }
+        }, 800);
+        onCleanup(() => clearTimeout(timer));
     });
 
     // Initialize from current version
@@ -600,6 +619,42 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                     </label>
                                 </div>
                             </div>
+
+                            {/* Suggestion Banner (Phase 19) */}
+                            <Show when={suggestedTemplate()}>
+                                <div class="mb-2 px-3 py-2 bg-purple-900/40 border border-purple-500/30 rounded-lg flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-base">💡</span>
+                                        <div class="text-xs text-purple-200">
+                                            <span class="font-semibold">Suggestion:</span> Apply
+                                            <span class="font-bold text-white mx-1">{suggestedTemplate()?.trigger}</span>
+                                            template?
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            class="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-medium rounded transition-colors"
+                                            onClick={() => {
+                                                const t = suggestedTemplate();
+                                                if (t) {
+                                                    handleLoadTemplate(t);
+                                                    setSuggestedTemplate(null);
+                                                }
+                                            }}
+                                        >
+                                            Apply
+                                        </button>
+                                        <button
+                                            class="p-0.5 hover:bg-white/10 rounded text-slate-400 hover:text-white"
+                                            onClick={() => setSuggestedTemplate(null)}
+                                        >
+                                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </Show>
                             <textarea
                                 value={content()}
                                 onInput={(e) => {

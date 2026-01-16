@@ -11,7 +11,7 @@ export const TemplateModal: Component<Props> = (props) => {
     const [selectedCategory, setSelectedCategory] = createSignal<string>('all');
     const [searchQuery, setSearchQuery] = createSignal('');
 
-    const categories = ['all', 'coding', 'writing', 'analysis', 'agent'];
+    const categories = ['all', 'coding', 'writing', 'analysis', 'marketing', 'product', 'agent'];
 
     const filteredTemplates = () => {
         return PROMPT_TEMPLATES.filter((t) => {
