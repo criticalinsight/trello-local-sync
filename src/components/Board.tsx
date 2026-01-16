@@ -11,6 +11,7 @@ import {
     performUndo,
     performRedo,
     moveList,
+    switchBoard,
 } from '../store';
 import { StatusPill } from './StatusPill';
 import { CardModal } from './CardModal';
@@ -160,7 +161,7 @@ const Card: Component<{ card: CardType; onOpenModal: () => void }> = (props) => 
                                         <span
                                             class="w-2 h-2 rounded-full bg-blue-500"
                                             title={t}
-                                         />
+                                        />
                                     )}
                                 </For>
                             </span>
@@ -481,8 +482,28 @@ export const Board: Component = () => {
             {/* Board Header */}
             <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 px-6 py-4 flex justify-between items-center z-10 relative shrink-0">
                 <div>
-                    <h1 class="text-xl font-bold text-white">Work</h1>
-                    <p class="text-slate-400 text-sm mt-1">Local-First • 0ms Latency</p>
+                    <h1 class="text-xl font-bold text-white flex items-center gap-2">
+                        {store.boards[store.activeBoardId]?.icon || '📋'} {store.boards[store.activeBoardId]?.title || 'Work'}
+                    </h1>
+                    <p class="text-slate-400 text-sm mt-1">Refinery Engine • Multi-Board</p>
+                </div>
+
+                {/* Board Tabs */}
+                <div class="flex-1 px-8 hidden md:flex gap-1">
+                    <For each={Object.values(store.boards)}>
+                        {(board) => (
+                            <button
+                                onClick={() => switchBoard(board.id)}
+                                class={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
+                                    ${store.activeBoardId === board.id
+                                        ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
+                                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+                            >
+                                <span>{board.icon}</span>
+                                <span>{board.title}</span>
+                            </button>
+                        )}
+                    </For>
                 </div>
                 <div class="flex items-center gap-2 sm:gap-4">
                     {/* View Toggle */}

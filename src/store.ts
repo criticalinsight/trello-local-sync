@@ -14,6 +14,8 @@ interface StoreState {
     cards: Record<string, Card>;
     comments: Record<string, Comment>;
     attachments: Record<string, Attachment>; // New
+    boards: Record<string, Board>;
+    activeBoardId: string;
     connected: boolean;
     syncing: boolean;
 }
@@ -21,8 +23,10 @@ interface StoreState {
 export const [store, setStore] = createStore<StoreState>({
     lists: {},
     cards: {},
-    comments: {}, // New comments state
-    attachments: {}, // New attachments state
+    comments: {},
+    attachments: {},
+    boards: {},
+    activeBoardId: 'board-main',
     connected: false,
     syncing: false,
 });
@@ -194,6 +198,19 @@ function handleSyncMessage(msg: SyncMessage) {
         case 'SYNC_STATE':
             setStore(
                 produce((s) => {
+                    // Update boards list if present
+                    if (msg.boards) {
+                        s.boards = {};
+                        msg.boards.forEach((b) => (s.boards[b.id] = b));
+                    }
+                    if (msg.activeBoardId) {
+                        s.activeBoardId = msg.activeBoardId;
+                    }
+
+                    // Reset lists and cards for the current board
+                    s.lists = {};
+                    s.cards = {};
+
                     for (const list of msg.lists) {
                         s.lists[list.id] = list;
                     }
@@ -202,6 +219,7 @@ function handleSyncMessage(msg: SyncMessage) {
                             id: card.id,
                             title: card.title,
                             listId: (card as any).list_id || card.listId,
+                            boardId: (card as any).board_id || card.boardId,
                             pos: card.pos,
                             createdAt: (card as any).created_at || card.createdAt,
                             description: (card as any).description || '',
@@ -297,6 +315,12 @@ function logAction(undo: () => Promise<void>, redo: () => Promise<void>) {
         history.undo.shift();
     }
     history.redo = []; // Clear redo stack
+}
+
+export async function switchBoard(boardId: string) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'SWITCH_BOARD', boardId }));
+    }
 }
 
 // ============= EVENT SYSTEM =============
