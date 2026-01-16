@@ -76,8 +76,8 @@ export class ContentDO extends DurableObject {
             const id = crypto.randomUUID();
 
             // 1. Auto-register channel if new
-            const existing = this.ctx.storage.sql.exec('SELECT id FROM channels WHERE id = ?', body.chatId).one();
-            if (!existing) {
+            const channels = this.ctx.storage.sql.exec('SELECT id FROM channels WHERE id = ?', body.chatId).toArray();
+            if (channels.length === 0) {
                 this.ctx.storage.sql.exec(
                     'INSERT INTO channels (id, name, config, created_at) VALUES (?, ?, ?, ?)',
                     body.chatId,
