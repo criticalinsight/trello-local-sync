@@ -416,25 +416,31 @@ export class ContentDO extends DurableObject {
 
             // Route to channel-specific boards
             const name = sourceName.toLowerCase();
+            const isHighUrgency = intel.urgency === 'high';
+
             if (name.includes('americamoe')) {
                 targetBoardId = 'board-americamoe';
-                targetListId = 'list-americamoe-todo';
+                targetListId = isHighUrgency ? 'list-americamoe-critical' : 'list-americamoe-todo';
             } else if (name.includes('moneyacademy')) {
                 targetBoardId = 'board-moneyacademy';
-                targetListId = 'list-moneyacademy-todo';
+                targetListId = isHighUrgency ? 'list-moneyacademy-critical' : 'list-moneyacademy-todo';
             } else if (name.includes('gotrythis')) {
                 targetBoardId = 'board-gotrythis';
-                targetListId = 'list-gotrythis-todo';
+                targetListId = isHighUrgency ? 'list-gotrythis-critical' : 'list-gotrythis-todo';
             } else if (name.includes('moecrypto')) {
                 targetBoardId = 'board-moecrypto';
-                targetListId = 'list-moecrypto-todo';
+                targetListId = isHighUrgency ? 'list-moecrypto-critical' : 'list-moecrypto-todo';
+            } else if (isHighUrgency) {
+                targetListId = 'list-intel-critical';
             }
 
             const cardId = crypto.randomUUID();
             const now = Date.now();
             const description = `📈 **Sentiment:** ${(intel.sentiment || "").toUpperCase()}\n` +
                 `🎯 **Tickers:** ${tickers.join(', ')}\n` +
-                `📊 **Relevance:** ${relevance}%\n\n` +
+                `📊 **Relevance:** ${relevance}%\n` +
+                `🚨 **Urgency:** ${(intel.urgency || "med").toUpperCase()}\n\n` +
+                `🧠 **Impact Analysis:** ${intel.impact_analysis || "No analysis provided."}\n\n` +
                 `Source: ${sourceName}\n` +
                 `Refined by: Content Refinery (Gemini)`;
 
