@@ -527,17 +527,70 @@ export class BoardDO extends DurableObject<Env> {
     private async sendDailyBriefing() {
         if (!this.env.TELEGRAM_BOT_TOKEN) return;
 
-        // Gather stats
+        // 1. Fetch signals from last 24h
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+        const signals = this.ctx.storage.sql.exec(
+            'SELECT summary, tickers, relevance FROM signals WHERE created_at > ? ORDER BY relevance DESC LIMIT 50',
+            twentyFourHoursAgo
+        ).toArray() as any[];
+
+        let briefingContent = "";
+
+        if (signals.length > 0) {
+            console.log(`[BoardDO] Synthesizing briefing for ${signals.length} signals...`);
+
+            const signalsText = signals.map(s => `- [Rel: ${s.relevance}%] ${s.summary} (${JSON.parse(s.tickers).join(', ')})`).join('\n');
+
+            const prompt = `You are a Senior Market Strategist. 
+            Synthesize the following 24h signals into a concise "Refinery Briefing" for a high-net-worth investor.
+            Format with clear headings, bullet points, and a "Bottom Line" summary.
+            Keep it under 300 words.
+            
+            Signals:
+            ${signalsText}`;
+
+            try {
+                const resDO = this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default'));
+                const res = await resDO.fetch('http://do/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt,
+                        system: "Strategic Financial Analyst"
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json() as any;
+                    briefingContent = data.output;
+                } else {
+                    briefingContent = "Error generating AI synthesis. Check ResearchDO logs.";
+                }
+            } catch (e) {
+                console.error('[BoardDO] Briefing synthesis failed:', e);
+                briefingContent = "Failed to synthesize signals via AI.";
+            }
+        } else {
+            briefingContent = "No significant signals detected in the last 24 hours.";
+        }
+
+        // 2. Gather stats
         const draftCount = this.ctx.storage.sql.exec("SELECT COUNT(*) as count FROM prompts WHERE status = 'draft'").one() as any;
         const errorCount = this.ctx.storage.sql.exec("SELECT COUNT(*) as count FROM prompts WHERE status = 'error'").one() as any;
 
-        const msg = `📅 ** Daily Briefing **\n\n` +
-            `📝 ** Drafts:** ${draftCount?.count || 0} \n` +
-            `❌ ** Errors:** ${errorCount?.count || 0} \n\n` +
-            `System is running smoothly.Use \`/stats\` for more info.`;
+        const msg = `📅 **Daily Briefing**\n\n` +
+            `${briefingContent}\n\n` +
+            `--- \n` +
+            `📝 **Drafts:** ${draftCount?.count || 0} | ❌ **Errors:** ${errorCount?.count || 0}\n` +
+            `System is running smoothly. Use \`/stats\` for more info.`;
 
-        await this.rateLimiter.throttle();
-        await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any, msg);
+        // 3. Broadcast to all admins
+        const url = new URL('http://do/api/admin/broadcast');
+        await this.handleAdminRequest(new Request(url.toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg })
+        }));
     }
 
     private sendFullState(ws: WebSocket) {
