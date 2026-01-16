@@ -269,18 +269,46 @@ export class ContentDO extends DurableObject {
         let analysisNotes = "";
 
         if (relevance >= 80) {
-            console.log(`[ContentDO] High-relevance signal (${relevance}%). Triggering Epistemic Vetting...`);
+            console.log(`[ContentDO] High-relevance signal (${relevance}%). Fetching Relational Context...`);
 
-            const vettingPrompt = `Analyze the following financial signal for accuracy, potential bias, and depth.
+            // Fetch Relational Context (recent activities on these tickers)
+            let contextText = "No previous context found.";
+            try {
+                const contextSql = `
+                    SELECT s.summary, s.sentiment, s.created_at 
+                    FROM signals s 
+                    WHERE s.tickers LIKE ? AND s.created_at > ?
+                    ORDER BY s.created_at DESC LIMIT 3
+                `;
+                const contextRes = await boardStub.fetch('http://do/api/sql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sql: contextSql,
+                        params: [`%${intel.tickers[0]}%`, Date.now() - (48 * 60 * 60 * 1000)]
+                    })
+                });
+                const contextData = await contextRes.json() as any;
+                if (contextData.result && contextData.result.length > 0) {
+                    contextText = contextData.result.map((r: any) => `- [${new Date(r.created_at).toLocaleDateString()}] ${r.summary}`).join('\n');
+                }
+            } catch (e) {
+                console.error('[ContentDO] Context fetch failed:', e);
+            }
+
+            const vettingPrompt = `Analyze the following financial signal for accuracy and depth.
             Signal: ${intel.summary}
             Tickers: ${intel.tickers.join(', ')}
             
+            Previous Relational Context (Last 48h):
+            ${contextText}
+            
             Tasks:
-            1. Verify if this looks like a factual event or speculation.
-            2. Identify any missing context.
+            1. Cross-reference with context. Is this a duplicate or a new development?
+            2. Verify if this looks factual.
             3. Decision: Should this be promoted to a Kanban Card? (REPLY ONLY WITH 'PROCEED' OR 'DISCARD').
             
-            Notes (concise):`;
+            Notes:`;
 
             try {
                 const res = await (this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default'))).fetch('http://do/api/generate', {
@@ -301,14 +329,45 @@ export class ContentDO extends DurableObject {
                 }
             } catch (e) {
                 console.error('[ContentDO] Vetting failed:', e);
-                // Fail-safe: proceed anyway if service down? No, better to be safe.
-                isValidated = true; // For now.
+                isValidated = true; // Fail-safe
             }
         }
 
         if (!isValidated) {
             console.log(`[ContentDO] Signal discarded by Epistemic Analyst.`);
             return;
+        }
+
+        // 6. Save to Knowledge Graph (Entities & Relationships)
+        try {
+            for (const ticker of intel.tickers) {
+                // Insert entity
+                await boardStub.fetch('http://do/api/refinery/knowledge/insert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'entity',
+                        name: ticker,
+                        entityType: 'TICKER',
+                        description: `Financial Asset: ${ticker}`
+                    })
+                });
+
+                // Insert relationship
+                await boardStub.fetch('http://do/api/refinery/knowledge/insert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'relationship',
+                        sourceId: signalId,
+                        targetId: ticker,
+                        relationType: 'MENTIONS',
+                        strength: relevance / 100
+                    })
+                });
+            }
+        } catch (e) {
+            console.error('[ContentDO] Knowledge Graph insertion failed:', e);
         }
 
         // 6. Auto-Create Kanban Card
