@@ -720,31 +720,70 @@ export class BoardDO extends DurableObject<Env> {
                 throw new Error('GEMINI_API_KEY not configured in worker environment');
             }
 
-            // Use Interactions API endpoint (same as worker.ts)
+            // Fallback chain for rate limit resilience (sync models only)
+            const fallbackModels = [
+                params.model || 'gemini-2.5-flash', // Primary
+                'gemini-3-flash',                   // Fast fallback
+                'gemini-2.5-pro',                   // Stable fallback
+                'gemini-3-pro-preview',             // Preview fallback
+            ];
+
             const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/interactions';
-            const model = params.model || 'gemini-2.5-flash';
+            let output = '';
+            let usedModel = '';
+            let lastError: Error | null = null;
 
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-goog-api-key': apiKey,
-                },
-                body: JSON.stringify({
-                    input: task.prompt_content,
-                    model: model,
-                }),
-            });
+            // Try each model in the fallback chain
+            for (const model of fallbackModels) {
+                try {
+                    console.log(`[BoardDO] Trying model: ${model}`);
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': apiKey,
+                        },
+                        body: JSON.stringify({
+                            input: task.prompt_content,
+                            model: model,
+                        }),
+                    });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Gemini Interactions API Error ${response.status}: ${errorText}`);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        // Rate limit or overload - try next model
+                        if (response.status === 429 || response.status === 503 ||
+                            errorText.includes('RESOURCE_EXHAUSTED')) {
+                            console.log(`[BoardDO] Model ${model} rate limited, trying next...`);
+                            lastError = new Error(`${response.status}: ${errorText}`);
+                            continue;
+                        }
+                        throw new Error(`Gemini API Error ${response.status}: ${errorText}`);
+                    }
+
+                    const data = (await response.json()) as any;
+                    const outputs = data.outputs || [];
+                    output = outputs[0]?.text || outputs[0]?.content || JSON.stringify(data);
+                    usedModel = model;
+                    console.log(`[BoardDO] Success with model: ${model}`);
+                    break; // Success - exit loop
+                } catch (modelError) {
+                    lastError = modelError as Error;
+                    const errorMsg = (modelError as Error).message;
+                    if (errorMsg.includes('429') || errorMsg.includes('503') ||
+                        errorMsg.includes('RESOURCE_EXHAUSTED')) {
+                        console.log(`[BoardDO] Model ${model} failed, trying next...`);
+                        continue;
+                    }
+                    throw modelError; // Non-rate-limit error - rethrow
+                }
             }
 
-            const data = (await response.json()) as any;
-            // Extract text from Interactions API response format
-            const outputs = data.outputs || [];
-            const output = outputs[0]?.text || outputs[0]?.content || JSON.stringify(data);
+            // If all models failed
+            if (!output && lastError) {
+                throw lastError;
+            }
+
             const now = Date.now();
 
             // 1. Log Result
