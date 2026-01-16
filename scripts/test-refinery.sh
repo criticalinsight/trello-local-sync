@@ -38,5 +38,20 @@ echo "Triggering manual batch processing..."
 curl -s -X POST "https://work.moecapital.com/api/refinery/process"
 echo ""
 
-echo "Messages sent and processing triggered. Check logs for 'Processing batch' and 'Intel'."
-echo "run: npx wrangler tail"
+echo "Test: Deduplication (Sending same message again)..."
+curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$URL"
+curl -s -X POST "https://work.moecapital.com/api/refinery/process"
+echo "Check logs: should see 'Duplicate signal detected'"
+
+echo "Test: RSS Ingestion..."
+curl -s -X POST -H "Content-Type: application/json" -d '{"url": "https://feeds.bloomberg.com/markets/news.rss"}' "https://work.moecapital.com/api/refinery/rss"
+echo ""
+
+echo "Test: Daily Briefing Synthesis..."
+curl -s -X POST "https://work.moecapital.com/api/scheduler/tick"
+echo ""
+
+echo "Verification Complete. Run logs check:"
+echo "1. Activity: curl -s https://work.moecapital.com/api/logs"
+echo "2. Entities: curl -s -X POST -H 'Content-Type: application/json' -d '{\"sql\": \"SELECT * FROM entities\"}' https://work.moecapital.com/api/sql"
+echo "3. Signals: curl -s -X POST -H 'Content-Type: application/json' -d '{\"sql\": \"SELECT * FROM signals\"}' https://work.moecapital.com/api/sql"
