@@ -571,20 +571,29 @@ export class BoardDO extends DurableObject<Env> {
         const sqlUpper = sql.toUpperCase();
         let triggerType: string | null = null;
         let cardId: string | null = null;
-        let listId: string | null = null;
-        let tags: string | null = null;
 
         if (sqlUpper.includes('INSERT INTO CARDS')) {
             triggerType = 'card_added';
-            // Assuming standard INSERT INTO cards (id, title, list_id, ...) VALUES (?, ?, ?, ...)
-            // We'd need to parse params or fetch the card. Safer to fetch.
+            // Extract card ID from params if available, otherwise we'll have to skip or use a different approach
+            // Typical INSERT: INSERT INTO cards (id, ...) VALUES (?, ...)
+            cardId = params[0] as string;
         } else if (sqlUpper.includes('UPDATE CARDS SET LIST_ID')) {
             triggerType = 'card_moved';
+            // Typical UPDATE: UPDATE cards SET list_id = ?, pos = ? WHERE id = ?
+            // list_id is params[0], id is usually last or second to last
+            cardId = params[params.length - 1] as string;
         } else if (sqlUpper.includes('UPDATE CARDS SET TAGS')) {
             triggerType = 'card_tagged';
+            cardId = params[params.length - 1] as string;
         }
 
-        if (!triggerType) return;
+        if (!triggerType || !cardId) return;
+
+        // Fetch card details for filtering
+        const card = this.ctx.storage.sql.exec('SELECT * FROM cards WHERE id = ?', cardId).one() as any;
+        if (!card) return;
+
+        const cardTags = JSON.parse(card.tags || '[]');
 
         // Fetch all active workflows
         const workflows = [...this.ctx.storage.sql.exec('SELECT id, workflow FROM prompts WHERE workflow IS NOT NULL').toArray()];
@@ -596,15 +605,21 @@ export class BoardDO extends DurableObject<Env> {
 
                 for (const trigger of config.triggers) {
                     if (trigger.type === triggerType) {
-                        // Check trigger conditions (listId, tag)
-                        // For simplicity in MVP, we trigger if the type matches.
-                        // Ideally we check if trigger.config.listId matches current listId.
+                        // Check filter conditions
+                        let matches = true;
 
-                        console.log(`[Workflow] Triggering prompt ${row.id} for event ${triggerType}`);
+                        if (trigger.config?.listId && trigger.config.listId !== card.list_id) {
+                            matches = false;
+                        }
 
-                        // Queue prompt execution
-                        // Use a short delay or background task to avoid blocking
-                        this.executePromptById(row.id as string);
+                        if (trigger.config?.tag && !cardTags.includes(trigger.config.tag)) {
+                            matches = false;
+                        }
+
+                        if (matches) {
+                            console.log(`[Workflow] Triggering prompt ${row.id} for event ${triggerType} on card ${cardId}`);
+                            this.executePromptById(row.id as string);
+                        }
                     }
                 }
             } catch (e) {
