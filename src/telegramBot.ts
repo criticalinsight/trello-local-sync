@@ -613,8 +613,7 @@ async function answerCallbackQuery(token: string, callbackQueryId: string, text?
     });
 }
 
-    });
-}
+
 
 // Phase 6: Register User
 async function saveChatId(chatId: number, env: Env, username?: string, firstName?: string) {

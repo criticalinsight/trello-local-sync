@@ -102,14 +102,15 @@ export class BoardDO extends DurableObject<Env> {
         created_at INTEGER NOT NULL,
         FOREIGN KEY (prompt_id) REFERENCES prompts(id)
       );
+    `);
 
-      CREATE TABLE IF NOT EXISTS users (
-        chat_id INTEGER PRIMARY KEY,
-        username TEXT,
-        first_name TEXT,
-        role TEXT DEFAULT 'user', -- 'admin' or 'user'
+      CREATE TABLE IF NOT EXISTS users(
+            chat_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            role TEXT DEFAULT 'user', -- 'admin' or 'user'
         joined_at INTEGER
-      );
+        );
 
         // Migration for existing databases
         try {
@@ -263,7 +264,7 @@ export class BoardDO extends DurableObject<Env> {
                     await sendNotification(
                         this.env.TELEGRAM_BOT_TOKEN,
                         this.env as any,
-                        `🚀 ** Run Started **\n\nPrompt: ${ prompt.title || body.promptId } \nModel: ${ version.model || 'default' } \nStatus: ⏳ Generating...`,
+                        `🚀 ** Run Started **\n\nPrompt: ${prompt.title || body.promptId} \nModel: ${version.model || 'default'} \nStatus: ⏳ Generating...`,
                     );
                 }
 
@@ -316,7 +317,7 @@ export class BoardDO extends DurableObject<Env> {
             // Call AI to refine
             const refinementPrompt = `
                 I have a prompt that needs improvement.
-            TITLE: ${ prompt.title }
+            TITLE: ${prompt.title}
                 CURRENT CONTENT: "${version.content}"
 
         Please:
@@ -413,7 +414,7 @@ export class BoardDO extends DurableObject<Env> {
 
         if (url.pathname === '/api/search') {
             const body = (await request.json()) as { query: string };
-            const q = `% ${ body.query }% `;
+            const q = `% ${body.query}% `;
             const result = this.ctx.storage.sql
                 .exec(
                     `
@@ -516,7 +517,7 @@ export class BoardDO extends DurableObject<Env> {
 
         await this.ctx.storage.put('next_briefing_time', next.getTime());
         await this.ctx.storage.setAlarm(next.getTime());
-        console.log(`[BoardDO] Daily Briefing scheduled for ${ next.toISOString() }`);
+        console.log(`[BoardDO] Daily Briefing scheduled for ${next.toISOString()}`);
     }
 
     private async sendDailyBriefing() {
@@ -527,8 +528,8 @@ export class BoardDO extends DurableObject<Env> {
         const errorCount = this.ctx.storage.sql.exec("SELECT COUNT(*) as count FROM prompts WHERE status = 'error'").one() as any;
 
         const msg = `📅 ** Daily Briefing **\n\n` +
-            `📝 ** Drafts:** ${ draftCount?.count || 0 } \n` +
-            `❌ ** Errors:** ${ errorCount?.count || 0 } \n\n` +
+            `📝 ** Drafts:** ${draftCount?.count || 0} \n` +
+            `❌ ** Errors:** ${errorCount?.count || 0} \n\n` +
             `System is running smoothly.Use \`/stats\` for more info.`;
 
         await this.rateLimiter.throttle();
