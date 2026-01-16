@@ -3,6 +3,9 @@ export { BoardDO } from './BoardDO';
 export { ResearchDO } from './ResearchDO';
 import { handleTelegramWebhook, registerWebhook } from './telegramBot';
 
+export const APP_VERSION = '1.0.1';
+export const STARTUP_TIME = new Date().toISOString();
+
 // Model configuration for Interactions API
 const GEMINI_MODELS = [
     'deep-research-pro-preview-12-2025', // Agent (background mode)
@@ -238,6 +241,13 @@ export default {
             });
         }
 
+        // Version Route: GET /api/version
+        if (request.method === 'GET' && url.pathname === '/api/version') {
+            return new Response(JSON.stringify(getVersionInfo()), {
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+        }
+
         // Gemini Files API Upload Proxy: POST /api/ai/upload_file
         if (request.method === 'POST' && url.pathname === '/api/ai/upload_file') {
             const contentType = request.headers.get('Content-Type') || 'application/octet-stream';
@@ -377,6 +387,14 @@ export default {
         ctx.waitUntil(stub.fetch('http://do/api/scheduler/tick', { method: 'POST' }));
     },
 };
+
+export function getVersionInfo() {
+    return {
+        version: APP_VERSION,
+        startupTime: STARTUP_TIME,
+        environment: 'production' // Cloudflare Workers
+    };
+}
 
 // Call Gemini Interactions API (sync models only - agent models use ResearchDO)
 async function callInteractionsAPI(

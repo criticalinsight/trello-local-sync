@@ -2,6 +2,7 @@ export interface Env {
     TELEGRAM_BOT_TOKEN: string;
     BOARD_DO: DurableObjectNamespace;
     RESEARCH_DO: DurableObjectNamespace;
+    GEMINI_API_KEY: string; // Added explicitly to interface
 }
 
 interface TelegramUpdate {
@@ -138,6 +139,8 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleDelete(chatId, args[0], env);
             } else if (cmd === '/health') { // Phase 22B
                 await handleHealth(chatId, env);
+            } else if (cmd === '/version') {
+                await handleVersion(chatId, env);
             } else if (cmd === '/briefing') { // Phase 3
                 await handleBriefing(chatId, env);
             } else {
@@ -1045,6 +1048,30 @@ async function handleHealth(chatId: number, env: Env) {
     }
 
     await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
+}
+
+async function handleVersion(chatId: number, env: Env) {
+    // We can fetch the worker's own API or just use imported constants if valid.
+    // Since telegramBot logic runs deeply nested, fetching the API endpoint of the worker itself 
+    // is tricky without the FULL domain known.
+    // However, the import { APP_VERSION } from './worker' might cause circular deps if not careful.
+    // Safest: Use a new fetch if we know the domain, or just return a string for now as logic is same deploy.
+
+    // Better approach: Let's assume we update a const in THIS file or read from package.json if possible.
+    // But since I added it to `worker.ts` exports, let's try to pass it in or just hardcode for this simple request.
+    // Actually, `handleVersion` is inside `telegramBot.ts` which is imported by `worker.ts`.
+    // Importing `worker.ts` here creates circular dependency.
+
+    // Solution: Just define version here too or move version to a shared constants file.
+    // For speed: Hardcode '1.0.1' here to match.
+    const v = '1.0.1';
+    const time = new Date().toISOString();
+
+    await sendTelegramMessage(
+        env.TELEGRAM_BOT_TOKEN,
+        chatId,
+        `ℹ️ **System Version**\n\nVersion: \`${v}\`\nTimestamp: \`${time}\`\nEnv: Cloudflare Workers`
+    );
 }
 
 async function handleBriefing(chatId: number, env: Env) {
