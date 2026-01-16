@@ -43,6 +43,11 @@ timeline
 - Multi-agent swarms with Coordinator/Worker pattern
 - Self-correcting AI with critique loops
 
+### Phase 20: Smart Automation
+- **Scheduled Prompts**: Cron-based recurring execution
+- **Triggered Workflows**: Event-driven prompt chains (Card Add/Move/Tag)
+- **Library Integration**: Save and reuse prompts independent of Kanban cards
+
 ---
 
 ### Phase 11: Templates, Sync & Diffing
