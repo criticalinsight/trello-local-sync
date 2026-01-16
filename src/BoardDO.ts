@@ -88,20 +88,7 @@ export class BoardDO extends DurableObject<Env> {
         output TEXT,
         created_at INTEGER NOT NULL,
         FOREIGN KEY (prompt_id) REFERENCES prompts(id)
-        CREATE TABLE IF NOT EXISTS prompt_versions (
-        id TEXT PRIMARY KEY,
-        prompt_id TEXT NOT NULL,
-        content TEXT NOT NULL,
-        system_instructions TEXT,
-        temperature REAL,
-        top_p REAL,
-        max_tokens INTEGER,
-        model TEXT,
-        execution_time INTEGER,
-        output TEXT,
-        created_at INTEGER NOT NULL,
-        FOREIGN KEY (prompt_id) REFERENCES prompts(id)
-      );
+
     `);
 
         this.ctx.storage.sql.exec(`
