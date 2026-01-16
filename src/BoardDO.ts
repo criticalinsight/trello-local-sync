@@ -26,22 +26,34 @@ export class BoardDO extends DurableObject<Env> {
     private initDatabase() {
         // Create tables using native SQLite
         this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS lists (
+      CREATE TABLE IF NOT EXISTS boards (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
-        pos REAL NOT NULL
+        category TEXT,
+        icon TEXT,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS lists (
+        id TEXT PRIMARY KEY,
+        board_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        pos REAL NOT NULL,
+        FOREIGN KEY (board_id) REFERENCES boards(id)
       );
       
       CREATE TABLE IF NOT EXISTS cards (
         id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
+        board_id TEXT NOT NULL,
         list_id TEXT NOT NULL,
+        title TEXT NOT NULL,
         pos REAL NOT NULL,
         created_at INTEGER NOT NULL,
         description TEXT,
         tags JSON,
         checklist JSON,
         due_date INTEGER,
+        FOREIGN KEY (board_id) REFERENCES boards(id),
         FOREIGN KEY (list_id) REFERENCES lists(id)
       );
       
@@ -149,6 +161,12 @@ export class BoardDO extends DurableObject<Env> {
             // or checking pragma table_info would be cleaner but verbose.
             // Quick & dirty for this implementation: separate try/catches
             try {
+                this.ctx.storage.sql.exec('ALTER TABLE lists ADD COLUMN board_id TEXT');
+            } catch { }
+            try {
+                this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN board_id TEXT');
+            } catch { }
+            try {
                 this.ctx.storage.sql.exec('ALTER TABLE cards ADD COLUMN description TEXT');
             } catch { }
             try {
@@ -170,15 +188,37 @@ export class BoardDO extends DurableObject<Env> {
             console.warn('Migration warning:', e);
         }
 
-        // Insert default lists if empty
-        const listCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as count FROM lists').one();
-        if (listCount && (listCount.count as number) === 0) {
+        // Insert default boards if empty
+        const boardCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as count FROM boards').one();
+        if (boardCount && (boardCount.count as number) === 0) {
+            const now = Date.now();
             this.ctx.storage.sql.exec(`
-        INSERT INTO lists(id, title, pos) VALUES
-            ('list-1', 'To Do', 0),
-            ('list-2', 'In Progress', 1),
-            ('list-3', 'Done', 2);
-        `);
+                INSERT INTO boards (id, title, category, icon, created_at) VALUES
+                ('board-main', 'Standard Kanban', 'general', '📋', ?),
+                ('board-intel', 'Market Intelligence', 'refinery', '⚡', ?),
+                ('board-vetting', 'Epistemic Vetting', 'refinery', '🧠', ?),
+                ('board-portfolio', 'Portfolio Alpha', 'finance', '💰', ?)
+            `, now, now, now, now);
+
+            // Seed lists for all boards
+            this.ctx.storage.sql.exec(`
+                INSERT INTO lists(id, board_id, title, pos) VALUES
+                ('list-main-todo', 'board-main', 'To Do', 0),
+                ('list-main-doing', 'board-main', 'In Progress', 1),
+                ('list-main-done', 'board-main', 'Done', 2),
+                
+                ('list-intel-todo', 'board-intel', 'Hot Signals', 0),
+                ('list-intel-research', 'board-intel', 'Active Research', 1),
+                ('list-intel-archived', 'board-intel', 'Historical', 2),
+
+                ('list-vet-pending', 'board-vetting', 'Pending Vetting', 0),
+                ('list-vet-debating', 'board-vetting', 'In Debate', 1),
+                ('list-vet-validated', 'board-vetting', 'Validated', 2),
+
+                ('list-port-watchlist', 'board-portfolio', 'Watchlist', 0),
+                ('list-port-positions', 'board-portfolio', 'Active Positions', 1),
+                ('list-port-exits', 'board-portfolio', 'Recent Exits', 2)
+            `);
         }
     }
 
