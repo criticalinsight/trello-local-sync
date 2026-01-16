@@ -536,6 +536,23 @@ export class BoardDO extends DurableObject<Env> {
             return Response.json({ success: true, id });
         }
 
+        if (url.pathname.startsWith('/api/refinery/knowledge/insert')) {
+            const body = await request.json() as any;
+            const id = crypto.randomUUID();
+            if (body.type === 'entity') {
+                this.ctx.storage.sql.exec(
+                    'INSERT OR IGNORE INTO entities (id, name, type, description, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                    id, body.name, body.entityType, body.description || '', JSON.stringify(body.metadata || {}), Date.now()
+                );
+            } else if (body.type === 'relationship') {
+                this.ctx.storage.sql.exec(
+                    'INSERT INTO relationships (id, source_id, target_id, relation_type, strength, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    id, body.sourceId, body.targetId, body.relationType, body.strength || 1.0, JSON.stringify(body.metadata || {}), Date.now()
+                );
+            }
+            return Response.json({ success: true, id });
+        }
+
         return new Response('Not found', { status: 404 });
     }
 
