@@ -20,3 +20,9 @@
     - [x] Integrate Workflow & Schedule UI in Playground
 - [x] Update documentation after refactor <!-- id: p11_1 -->
 - [x] @[/c] with authlogin - Production deployment <!-- id: p11_2 -->
+
+## 🤖 Automation Upgrades (Phase 13)
+- [ ] Integrate Graphiti MCP into Ralph Autonomous Loop <!-- id: p13_0 -->
+    - [ ] Install `mcp` in `.ralph_venv`
+    - [ ] Update `ralph_driver.py` to query memories
+    - [ ] Inject memories into system prompt
