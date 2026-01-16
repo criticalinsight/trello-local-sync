@@ -13,9 +13,7 @@ bindings = [
     { name = "CONTENT_DO", class_name = "ContentDO" }
 ]
 
-[[migrations]]
-tag = "v3"
-new_sqlite_classes = ["ContentDO"]
+
 
 [[migrations]]
 tag = "v1"
@@ -45,4 +43,8 @@ bucket_name = "work-media"
 # Secret: GEMINI_API_KEY
 # Set via: wrangler secret put GEMINI_API_KEY
 # Then paste your Gemini API key when prompted
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["ContentDO"]
 
