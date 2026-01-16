@@ -550,11 +550,12 @@ async function sendTelegramMessage(token: string, chatId: number, text: string, 
         body.reply_markup = keyboard;
     }
 
-    await fetch(url, {
+    const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
+    return await response.json();
 }
 
 async function editTelegramMessage(token: string, chatId: number, messageId: number, text: string, keyboard?: any, parseMode: string = 'Markdown') {
@@ -570,11 +571,12 @@ async function editTelegramMessage(token: string, chatId: number, messageId: num
         body.reply_markup = keyboard;
     }
 
-    await fetch(url, {
+    const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
+    return await response.json();
 }
 
 function escapeMarkdownV2(text: string): string {
