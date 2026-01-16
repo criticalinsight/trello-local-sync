@@ -27,12 +27,17 @@ import { Env } from './types';
 interface InteractionRequest {
     model?: string;
     agent?: string;
-    input: string;
+    input: string | Record<string, unknown>[];
     background?: boolean;
+    previous_interaction_id?: string;
+    tools?: Array<Record<string, unknown>>;
+    response_format?: Record<string, unknown>;
     generationConfig?: {
         temperature?: number;
         topP?: number;
         maxOutputTokens?: number;
+        thinking_level?: 'minimal' | 'low' | 'medium' | 'high';
+        thinking_summaries?: 'auto' | 'none';
     };
 }
 
@@ -107,7 +112,9 @@ export default {
                             if (
                                 errorMsg.includes('429') ||
                                 errorMsg.includes('503') ||
-                                errorMsg.includes('RESOURCE_EXHAUSTED')
+                                errorMsg.includes('RESOURCE_EXHAUSTED') ||
+                                errorMsg.includes('400') ||
+                                errorMsg.includes('404')
                             ) {
                                 currentError = err as Error;
                                 continue; // Try next model in chain
@@ -231,6 +238,64 @@ export default {
             });
         }
 
+        // Gemini Files API Upload Proxy: POST /api/ai/upload_file
+        if (request.method === 'POST' && url.pathname === '/api/ai/upload_file') {
+            const contentType = request.headers.get('Content-Type') || 'application/octet-stream';
+            const contentLength = request.headers.get('Content-Length') || '0';
+            const filename = url.searchParams.get('filename') || 'upload.bin';
+
+            try {
+                // Step 1: Initialize Resumable Upload
+                const initResponse = await fetch(
+                    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${env.GEMINI_API_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'X-Goog-Upload-Protocol': 'resumable',
+                            'X-Goog-Upload-Command': 'start',
+                            'X-Goog-Upload-Header-Content-Length': contentLength,
+                            'X-Goog-Upload-Header-Content-Type': contentType,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ file: { display_name: filename } }),
+                    },
+                );
+
+                if (!initResponse.ok) {
+                    const errorText = await initResponse.text();
+                    return new Response(`Upload init failed: ${errorText}`, { status: initResponse.status });
+                }
+
+                const uploadUrl = initResponse.headers.get('x-goog-upload-url');
+                if (!uploadUrl) {
+                    return new Response('Missing upload URL from Google', { status: 500 });
+                }
+
+                // Step 2: Stream content to Upload URL
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Length': contentLength,
+                        'X-Goog-Upload-Offset': '0',
+                        'X-Goog-Upload-Command': 'upload, finalize',
+                    },
+                    body: request.body, // Stream directory
+                });
+
+                if (!uploadResponse.ok) {
+                    const errorText = await uploadResponse.text();
+                    return new Response(`Upload failed: ${errorText}`, { status: uploadResponse.status });
+                }
+
+                const result = await uploadResponse.json();
+                return new Response(JSON.stringify(result), {
+                    headers: { 'Content-Type': 'application/json', ...corsHeaders },
+                });
+            } catch (e) {
+                return new Response(`Worker Error: ${(e as Error).message}`, { status: 500 });
+            }
+        }
+
         // Upload Route
         if (request.method === 'PUT' && url.pathname.startsWith('/api/upload/')) {
             const filename = url.pathname.split('/').pop();
@@ -321,36 +386,98 @@ async function callInteractionsAPI(
 ): Promise<unknown> {
     const config = MODEL_CONFIG[model];
     const baseUrl = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+    const MAX_TURNS = 5; // Prevent infinite loops
 
-    // Build request payload - Interactions API only supports 'input' and agent/model
-    const payload: Record<string, unknown> = {
-        input: request.input,
-    };
+    let currentInput = request.input;
+    let turnCount = 0;
 
-    // Use agent or model field
+    // Initial payload construction
+    const basePayload: Record<string, unknown> = {};
+    if (request.tools) basePayload.tools = request.tools;
+    if (request.response_format) basePayload.response_format = request.response_format;
+    if (request.previous_interaction_id) basePayload.previous_interaction_id = request.previous_interaction_id;
+    if (request.generationConfig) basePayload.generation_config = request.generationConfig;
+
     if (config.isAgent) {
-        payload.agent = model;
+        basePayload.agent = model;
     } else {
-        payload.model = model;
+        basePayload.model = model;
     }
 
-    // Sync call for standard models
-    const response = await fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify(payload),
-    });
+    while (turnCount < MAX_TURNS) {
+        const payload = { ...basePayload, input: currentInput };
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`${response.status}: ${errorText}`);
+        console.log(`[Worker] Turn ${turnCount + 1}: Calling API...`);
+        const response = await fetch(baseUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`${response.status}: ${errorText}`);
+        }
+
+        const data = (await response.json()) as Record<string, unknown>;
+        const outputs = data.outputs as Array<Record<string, unknown>> | undefined;
+
+        // Check for function calls
+        const functionCall = outputs?.find(o => o.type === 'function_call');
+
+        if (functionCall) {
+            const call = functionCall.function_call as { name: string; parameters: Record<string, unknown> };
+            console.log(`[Worker] Tool Call Detected: ${call.name}`);
+
+            let functionResult: Record<string, unknown> = {};
+
+            // EXECUTE TOOL
+            if (call.name === 'web_search') {
+                const query = call.parameters.query as string;
+                // Mock search for POC
+                console.log(`[Worker] Executing Web Search: ${query}`);
+                functionResult = {
+                    content: `[Mock Search Result] Found 3 results for "${query}":
+1. SolidJS v1.8.0 Released - Performance improvements and new hydration strategies.
+2. SolidJS Docs: Signals are the cornerstone of reactivity.
+3. Blog: Why SolidJS is faster than React in 2025.`,
+                };
+            } else {
+                functionResult = { error: `Tool ${call.name} not found` };
+            }
+
+            // Prepare next turn input with function result
+            currentInput = [
+                // Original input is implicit in stateful session if interaction_id provided, 
+                // but Interactions API might require just the result for the specific turn.
+                // For stateless, we might need full history, but assuming interactions API handles state via ID?
+                // The Interactions API documentation suggests sending the function result as the next 'input'.
+                // If previous_interaction_id is returned, we use it.
+                {
+                    function_response: {
+                        name: call.name,
+                        response: functionResult
+                    }
+                }
+            ];
+
+            // Update interaction ID for continuity
+            if (data.id && typeof data.id === 'string') {
+                basePayload.previous_interaction_id = data.id;
+            }
+
+            turnCount++;
+            continue; // Loop back to send tool output
+        }
+
+        // No tool call, return final response
+        return formatInteractionResponse(data);
     }
 
-    const data = (await response.json()) as Record<string, unknown>;
-    return formatInteractionResponse(data);
+    throw new Error('Max turns exceeded in tool loop');
 }
 
 // Format response to standard output
@@ -360,18 +487,16 @@ function formatInteractionResponse(data: Record<string, unknown>): Record<string
     // Extract text from outputs
     let text = '';
     if (outputs && outputs.length > 0) {
-        const firstOutput = outputs[0];
-        if (typeof firstOutput.text === 'string') {
-            text = firstOutput.text;
-        } else if (typeof firstOutput.content === 'string') {
-            text = firstOutput.content;
-        } else {
-            // Try to find any string field
-            for (const key of Object.keys(firstOutput)) {
-                if (typeof firstOutput[key] === 'string' && firstOutput[key]) {
-                    text = firstOutput[key] as string;
-                    break;
-                }
+        // Find the text part
+        for (const output of outputs) {
+            if (output.type === 'text' && typeof output.text === 'string') {
+                text = output.text;
+                break;
+            }
+            // Fallback for some models returning content field
+            if (typeof output.content === 'string') {
+                text = output.content;
+                break;
             }
         }
     }

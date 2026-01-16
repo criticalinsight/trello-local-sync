@@ -13,6 +13,7 @@
  */
 
 import type { PromptParameters } from './types';
+import { mapToolsToGemini } from './utils/mcpMapper';
 
 // ============= CONSTANTS =============
 
@@ -97,12 +98,17 @@ export function configureAI(newConfig: Partial<AIConfig>): void {
 }
 
 // Request/Response types
+// Request/Response types
 interface GenerateRequest {
     prompt: string;
     systemInstructions?: string;
     parameters: PromptParameters;
     model?: GeminiModel;
     contextMemories?: string;
+    previousInteractionId?: string;
+    responseSchema?: Record<string, unknown>;
+    tools?: Array<Record<string, unknown>>;
+    thinkingLevel?: 'minimal' | 'low' | 'medium' | 'high';
 }
 
 interface GenerateResponse {
@@ -117,11 +123,16 @@ interface GenerateResponse {
 interface InteractionRequest {
     model?: string;
     agent?: string;
-    input: string;
+    input: string | Record<string, unknown>[];
+    previous_interaction_id?: string;
+    tools?: Array<Record<string, unknown>>;
+    response_format?: Record<string, unknown>;
     generationConfig?: {
         temperature?: number;
         topP?: number;
         maxOutputTokens?: number;
+        thinking_level?: 'minimal' | 'low' | 'medium' | 'high';
+        thinking_summaries?: 'auto' | 'none';
     };
 }
 
@@ -220,8 +231,11 @@ async function generateWithModel(
         systemInstruction += `\n\n=== RELEVANT CONTEXT ===\n${request.contextMemories}\nUse this context to inform your response.`;
     }
 
-    // 2. Add Extraction Instruction
-    systemInstruction += `\n\n=== MEMORY EXTRACTION ===
+    // 2. Add Extraction Instruction (only if not using response schema, or if appropriate)
+    // If request.responseSchema is present, we shouldn't append extensive memory extraction instructions
+    // as it conflicts with strict schema.
+    if (!request.responseSchema) {
+        systemInstruction += `\n\n=== MEMORY EXTRACTION ===
 If the user provides important facts, preferences, or project details that should be remembered, 
 output them at the END of your response in this format:
 [MEMORY: key] value
@@ -231,10 +245,38 @@ Example:
 [MEMORY: user_role] Senior Developer
 [MEMORY: project_goal] Build a local-first Kanban app
 [RELATION: user_role -> owns -> project_goal]`;
+    }
+
+    const textInput = systemInstruction ? `${systemInstruction}\n\n${request.prompt}` : request.prompt;
+    let input: string | Record<string, unknown>[] = textInput;
+
+    // Handle Multimodal Input (Files)
+    if (request.parameters.files && request.parameters.files.length > 0) {
+        const parts: Record<string, unknown>[] = [];
+
+        // Add text part
+        parts.push({ text: textInput });
+
+        // Add file parts
+        for (const file of request.parameters.files) {
+            parts.push({ file_data: { file_uri: file.uri } });
+        }
+        input = parts;
+    }
 
     const payload: InteractionRequest = {
-        input: request.prompt,
-        // Note: generationConfig is NOT supported by Interactions API
+        input,
+        // Optional fields
+        previous_interaction_id: request.previousInteractionId,
+        tools: request.parameters.allowedTools ? mapToolsToGemini(request.parameters.allowedTools) : request.tools,
+        response_format: request.responseSchema,
+        generationConfig: {
+            temperature: request.parameters.temperature,
+            topP: request.parameters.topP,
+            maxOutputTokens: request.parameters.maxTokens,
+            thinking_level: request.thinkingLevel,
+            thinking_summaries: request.thinkingLevel ? 'auto' : undefined,
+        }
     };
 
     // Use agent or model field based on model type
@@ -424,9 +466,21 @@ export async function generate(
         maxTokens: 4096,
     };
 
+    // Extract structured output and thinking fields if present in parameters
+    let schema: Record<string, unknown> | undefined;
+    if (parameters?.responseSchema) {
+        try {
+            schema = JSON.parse(parameters.responseSchema);
+        } catch {
+            // Ignore invalid schema in helper
+        }
+    }
+
     const result = await generateWithFallback({
         prompt: systemInstructions ? `${systemInstructions}\n\n${prompt}` : prompt,
         parameters: { ...defaultParams, ...parameters },
+        responseSchema: schema,
+        thinkingLevel: parameters?.thinkingLevel,
     });
 
     return result.content;

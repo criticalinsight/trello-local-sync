@@ -798,11 +798,25 @@ async function executePrompt(promptId: string) {
         // 1. Context Injection
         const contextMemories = getMemoriesForContext(10, version.content);
 
+        // Parse schema if present
+        let parsedSchema: Record<string, unknown> | undefined;
+        if (version.parameters.responseSchema) {
+            try {
+                parsedSchema = JSON.parse(version.parameters.responseSchema);
+            } catch (e) {
+                console.warn('[PromptStore] Invalid JSON schema', e);
+                // We proceed without schema rather than failing, but maybe log warning output
+            }
+        }
+
         const result = await generateWithFallback({
             prompt: version.content,
             systemInstructions: version.systemInstructions,
             parameters: version.parameters,
             contextMemories,
+            responseSchema: parsedSchema,
+            thinkingLevel: version.parameters.thinkingLevel,
+            previousInteractionId: version.parameters.previousInteractionId,
         });
 
         // 2. Memory & Relation Extraction
@@ -831,6 +845,7 @@ async function executePrompt(promptId: string) {
         await updateVersion(version.id, {
             output: result.content,
             executionTime: result.executionTime,
+            interactionId: result.interactionId,
             parameters: {
                 ...version.parameters,
                 model: result.model,

@@ -21,6 +21,7 @@ import { GEMINI_MODELS, generate, type GeminiModel } from '../aiService';
 import { VersionDiff } from './VersionDiff';
 import { estimateTokens, estimateCost, formatCost } from '../utils/tokenEstimator';
 import { PromptHistoryView } from './PromptHistoryView';
+import { AVAILABLE_TOOLS, type HelperTool } from '../utils/mcpMapper';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -29,6 +30,17 @@ function renderMarkdown(text: string): string {
 
     return (
         text
+            // Thought Process Blocks
+            .replace(
+                /<thought>([\s\S]*?)<\/thought>/gim,
+                `<details class="mb-4 border border-blue-800/50 bg-blue-900/10 rounded-lg overflow-hidden group">
+                    <summary class="px-4 py-2 bg-blue-900/20 text-blue-300 text-xs font-semibold uppercase tracking-wider cursor-pointer flex items-center gap-2 hover:bg-blue-900/30 transition-colors select-none">
+                        <span class="opacity-70 group-open:rotate-90 transition-transform">▸</span>
+                        Thought Process
+                    </summary>
+                    <div class="p-4 text-slate-300 text-sm font-mono whitespace-pre-wrap overflow-x-auto border-t border-blue-800/30 bg-slate-900/50">$1</div>
+                </details>`,
+            )
             // Headers
             .replace(
                 /^### (.*$)/gim,
@@ -79,9 +91,16 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const [isCompareMode, setIsCompareMode] = createSignal(false);
     const [content, setContent] = createSignal('');
     const [systemInstructions, setSystemInstructions] = createSignal('');
+    const [model, setModel] = createSignal<string>('gemini-2.5-flash'); // Track model selection
     const [temperature, setTemperature] = createSignal(0.7);
     const [topP, setTopP] = createSignal(0.9);
     const [maxTokens, setMaxTokens] = createSignal(2048);
+    const [thinkingLevel, setThinkingLevel] = createSignal<'minimal' | 'low' | 'medium' | 'high' | undefined>(undefined);
+    const [responseSchema, setResponseSchema] = createSignal('');
+    const [attachedFiles, setAttachedFiles] = createSignal<{ uri: string; name: string }[]>([]);
+    const [allowedTools, setAllowedTools] = createSignal<string[]>([]);
+    const [refineInput, setRefineInput] = createSignal('');
+    const [isUploading, setIsUploading] = createSignal(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = createSignal(false);
     const [isRunning, setIsRunning] = createSignal(false);
     const [showSchedule, setShowSchedule] = createSignal(false);
@@ -93,6 +112,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
         if (template.systemInstructions) {
             setSystemInstructions(template.systemInstructions);
         }
+        // TODO: Load schema from template if supported
         setHasUnsavedChanges(true);
         setShowTemplates(false);
         showSnackbar(`Loaded template: ${template.trigger}`, 'success');
@@ -124,6 +144,11 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
             setTemperature(v.parameters.temperature);
             setTopP(v.parameters.topP);
             setMaxTokens(v.parameters.maxTokens);
+            setThinkingLevel(v.parameters.thinkingLevel);
+            setResponseSchema(v.parameters.responseSchema || '');
+            setModel(v.parameters.model || 'gemini-2.5-flash');
+            setAttachedFiles(v.parameters.files || []);
+            setAllowedTools(v.parameters.allowedTools || []);
             setHasUnsavedChanges(false);
         }
     });
@@ -136,6 +161,11 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
         temperature: temperature(),
         topP: topP(),
         maxTokens: maxTokens(),
+        thinkingLevel: thinkingLevel(),
+        responseSchema: responseSchema() || undefined,
+        model: model(),
+        files: attachedFiles().length > 0 ? attachedFiles() : undefined,
+        allowedTools: allowedTools().length > 0 ? allowedTools() : undefined,
     });
 
     // Save current state as new version
@@ -154,6 +184,17 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
         showSnackbar('Agent started', 'info');
 
         try {
+            // Validate schema if present
+            if (responseSchema()) {
+                try {
+                    JSON.parse(responseSchema());
+                } catch (e) {
+                    showSnackbar('Invalid JSON Schema', 'error');
+                    setIsRunning(false);
+                    return;
+                }
+            }
+
             if (showModelComparison()) {
                 // Parallel execution
                 setComparisonIsRunning(true);
@@ -166,7 +207,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         const output = await generate(content(), systemInstructions(), {
                             ...getParams(),
                             model: comparisonModel(), // Use selected model override
-                        } as any); // Type cast due to extended params
+                        } as any);
                         setComparisonOutput(output);
                     } catch (e) {
                         setComparisonError((e as Error).message);
@@ -176,10 +217,6 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 })();
 
                 await primaryPromise;
-                // We don't await comparisonPromise here to let primary finish independently,
-                // but for UI correctness we might want to track both?
-                // Actually, runSinglePrompt is awaited, so primary is done.
-                // Comparison runs in background if slower.
             } else {
                 await runSinglePrompt(props.promptId);
             }
@@ -189,6 +226,75 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
             setIsRunning(false);
         }
         showSnackbar('Generation complete', 'success');
+    };
+
+    const handleRefine = async () => {
+        const v = currentVersion();
+        if (!v || !v.interactionId || !refineInput().trim()) return;
+
+        setIsRunning(true);
+        // Create a new version for the refinement
+        // We set the previousInteractionId to link the context
+        createVersion(
+            props.promptId,
+            refineInput(),
+            v.systemInstructions || '',
+            {
+                ...v.parameters,
+                previousInteractionId: v.interactionId,
+            }
+        );
+
+        // Execute immediately
+        await runSinglePrompt(props.promptId);
+        setRefineInput('');
+        setIsRunning(false);
+    };
+
+    // Handle File Upload for Multimodal
+    const handleFileUpload = async (event: Event) => {
+        const input = event.target as HTMLInputElement;
+        if (!input.files?.length) return;
+
+        const file = input.files[0];
+        setIsUploading(true);
+        showSnackbar('Uploading file...', 'info');
+
+        try {
+            const response = await fetch(`/api/ai/upload_file?filename=${encodeURIComponent(file.name)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': file.type || 'application/octet-stream',
+                    'Content-Length': file.size.toString(),
+                },
+                body: file,
+            });
+
+            if (!response.ok) throw new Error(await response.text());
+
+            const data = (await response.json()) as { file?: { uri: string } };
+            if (data.file?.uri) {
+                // Use functional update or simpler spread-append
+                const newFiles = [...(attachedFiles() || []), { uri: data.file.uri as string, name: file.name }];
+                setAttachedFiles(newFiles);
+                setHasUnsavedChanges(true);
+                showSnackbar('File attached', 'success');
+            }
+        } catch (e) {
+            console.error(e);
+            showSnackbar(`Upload failed: ${(e as Error).message}`, 'error');
+        } finally {
+            setIsUploading(false);
+            input.value = ''; // Reset input to allow same file selection again
+        }
+    };
+
+    const handleRemoveFile = (index: number) => {
+        const current = attachedFiles();
+        const next = [...current];
+        next.splice(index, 1);
+        setAttachedFiles(next);
+        setHasUnsavedChanges(true);
     };
 
     // Revert to a specific version
@@ -272,7 +378,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                                     />
                                 </svg>
-                                Running
+                                {model() === 'deep-research-pro-preview-12-2025' ? 'Polling Agent...' : 'Running'}
                             </span>
                         </Show>
                     </div>
@@ -415,10 +521,54 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                         class={`${showModelComparison() ? 'w-1/3 min-w-[300px]' : 'w-1/2'} flex flex-col border-r border-slate-700 overflow-y-auto transition-all`}
                     >
                         {/* Prompt Content - VISIBLE FIRST */}
-                        <div class="flex-1 p-4">
-                            <label class="block text-sm font-medium text-slate-400 mb-2">
-                                Prompt
-                            </label>
+                        <div class="flex-1 p-4 flex flex-col">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-sm font-medium text-slate-400">
+                                    Prompt
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <For each={attachedFiles()}>
+                                        {(file, i) => (
+                                            <div class="flex items-center gap-1 px-2 py-1 bg-slate-700/50 rounded border border-slate-600 text-xs text-slate-300">
+                                                <span class="truncate max-w-[100px]" title={file.name}>
+                                                    {file.name}
+                                                </span>
+                                                <button
+                                                    onClick={() => handleRemoveFile(i())}
+                                                    class="text-slate-500 hover:text-red-400 ml-1"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        )}
+                                    </For>
+                                    <label
+                                        class={`cursor-pointer p-1.5 rounded hover:bg-slate-700 transition-colors ${isUploading() ? 'opacity-50 pointer-events-none' : 'text-slate-400 hover:text-white'}`}
+                                        title="Attach file (Multimodal)"
+                                    >
+                                        <input
+                                            type="file"
+                                            class="hidden"
+                                            onChange={handleFileUpload}
+                                            disabled={isUploading()}
+                                        />
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class={`w-4 h-4 ${isUploading() ? 'animate-pulse' : ''}`}
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                                            />
+                                        </svg>
+                                    </label>
+                                </div>
+                            </div>
                             <textarea
                                 value={content()}
                                 onInput={(e) => {
@@ -426,7 +576,7 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                     markChanged();
                                 }}
                                 placeholder="Enter your prompt here..."
-                                class="w-full h-full min-h-[200px] px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg
+                                class="w-full flex-1 px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg
                                        text-white placeholder-slate-500 resize-none focus:outline-none
                                        focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                             />
@@ -470,6 +620,131 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                            text-white placeholder-slate-500 resize-none focus:outline-none
                                            focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm"
                                 />
+                            </div>
+                        </details>
+
+                        {/* Tools Configuration (Phase 14) */}
+                        <details class="border-t border-slate-700">
+                            <summary
+                                class="p-4 cursor-pointer text-sm font-medium text-slate-400 hover:text-slate-300 
+                                           flex items-center gap-2 select-none"
+                            >
+                                <svg
+                                    class="w-4 h-4 transition-transform details-open:rotate-90"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M9 5l7 7-7 7"
+                                    />
+                                </svg>
+                                Tools & Capabilities
+                                <Show when={allowedTools().length > 0}>
+                                    <span class="px-1.5 py-0.5 text-xs bg-blue-600/30 text-blue-300 rounded">
+                                        {allowedTools().length} active
+                                    </span>
+                                </Show>
+                            </summary>
+                            <div class="px-4 pb-4">
+                                <div class="space-y-2">
+                                    <For each={AVAILABLE_TOOLS}>
+                                        {(tool) => (
+                                            <div class="flex items-center justify-between p-3 bg-slate-800 border border-slate-600 rounded-lg">
+                                                <div>
+                                                    <div class="text-sm font-medium text-white">{tool.name}</div>
+                                                    <div class="text-xs text-slate-400">{tool.description}</div>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        class="sr-only peer"
+                                                        checked={allowedTools().includes(tool.name)}
+                                                        onChange={(e) => {
+                                                            const checked = e.currentTarget.checked;
+                                                            const current = allowedTools();
+                                                            let next;
+                                                            if (checked) {
+                                                                next = [...current, tool.name];
+                                                            } else {
+                                                                next = current.filter((t) => t !== tool.name);
+                                                            }
+                                                            setAllowedTools(next);
+                                                            markChanged();
+                                                        }}
+                                                    />
+                                                    <div class="w-9 h-5 bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                                </label>
+                                            </div>
+                                        )}
+                                    </For>
+                                    <Show when={AVAILABLE_TOOLS.length === 0}>
+                                        <div class="text-center text-slate-500 text-xs py-2">
+                                            No tools available.
+                                        </div>
+                                    </Show>
+                                </div>
+                            </div>
+                        </details>
+
+                        {/* Response Schema - Collapsible (Phase 12) */}
+                        <details class="border-t border-slate-700">
+                            <summary
+                                class="p-4 cursor-pointer text-sm font-medium text-slate-400 hover:text-slate-300 
+                                           flex items-center gap-2 select-none"
+                            >
+                                <svg
+                                    class="w-4 h-4 transition-transform details-open:rotate-90"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M9 5l7 7-7 7"
+                                    />
+                                </svg>
+                                Response Schema (JSON)
+                                <Show when={responseSchema()}>
+                                    <span class="px-1.5 py-0.5 text-xs bg-emerald-600/30 text-emerald-300 rounded">
+                                        active
+                                    </span>
+                                </Show>
+                            </summary>
+                            <div class="px-4 pb-4">
+                                <textarea
+                                    value={responseSchema()}
+                                    onInput={(e) => {
+                                        setResponseSchema(e.currentTarget.value);
+                                        markChanged();
+                                    }}
+                                    placeholder='{ "type": "object", "properties": { ... } }'
+                                    class="w-full h-40 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg
+                                           text-emerald-300 font-mono text-xs placeholder-slate-600 resize-y focus:outline-none
+                                           focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                />
+                                <div class="mt-2 flex justify-between items-center text-xs text-slate-500">
+                                    <span>Define a strictly typed output schema</span>
+                                    <button
+                                        onClick={() => {
+                                            try {
+                                                const parsed = JSON.parse(responseSchema());
+                                                setResponseSchema(JSON.stringify(parsed, null, 2));
+                                                showSnackbar('JSON formatted', 'success');
+                                            } catch (e) {
+                                                showSnackbar('Invalid JSON', 'error');
+                                            }
+                                        }}
+                                        class="text-blue-400 hover:text-blue-300 hover:underline"
+                                    >
+                                        Format JSON
+                                    </button>
+                                </div>
                             </div>
                         </details>
                     </div>
@@ -519,6 +794,43 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 </div>
                             </Show>
                         </div>
+
+                        {/* Refine / Follow-up (Phase 15) */}
+                        <Show when={currentVersion()?.interactionId && currentVersion()?.output}>
+                            <div class="p-4 border-t border-slate-700 bg-slate-800/50">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Refine / Follow-up</span>
+                                        <span class="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-mono" title={currentVersion()?.interactionId}>
+                                            ID: {currentVersion()?.interactionId?.slice(0, 8)}...
+                                        </span>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={refineInput()}
+                                            onInput={(e) => setRefineInput(e.currentTarget.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleRefine()}
+                                            placeholder="Make it shorter, add more detail, fix the bug..."
+                                            class="flex-1 bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            disabled={isRunning()}
+                                        />
+                                        <button
+                                            onClick={handleRefine}
+                                            disabled={!refineInput().trim() || isRunning()}
+                                            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded transition-colors flex items-center gap-2"
+                                        >
+                                            <Show when={isRunning()} fallback={<span>Refine</span>}>
+                                                <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                            </Show>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </Show>
                     </div>
 
                     {/* Comparison Panel */}
@@ -671,6 +983,47 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                 }}
                                 class="w-24 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-purple-500"
                             />
+                        </div>
+
+                        {/* Reasoning Level (New) */}
+                        <Show when={currentVersion()?.parameters?.model?.includes('gemini-2.5') || currentVersion()?.parameters?.model?.includes('gemini-3')}>
+                            <div class="flex items-center gap-3 pl-8 border-l border-slate-700">
+                                <label class="text-sm text-slate-400">Reasoning</label>
+                                <select
+                                    value="low" // TODO: Bind to actual state once added to PromptParameters
+                                    onChange={(e) => {
+                                        // Placeholder for future binding
+                                        console.log('Thinking level set to:', e.currentTarget.value);
+                                    }}
+                                    class="bg-slate-700 border border-slate-600 text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-purple-500"
+                                >
+                                    <option value="minimal">Minimal</option>
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                        </Show>
+
+                        {/* Agent Mode Toggle (Phase 12) */}
+                        <div class="flex items-center gap-3 pl-8 border-l border-slate-700">
+                            <label class="text-sm text-slate-400">Agent Mode</label>
+                            <label class="relative inline-flex items-center cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    class="sr-only peer"
+                                    checked={model() === 'deep-research-pro-preview-12-2025'}
+                                    onChange={(e) => {
+                                        const isAgent = e.currentTarget.checked;
+                                        setModel(isAgent ? 'deep-research-pro-preview-12-2025' : 'gemini-2.5-flash');
+                                        markChanged();
+                                    }}
+                                />
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                <span class="ml-2 text-xs font-medium text-slate-400 group-hover:text-blue-300 transition-colors">
+                                    Deep Research
+                                </span>
+                            </label>
                         </div>
                     </div>
                 </div>

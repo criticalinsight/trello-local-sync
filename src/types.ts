@@ -63,6 +63,11 @@ export interface PromptParameters {
     topP: number;
     maxTokens: number;
     model?: string;
+    thinkingLevel?: 'minimal' | 'low' | 'medium' | 'high';
+    responseSchema?: string; // JSON string
+    files?: { uri: string; name: string }[]; // Gemini File API objects
+    allowedTools?: string[]; // List of enabled tool names (e.g. ['web_search'])
+    previousInteractionId?: string; // ID of the parent interaction for stateful context
 }
 
 export interface PromptVersion {
@@ -75,6 +80,7 @@ export interface PromptVersion {
     createdAt: number;
     executionTime?: number;
     error?: string;
+    interactionId?: string; // Gemini Interaction ID from API
 }
 
 export type TriggerType = 'card_added' | 'card_moved' | 'card_tagged';
