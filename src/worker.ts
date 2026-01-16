@@ -337,6 +337,15 @@ export default {
             return new Response(object.body, { headers });
         }
 
+        // Refinery API routing
+        if (url.pathname.startsWith('/api/refinery/')) {
+            const stub = env.CONTENT_DO.get(env.CONTENT_DO.idFromName('default'));
+            // Strip /api/refinery from path for DO
+            const newUrl = new URL(request.url);
+            newUrl.pathname = url.pathname.replace('/api/refinery', '');
+            return stub.fetch(new Request(newUrl.toString(), request));
+        }
+
         // Durable Object routes
         if (url.pathname.startsWith('/api') || request.headers.get('Upgrade') === 'websocket') {
             const boardId = url.searchParams.get('board') || 'default';

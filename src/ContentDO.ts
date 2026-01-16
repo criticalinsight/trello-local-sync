@@ -98,10 +98,9 @@ export class ContentDO extends DurableObject {
             );
 
             // 3. Schedule processing (debounce/batch)
-            const currentAlarm = await this.ctx.storage.getAlarm();
             if (!currentAlarm) {
-                // Process in 1 minute to gather batch
-                await this.ctx.storage.setAlarm(Date.now() + 60 * 1000);
+                // Process in 5 seconds to gather batch
+                await this.ctx.storage.setAlarm(Date.now() + 5 * 1000);
             }
 
             return Response.json({ success: true, id });
