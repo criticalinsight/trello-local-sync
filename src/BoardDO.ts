@@ -88,8 +88,28 @@ export class BoardDO extends DurableObject<Env> {
         output TEXT,
         created_at INTEGER NOT NULL,
         FOREIGN KEY (prompt_id) REFERENCES prompts(id)
+        CREATE TABLE IF NOT EXISTS prompt_versions (
+        id TEXT PRIMARY KEY,
+        prompt_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        system_instructions TEXT,
+        temperature REAL,
+        top_p REAL,
+        max_tokens INTEGER,
+        model TEXT,
+        execution_time INTEGER,
+        output TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (prompt_id) REFERENCES prompts(id)
       );
-    `);
+
+      CREATE TABLE IF NOT EXISTS users (
+        chat_id INTEGER PRIMARY KEY,
+        username TEXT,
+        first_name TEXT,
+        role TEXT DEFAULT 'user', -- 'admin' or 'user'
+        joined_at INTEGER
+      );
 
         // Migration for existing databases
         try {
@@ -122,11 +142,11 @@ export class BoardDO extends DurableObject<Env> {
         const listCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as count FROM lists').one();
         if (listCount && (listCount.count as number) === 0) {
             this.ctx.storage.sql.exec(`
-        INSERT INTO lists (id, title, pos) VALUES 
-          ('list-1', 'To Do', 0),
-          ('list-2', 'In Progress', 1),
-          ('list-3', 'Done', 2);
-      `);
+        INSERT INTO lists(id, title, pos) VALUES
+            ('list-1', 'To Do', 0),
+            ('list-2', 'In Progress', 1),
+            ('list-3', 'Done', 2);
+        `);
         }
     }
 
@@ -243,7 +263,7 @@ export class BoardDO extends DurableObject<Env> {
                     await sendNotification(
                         this.env.TELEGRAM_BOT_TOKEN,
                         this.env as any,
-                        `🚀 **Run Started**\n\nPrompt: ${prompt.title || body.promptId}\nModel: ${version.model || 'default'}\nStatus: ⏳ Generating...`,
+                        `🚀 ** Run Started **\n\nPrompt: ${ prompt.title || body.promptId } \nModel: ${ version.model || 'default' } \nStatus: ⏳ Generating...`,
                     );
                 }
 
@@ -295,20 +315,20 @@ export class BoardDO extends DurableObject<Env> {
 
             // Call AI to refine
             const refinementPrompt = `
-                I have a prompt that needs improvement. 
-                TITLE: ${prompt.title}
+                I have a prompt that needs improvement.
+            TITLE: ${ prompt.title }
                 CURRENT CONTENT: "${version.content}"
-                
-                Please:
-                1. Critique the current prompt (strengths/weaknesses).
+
+        Please:
+        1. Critique the current prompt(strengths / weaknesses).
                 2. Provide an improved version of the prompt content.
-                
-                Respond in JSON format:
-                {
-                  "critique": "...",
-                  "improvedContent": "..."
-                }
-            `;
+
+        Respond in JSON format:
+        {
+            "critique": "...",
+                "improvedContent": "..."
+        }
+        `;
 
             const aiResponse = await fetch('http://127.0.0.1/api/ai/generate', {
                 method: 'POST',
@@ -330,9 +350,9 @@ export class BoardDO extends DurableObject<Env> {
                 // Create new version
                 this.ctx.storage.sql.exec(
                     `
-                    INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `,
+                    INSERT INTO prompt_versions(id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
                     newVersionId,
                     prompt.id,
                     parsed.improvedContent,
@@ -372,8 +392,8 @@ export class BoardDO extends DurableObject<Env> {
             };
             this.ctx.storage.sql.exec(
                 `
-                INSERT INTO activity_log (id, event, entity_id, details, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO activity_log(id, event, entity_id, details, created_at)
+        VALUES(?, ?, ?, ?, ?)
             `,
                 crypto.randomUUID(),
                 body.event,
@@ -393,7 +413,7 @@ export class BoardDO extends DurableObject<Env> {
 
         if (url.pathname === '/api/search') {
             const body = (await request.json()) as { query: string };
-            const q = `%${body.query}%`;
+            const q = `% ${ body.query }% `;
             const result = this.ctx.storage.sql
                 .exec(
                     `
@@ -464,6 +484,11 @@ export class BoardDO extends DurableObject<Env> {
             return this.handleSchedulerRequest(url, request);
         }
 
+        // Admin API routing
+        if (url.pathname.startsWith('/api/admin/')) {
+            return this.handleAdminRequest(url, request);
+        }
+
         return new Response('Not found', { status: 404 });
         return new Response('Not found', { status: 404 });
     }
@@ -491,7 +516,7 @@ export class BoardDO extends DurableObject<Env> {
 
         await this.ctx.storage.put('next_briefing_time', next.getTime());
         await this.ctx.storage.setAlarm(next.getTime());
-        console.log(`[BoardDO] Daily Briefing scheduled for ${next.toISOString()}`);
+        console.log(`[BoardDO] Daily Briefing scheduled for ${ next.toISOString() }`);
     }
 
     private async sendDailyBriefing() {
@@ -501,10 +526,10 @@ export class BoardDO extends DurableObject<Env> {
         const draftCount = this.ctx.storage.sql.exec("SELECT COUNT(*) as count FROM prompts WHERE status = 'draft'").one() as any;
         const errorCount = this.ctx.storage.sql.exec("SELECT COUNT(*) as count FROM prompts WHERE status = 'error'").one() as any;
 
-        const msg = `📅 **Daily Briefing**\n\n` +
-            `📝 **Drafts:** ${draftCount?.count || 0}\n` +
-            `❌ **Errors:** ${errorCount?.count || 0}\n\n` +
-            `System is running smoothly. Use \`/stats\` for more info.`;
+        const msg = `📅 ** Daily Briefing **\n\n` +
+            `📝 ** Drafts:** ${ draftCount?.count || 0 } \n` +
+            `❌ ** Errors:** ${ errorCount?.count || 0 } \n\n` +
+            `System is running smoothly.Use \`/stats\` for more info.`;
 
         await this.rateLimiter.throttle();
         await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any, msg);
@@ -789,6 +814,68 @@ export class BoardDO extends DurableObject<Env> {
             );
 
             return new Response('Scheduled', { status: 200 });
+        }
+
+        return new Response('Not found', { status: 404 });
+        return new Response('Not found', { status: 404 });
+    }
+
+    // ================= ADMIN LOGIC =================
+
+    async handleAdminRequest(url: URL, request: Request): Promise<Response> {
+        if (request.method === 'POST' && url.pathname.endsWith('/register')) {
+            const body = (await request.json()) as { chatId: number; username?: string; firstName?: string };
+            const now = Date.now();
+
+            // Check if first user
+            const count = this.ctx.storage.sql.exec('SELECT COUNT(*) as c FROM users').one() as any;
+            const role = (count.c === 0) ? 'admin' : 'user';
+
+            this.ctx.storage.sql.exec(`
+                INSERT INTO users (chat_id, username, first_name, role, joined_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(chat_id) DO UPDATE SET
+                username = excluded.username,
+                first_name = excluded.first_name
+            `, body.chatId, body.username, body.firstName, role, now);
+
+            return Response.json({ success: true, role });
+        }
+
+        if (request.method === 'POST' && url.pathname.endsWith('/broadcast')) {
+            const body = (await request.json()) as { message: string, excludeChatId?: number };
+            const users = [...this.ctx.storage.sql.exec('SELECT chat_id FROM users').toArray()];
+
+            let sent = 0;
+            for (const user of users) {
+                if (body.excludeChatId && user.chat_id === body.excludeChatId) continue;
+                if (!this.env.TELEGRAM_BOT_TOKEN) continue;
+
+                try {
+                    await this.rateLimiter.throttle();
+                    await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any, body.message, user.chat_id);
+                    sent++;
+                } catch (e) {
+                    console.error(`Failed to send to ${user.chat_id}`, e);
+                }
+            }
+            return Response.json({ success: true, sent });
+        }
+
+        if (request.method === 'GET' && url.pathname.endsWith('/check_admin')) {
+            const chatId = url.searchParams.get('chatId');
+            if (!chatId) return new Response('Missing chatId', { status: 400 });
+
+            const user = this.ctx.storage.sql.exec('SELECT role FROM users WHERE chat_id = ?', chatId).one() as any;
+            return Response.json({ isAdmin: user?.role === 'admin' });
+        }
+
+        if (request.method === 'POST' && url.pathname.endsWith('/clear_cache')) {
+            // "Clear Cache" - Reset internal non-persistent state
+            this.sessions.clear();
+            this.writeQueue = [];
+            // Maybe manual GC? default logic handles it.
+            return Response.json({ success: true, message: 'Sessions and Write Queue cleared' });
         }
 
         return new Response('Not found', { status: 404 });
