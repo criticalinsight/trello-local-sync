@@ -1,6 +1,7 @@
 export interface Env {
     TELEGRAM_BOT_TOKEN: string;
     BOARD_DO: DurableObjectNamespace;
+    RESEARCH_DO: DurableObjectNamespace;
 }
 
 interface TelegramUpdate {
@@ -21,12 +22,29 @@ interface TelegramUpdate {
         text?: string;
         photo?: Array<{ file_id: string; file_size: number }>;
         document?: { file_id: string; file_name?: string; mime_type?: string };
+        voice?: { file_id: string; mime_type: string }; // Phase 22: Voice
+    };
+    callback_query?: {
+        id: string;
+        from: { id: number; first_name: string };
+        message: { message_id: number; chat: { id: number }; text?: string };
+        data: string;
     };
 }
 
 export async function handleTelegramWebhook(request: Request, env: Env): Promise<Response> {
     try {
         const update = (await request.json()) as TelegramUpdate;
+
+        // Phase 22: Handle Callback Queries (Buttons)
+        if (update.callback_query) {
+            const chatId = update.callback_query.message.chat.id;
+            const data = update.callback_query.data;
+            const messageId = update.callback_query.message.message_id;
+
+            await handleCallbackQuery(chatId, messageId, data, update.callback_query.id, env);
+            return new Response('OK');
+        }
 
         if (update.message && update.message.text) {
             const chatId = update.message.chat.id;
@@ -40,13 +58,10 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                     env.TELEGRAM_BOT_TOKEN,
                     chatId,
                     '👋 **Welcome to Gemini Ops!**\n\nI am your mobile command center for AI prompt engineering.\n\n' +
-                        '🚀 **Quick Start:**\n' +
-                        '- `/new [title]` - Create a draft\n' +
-                        '- `/list` - View recent drafts\n' +
-                        '- `/run [id]` - Execute a prompt\n' +
-                        '- `/search [query]` - Find prompts\n' +
-                        '- `/stats` - Board analytics\n' +
-                        '- `/status` - View board health',
+                    '🚀 **Quick Start:**\n' +
+                    '- `/new [title]` - Create a draft\n' +
+                    '- `/research [query]` - Deep Research Agent\n' + // Phase 22
+                    '- `/list` - View recent drafts',
                 );
             } else if (cmd === '/help') {
                 await saveChatId(chatId, env);
@@ -54,22 +69,28 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                     env.TELEGRAM_BOT_TOKEN,
                     chatId,
                     '🛠 **Available Commands:**\n\n' +
-                        '📥 **Capture:**\n' +
-                        '- `/new [title]` - Create a draft\n' +
-                        '- `/list` - List recent drafts\n\n' +
-                        '🔍 **Query:**\n' +
-                        '- `/status` - Board summary\n' +
-                        '- `/search [query]` - Fuzzy search\n' +
-                        '- `/tags` - List all tags\n' +
-                        '- `/tag [name]` - Filter by tag\n' +
-                        '- `/latest` - Last generated result\n' +
-                        '- `/stats` - Performance analytics\n\n' +
-                        '🎮 **Control:**\n' +
-                        '- `/run [id]` - Trigger execution\n' +
-                        '- `/assign [id] [model]` - Switch model\n' +
-                        '- `/agents` - List available models\n' +
-                        '- `/refine [id]` - AI Improvement\n' +
-                        '- `/retry [id]` - Re-run failed',
+                    '📥 **Capture:**\n' +
+                    '- `/new [title]` - Create a draft\n' +
+                    '- `[Voice Note]` - Create draft from audio\n' + // Phase 22
+                    '- `/list` - List recent drafts\n\n' +
+                    '🧠 **AI Agents:**\n' +
+                    '- `/research [query]` - Deep Research\n\n' + // Phase 22
+                    '🔍 **Query:**\n' +
+                    '- `/status` - Board summary\n' +
+                    '- `/search [query]` - Fuzzy search\n' +
+                    '- `/tags` - List all tags\n' +
+                    '- `/tag [name]` - Filter by tag\n' +
+                    '- `/latest` - Last generated result\n' +
+                    '- `/stats` - Performance analytics\n' +
+                    '- `/health` - System health check\n\n' + // Phase 22B
+                    '🎮 **Control:**\n' +
+                    '- `/run [id]` - Trigger execution\n' +
+                    '- `/clone [id]` - Duplicate\n' + // Phase 22
+                    '- `/delete [id]` - Delete prompt\n' + // Phase 22
+                    '- `/assign [id] [model]` - Switch model\n' +
+                    '- `/agents` - List available models\n' +
+                    '- `/refine [id]` - AI Improvement\n' +
+                    '- `/retry [id]` - Re-run failed',
                 );
             } else if (cmd === '/ping') {
                 await sendTelegramMessage(
@@ -105,6 +126,14 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleAgents(chatId, env);
             } else if (cmd === '/assign') {
                 await handleAssign(chatId, args[0], args[1], env);
+            } else if (cmd === '/research') { // Phase 22
+                await handleResearch(chatId, args.join(' '), env);
+            } else if (cmd === '/clone') { // Phase 22
+                await handleClone(chatId, args[0], env);
+            } else if (cmd === '/delete') { // Phase 22
+                await handleDelete(chatId, args[0], env);
+            } else if (cmd === '/health') { // Phase 22B
+                await handleHealth(chatId, env);
             } else {
                 await sendTelegramMessage(
                     env.TELEGRAM_BOT_TOKEN,
@@ -112,7 +141,7 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                     '❓ Unknown command. Try /help.',
                 );
             }
-        } else if (update.message && (update.message.photo || update.message.document)) {
+        } else if (update.message && (update.message.photo || update.message.document || update.message.voice)) {
             const chatId = update.message.chat.id;
             const caption = update.message.text || '';
 
@@ -126,6 +155,12 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                     update.message.document.file_name || 'Doc',
                     caption,
                     env,
+                );
+            } else if (update.message.voice) { // Phase 22
+                await handleVoiceCapture(
+                    chatId,
+                    update.message.voice.file_id,
+                    env
                 );
             }
         }
@@ -155,10 +190,10 @@ async function handleStatus(chatId: number, env: Env) {
                 row.status === 'deployed'
                     ? '✅'
                     : row.status === 'error'
-                      ? '❌'
-                      : row.status === 'generating'
-                        ? '⏳'
-                        : '📝';
+                        ? '❌'
+                        : row.status === 'generating'
+                            ? '⏳'
+                            : '📝';
             report += `${emoji} ${row.status.toUpperCase()}: ${row.count}\n`;
         });
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, report);
@@ -173,18 +208,28 @@ async function handleList(chatId: number, env: Env) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            sql: "SELECT id, title FROM prompts WHERE status = 'draft' ORDER BY created_at DESC LIMIT 5",
+            sql: "SELECT id, title, status FROM prompts WHERE status = 'draft' ORDER BY created_at DESC LIMIT 3",
         }),
     });
 
     const data = (await response.json()) as { result: any[] };
     if (data.result && data.result.length > 0) {
-        let list = '📝 **Recent Drafts:**\n\n';
-        data.result.forEach((row) => {
-            list += `• ${row.title}\nID: \`${row.id}\`\n\n`;
-        });
-        list += 'Copy an ID and use `/run [id]` to execute.';
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, list);
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, '📝 **Recent Drafts:**');
+
+        for (const row of data.result) {
+            const keyboard = {
+                inline_keyboard: [[
+                    { text: '🚀 Run', callback_data: `RUN:${row.id}` },
+                    { text: '🗑 Delete', callback_data: `DELETE:${row.id}` }
+                ]]
+            };
+            await sendTelegramMessage(
+                env.TELEGRAM_BOT_TOKEN,
+                chatId,
+                `📌 **${row.title}**\nStatus: ${row.status}`,
+                keyboard
+            );
+        }
     } else {
         await sendTelegramMessage(
             env.TELEGRAM_BOT_TOKEN,
@@ -452,15 +497,53 @@ export async function registerWebhook(env: Env, host: string): Promise<Response>
     });
 }
 
-async function sendTelegramMessage(token: string, chatId: number, text: string) {
+async function sendTelegramMessage(token: string, chatId: number, text: string, keyboard?: any) {
     const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const body: any = {
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'Markdown',
+    };
+
+    if (keyboard) {
+        body.reply_markup = keyboard;
+    }
+
+    await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+}
+
+async function editTelegramMessage(token: string, chatId: number, messageId: number, text: string, keyboard?: any) {
+    const url = `https://api.telegram.org/bot${token}/editMessageText`;
+    const body: any = {
+        chat_id: chatId,
+        message_id: messageId,
+        text: text,
+        parse_mode: 'Markdown',
+    };
+
+    if (keyboard) {
+        body.reply_markup = keyboard;
+    }
+
+    await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+}
+
+async function answerCallbackQuery(token: string, callbackQueryId: string, text?: string) {
+    const url = `https://api.telegram.org/bot${token}/answerCallbackQuery`;
     await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            chat_id: chatId,
+            callback_query_id: callbackQueryId,
             text: text,
-            parse_mode: 'Markdown',
         }),
     });
 }
@@ -666,11 +749,195 @@ async function handleAssign(chatId: number, promptId: string, model: string, env
             chatId,
             `🤖 **Success!** Prompt \`${promptId}\` is now using **${model}**.`,
         );
-    } else {
-        await sendTelegramMessage(
-            env.TELEGRAM_BOT_TOKEN,
-            chatId,
-            `❌ **Assignment failed.** Status: ${response.status}`,
-        );
     }
+}
+
+// Phase 22: Handling Button Clicks
+async function handleCallbackQuery(chatId: number, messageId: number, data: string, callbackId: string, env: Env) {
+    const [action, id] = data.split(':');
+
+    if (action === 'RUN') {
+        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '🚀 Starting run...');
+        await handleRunPrompt(chatId, id, env);
+    } else if (action === 'REFINE') {
+        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '🧠 Starting refinement...');
+        await handleRefinePrompt(chatId, id, env);
+    } else if (action === 'DELETE') {
+        await handleDelete(chatId, id, env);
+        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '🗑 Deleted');
+    } else if (action === 'RESEARCH_REFRESH') {
+        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '🔄 Refreshing...');
+        await updateResearchStatus(chatId, messageId, id, env);
+    } else {
+        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '❓ Unknown action');
+    }
+}
+
+async function handleResearch(chatId: number, query: string, env: Env) {
+    if (!query) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, '⚠️ Usage: `/research [topic]`');
+        return;
+    }
+
+    const jobId = crypto.randomUUID();
+    const researchStub = env.RESEARCH_DO.get(env.RESEARCH_DO.idFromName(jobId));
+
+    // Start job
+    const response = await researchStub.fetch('http://do/start', {
+        method: 'POST',
+        body: JSON.stringify({ input: query, jobId }),
+        headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `❌ Failed to start research: ${response.statusText}`);
+        return;
+    }
+
+    // Send initial status message with Refresh button
+    const keyboard = {
+        inline_keyboard: [[
+            { text: '🔄 Refresh Status', callback_data: `RESEARCH_REFRESH:${jobId}` }
+        ]]
+    };
+
+    await sendTelegramMessage(
+        env.TELEGRAM_BOT_TOKEN,
+        chatId,
+        `🕵️‍♂️ **Research Started!**\n\nTopic: "${query}"\nJob ID: \`${jobId.slice(0, 8)}\`\n\nStatus: ⏳ PROCESSING...\n\n(Click Refresh to check progress)`,
+        keyboard
+    );
+}
+
+async function updateResearchStatus(chatId: number, messageId: number, jobId: string, env: Env) {
+    const researchStub = env.RESEARCH_DO.get(env.RESEARCH_DO.idFromName(jobId));
+    const response = await researchStub.fetch('http://do/status');
+    const data = await response.json() as any;
+
+    const status = data.status || 'unknown';
+    const text = data.text || '';
+    const error = data.error || '';
+
+    let msg = '';
+    let keyboard = null;
+
+    if (status === 'completed') {
+        msg = `✅ **Research Complete!**\n\n${text.substring(0, 3000)}${text.length > 3000 ? '...' : ''}`;
+    } else if (status === 'failed') {
+        msg = `❌ **Research Failed**\n\nError: ${error}`;
+    } else {
+        msg = `🕵️‍♂️ **Research In Progress**\n\nStatus: ⏳ ${status.toUpperCase()}...\n\nLog: ${text.slice(-200) || 'Analyzing...'}`;
+        keyboard = {
+            inline_keyboard: [[
+                { text: '🔄 Refresh Status', callback_data: `RESEARCH_REFRESH:${jobId}` }
+            ]]
+        };
+    }
+
+    try {
+        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, messageId, msg, keyboard);
+    } catch (e) {
+        // Ignore errors
+    }
+}
+
+async function handleVoiceCapture(chatId: number, fileId: string, env: Env) {
+    const fileUrl = await getTelegramFileUrl(env.TELEGRAM_BOT_TOKEN, fileId);
+    const title = `🎙️ Voice Note ${new Date().toLocaleTimeString()}`;
+    const id = crypto.randomUUID();
+    const versionId = crypto.randomUUID();
+    const now = Date.now();
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `INSERT INTO prompts (id, title, board_id, status, pos, created_at, tags) 
+                  VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            params: [id, title, 'default', 'draft', now, now, '["voice"]'],
+        }),
+    });
+
+    const content = `[Voice Note: ${fileUrl}]\n\n(To transcribe, please run this prompt with a multimodal model)`;
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `INSERT INTO prompt_versions (id, prompt_id, content, system_instructions, temperature, top_p, max_tokens, model, created_at) 
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            params: [versionId, id, content, '', 0.7, 1, 2048, 'gemini-1.5-flash', now],
+        }),
+    });
+
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: `UPDATE prompts SET current_version_id = $1 WHERE id = $2`,
+            params: [versionId, id],
+        }),
+    });
+
+    const keyboard = {
+        inline_keyboard: [[
+            { text: '🚀 Transcribe (Run)', callback_data: `RUN:${id}` }
+        ]]
+    };
+
+    await sendTelegramMessage(
+        env.TELEGRAM_BOT_TOKEN,
+        chatId,
+        `🎙️ **Voice Note Saved!**\n\nID: \`${id}\`\nReady to transcribe.`,
+        keyboard
+    );
+}
+
+async function handleClone(chatId: number, id: string, env: Env) {
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, '⚠️ Clone not implemented yet.');
+}
+
+async function handleDelete(chatId: number, id: string, env: Env) {
+    if (!id) return;
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: "DELETE FROM prompts WHERE id = $1",
+            params: [id]
+        })
+    });
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🗑 Prompt \`${id}\` deleted.`);
+}
+
+// Phase 22B: Health Monitoring
+async function handleHealth(chatId: number, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/health');
+    const health = await response.json() as any;
+
+    const statusEmoji = health.status === 'HEALTHY' ? '✅' : '⚠️';
+
+    let msg = `${statusEmoji} **System Health: ${health.status}**\n\n`;
+    msg += `📊 **Summary:**\n`;
+    msg += `• Total Prompts: ${health.summary?.totalPrompts || 0}\n`;
+    msg += `• Deployed: ${health.summary?.deployed || 0}\n`;
+    msg += `• Errors: ${health.summary?.errors || 0}\n\n`;
+
+    if (health.lastDeployed) {
+        msg += `🚀 **Last Deployed:**\n`;
+        msg += `• ${health.lastDeployed.title}\n`;
+        msg += `• At: ${health.lastDeployed.at}\n\n`;
+    }
+
+    if (health.recentErrors && health.recentErrors.length > 0) {
+        msg += `⚠️ **Recent Errors:**\n`;
+        health.recentErrors.forEach((err: any) => {
+            msg += `• ${err.details || 'No details'}\n`;
+        });
+    }
+
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
 }

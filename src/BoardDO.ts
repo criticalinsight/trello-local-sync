@@ -167,6 +167,42 @@ export class BoardDO extends DurableObject<Env> {
             return Response.json({ lists, cards });
         }
 
+        // Phase 22B: Health Summary Endpoint
+        if (url.pathname === '/api/health') {
+            const statusCounts = [
+                ...this.ctx.storage.sql.exec('SELECT status, COUNT(*) as count FROM prompts GROUP BY status').toArray(),
+            ];
+            const totalPrompts = statusCounts.reduce((sum, row: any) => sum + row.count, 0);
+            const errorCount = statusCounts.find((r: any) => r.status === 'error')?.count || 0;
+            const deployedCount = statusCounts.find((r: any) => r.status === 'deployed')?.count || 0;
+
+            const lastDeployed = this.ctx.storage.sql.exec(
+                'SELECT title, deployed_at FROM prompts WHERE deployed_at IS NOT NULL ORDER BY deployed_at DESC LIMIT 1'
+            ).one() as any;
+
+            const recentErrors = [
+                ...this.ctx.storage.sql.exec(
+                    "SELECT details, created_at FROM activity_log WHERE event LIKE '%error%' ORDER BY created_at DESC LIMIT 3"
+                ).toArray(),
+            ];
+
+            return Response.json({
+                status: Number(errorCount) > 0 ? 'DEGRADED' : 'HEALTHY',
+                timestamp: new Date().toISOString(),
+                summary: {
+                    totalPrompts,
+                    deployed: deployedCount,
+                    errors: errorCount,
+                    statusBreakdown: statusCounts,
+                },
+                lastDeployed: lastDeployed ? {
+                    title: lastDeployed.title,
+                    at: new Date(lastDeployed.deployed_at).toISOString(),
+                } : null,
+                recentErrors,
+            });
+        }
+
         if (url.pathname === '/api/sql') {
             const body = (await request.json()) as { sql: string; params?: unknown[] };
             const result = this.ctx.storage.sql.exec(body.sql, ...(body.params || []));
@@ -196,6 +232,15 @@ export class BoardDO extends DurableObject<Env> {
                     'UPDATE prompts SET status = "generating" WHERE id = $1',
                     body.promptId,
                 );
+
+                // Phase 22C: Lifecycle Notification - Run Started
+                if (this.env.TELEGRAM_BOT_TOKEN) {
+                    await sendNotification(
+                        this.env.TELEGRAM_BOT_TOKEN,
+                        this.env as any,
+                        `🚀 **Run Started**\n\nPrompt: ${prompt.title || body.promptId}\nModel: ${version.model || 'default'}\nStatus: ⏳ Generating...`,
+                    );
+                }
 
                 // Construct task object for internal processTask method (to be added/refactored)
                 const task = {
@@ -756,6 +801,14 @@ export class BoardDO extends DurableObject<Env> {
                             errorText.includes('RESOURCE_EXHAUSTED')) {
                             console.log(`[BoardDO] Model ${model} rate limited, trying next...`);
                             lastError = new Error(`${response.status}: ${errorText}`);
+                            // Phase 22B: Rate Limit Alert
+                            if (this.env.TELEGRAM_BOT_TOKEN) {
+                                await sendNotification(
+                                    this.env.TELEGRAM_BOT_TOKEN,
+                                    this.env as any,
+                                    `⚠️ **Rate Limit Alert**\n\nModel: \`${model}\`\nStatus: ${response.status}\nFalling back to next model...`,
+                                );
+                            }
                             continue;
                         }
                         throw new Error(`Gemini API Error ${response.status}: ${errorText}`);
@@ -766,6 +819,16 @@ export class BoardDO extends DurableObject<Env> {
                     output = outputs[0]?.text || outputs[0]?.content || JSON.stringify(data);
                     usedModel = model;
                     console.log(`[BoardDO] Success with model: ${model}`);
+
+                    // Phase 22C: Model Success Notification with Output Preview
+                    if (this.env.TELEGRAM_BOT_TOKEN) {
+                        const preview = output.substring(0, 300).trim();
+                        await sendNotification(
+                            this.env.TELEGRAM_BOT_TOKEN,
+                            this.env as any,
+                            `✨ **Generation Complete**\n\nModel: \`${model}\`\nOutput: ${output.length} chars\n\n📝 **Preview:**\n${preview}${output.length > 300 ? '...' : ''}`,
+                        );
+                    }
                     break; // Success - exit loop
                 } catch (modelError) {
                     lastError = modelError as Error;
@@ -832,13 +895,14 @@ export class BoardDO extends DurableObject<Env> {
                 );
             }
 
-            // 5. Notify via Telegram
+            // 5. Notify via Telegram with Full Output
             if (this.env.TELEGRAM_BOT_TOKEN) {
                 const promptTitle = task.title || 'Untitled Prompt';
+                const outputPreview = output.substring(0, 800).trim();
                 await sendNotification(
                     this.env.TELEGRAM_BOT_TOKEN,
                     this.env as any,
-                    `✅ **Job Complete!**\n\nPrompt: ${promptTitle}\n\nPreview:\n${output.substring(0, 100)}...`,
+                    `✅ **Job Complete!**\n\nPrompt: **${promptTitle}**\nModel: \`${usedModel}\`\n\n📄 **Full Output:**\n${outputPreview}${output.length > 800 ? '\n\n_(truncated, use /latest for full)_' : ''}`,
                 );
             }
 
@@ -869,7 +933,7 @@ export class BoardDO extends DurableObject<Env> {
                 await sendNotification(
                     this.env.TELEGRAM_BOT_TOKEN,
                     this.env as any,
-                    `❌ **Job Failed!**\n\nPrompt: ${task.id}\nError: ${errorMsg}`,
+                    `❌ **Job Failed!**\n\nPrompt: ${task.title || task.id}\nError: ${errorMsg}\n\nCheck /logs for details.`,
                 );
             }
         }

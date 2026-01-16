@@ -25,6 +25,7 @@ import { AVAILABLE_TOOLS, type HelperTool } from '../utils/mcpMapper';
 import { analyzePromptForParams } from '../utils/promptAnalyzer';
 import { findBestMatchingTemplate } from '../utils/templateMatcher';
 import { PromptManager } from './PromptManager';
+import { ResearchModal } from './ResearchModal';
 import { SavedPrompt } from '../types';
 import { usePromptSettings } from '../hooks/usePromptSettings';
 
@@ -148,6 +149,16 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const { settings: persistedSettings, updateSetting } = usePromptSettings();
     const [savedPrompts, setSavedPrompts] = createSignal<SavedPrompt[]>([]);
     const [showLibrary, setShowLibrary] = createSignal(false);
+
+    // Phase 21: Deep Research
+    const [showResearch, setShowResearch] = createSignal(false);
+
+    const handleInsertContext = (text: string) => {
+        const insertion = `\n\n### Research Context\n${text}\n\n`;
+        setContent(content() + insertion);
+        markChanged();
+        showSnackbar('Research context inserted', 'success');
+    };
 
     // Load saved prompts
     createEffect(() => {
@@ -474,6 +485,12 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                             class={`ml-2 px-3 py-1 text-xs font-medium rounded-full transition-colors border ${showLibrary() ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 hover:text-white'}`}
                         >
                             📚 Library ({savedPrompts().length})
+                        </button>
+                        <button
+                            onClick={() => setShowResearch(true)}
+                            class="ml-2 px-3 py-1 bg-indigo-900/50 hover:bg-indigo-800 text-indigo-200 border border-indigo-500/30 text-xs rounded-full transition-colors flex items-center gap-1"
+                        >
+                            <span>🕵️‍♂️</span> Research
                         </button>
                         <button
                             onClick={savePromptToLibrary}
@@ -1618,6 +1635,13 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 onUpdateStatus={updatePromptStatus}
                 onSelect={loadSavedPrompt}
                 onDelete={deletePrompt}
+            />
+
+            {/* Research Modal (Phase 21) */}
+            <ResearchModal
+                isOpen={showResearch()}
+                onClose={() => setShowResearch(false)}
+                onInsert={handleInsertContext}
             />
         </div>
     );

@@ -31,6 +31,15 @@ A high-performance AI-powered Kanban board built with **SolidJS**, **PGlite** (P
 - 📱 **Mobile-Adaptive**: Responsive layouts for all devices
 - 🛡 **Error Boundary**: Graceful recovery from runtime errors
 
+### Telegram Bot 🤖
+
+- 📱 **Mobile Command Center**: Full control from Telegram
+- 🔘 **Interactive Buttons**: Tap to Run, Delete, Refine
+- 🎙️ **Voice Notes**: Dictate prompts on the go
+- 🔬 **Deep Research**: `/research [query]` for background AI analysis
+- 📡 **Real-Time Monitoring**: Live status updates with output previews
+- 🏥 **Health Check**: `/health` for system status
+
 ### Production Reliability
 
 - 🔄 **Auto-Updating**: No hard refresh needed after deployments
