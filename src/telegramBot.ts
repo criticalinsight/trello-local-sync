@@ -287,11 +287,16 @@ async function handleRunPrompt(chatId: number, promptId: string, env: Env) {
     });
 
     if (response.status === 202) {
-        await logActivity(env, 'run_started', promptId, `User triggered run via Telegram`);
+        const keyboard = {
+            inline_keyboard: [[
+                { text: '🔄 Check Status', callback_data: `RUN_STATUS:${promptId}` }
+            ]]
+        };
         await sendTelegramMessage(
             env.TELEGRAM_BOT_TOKEN,
             chatId,
             "🚀 **Execution Started!**\n\nThe AI is generating a response. I will notify you when it's done.",
+            keyboard
         );
     } else {
         await sendTelegramMessage(
@@ -816,13 +821,52 @@ async function handleCallbackQuery(chatId: number, messageId: number, data: stri
         await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '🔄 Refreshing...');
         await updateResearchStatus(chatId, messageId, id, env);
     } else if (action === 'LIST_PAGE') {
-        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId); // No visual feedback needed
+        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId);
         const page = parseInt(id, 10);
-        // Maybe we should edit the message instead of sending new ones? 
-        // For now, simpler to just send the new page.
         await handleList(chatId, env, page);
+    } else if (action === 'RUN_STATUS') {
+        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, 'Checking status...');
+        await handleRunStatus(chatId, messageId, id, env);
     } else {
         await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '❓ Unknown action');
+    }
+}
+
+async function handleRunStatus(chatId: number, messageId: number, promptId: string, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const response = await stub.fetch('http://do/api/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sql: "SELECT status, title FROM prompts WHERE id = $1",
+            params: [promptId]
+        }),
+    });
+
+    const data = (await response.json()) as { result: any[] };
+    if (data.result && data.result.length > 0) {
+        const row = data.result[0];
+        let msg = '';
+        let showButton = false;
+
+        if (row.status === 'deployed' || row.status === 'complete') {
+            msg = `✅ **Execution Complete!**\n\nPrompt: ${row.title}\n\nUse \`/latest\` or check the board to see results.`;
+        } else if (row.status === 'error') {
+            msg = `❌ **Execution Failed.**\n\nPrompt: ${row.title}\nPlease check \`/logs\`.`;
+        } else {
+            msg = `⏳ **In Progress...**\n\nPrompt: ${row.title}\nStatus: ${row.status.toUpperCase()}`;
+            showButton = true;
+        }
+
+        const keyboard = showButton ? {
+            inline_keyboard: [[
+                { text: '🔄 Check Status', callback_data: `RUN_STATUS:${promptId}` }
+            ]]
+        } : null;
+
+        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, messageId, msg, keyboard);
+    } else {
+        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, messageId, '❌ Prompt not found.');
     }
 }
 
