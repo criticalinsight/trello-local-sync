@@ -479,7 +479,11 @@ export class BoardDO extends DurableObject<Env> {
             return this.handleAdminRequest(url, request);
         }
 
-        return new Response('Not found', { status: 404 });
+        // Logging API routing
+        if (url.pathname.startsWith('/api/log_activity')) {
+            return this.handleLogActivity(request);
+        }
+
         return new Response('Not found', { status: 404 });
     }
 
@@ -810,7 +814,27 @@ export class BoardDO extends DurableObject<Env> {
         return new Response('Not found', { status: 404 });
     }
 
-    // ================= ADMIN LOGIC =================
+    async handleLogActivity(request: Request): Promise<Response> {
+        if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+
+        try {
+            const body = (await request.json()) as { event: string; entityId?: string; details?: string };
+            const now = Date.now();
+            const id = crypto.randomUUID();
+
+            this.ctx.storage.sql.exec(
+                'INSERT INTO activity_log (id, event, entity_id, details, created_at) VALUES (?, ?, ?, ?, ?)',
+                id,
+                body.event,
+                body.entityId || null,
+                body.details || null,
+                now,
+            );
+            return Response.json({ success: true, id });
+        } catch (e) {
+            return new Response('Error logging', { status: 500 });
+        }
+    }
 
     async handleAdminRequest(url: URL, request: Request): Promise<Response> {
         if (request.method === 'POST' && url.pathname.endsWith('/register')) {
