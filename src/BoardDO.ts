@@ -110,6 +110,27 @@ export class BoardDO extends DurableObject<Env> {
         created_at INTEGER,
         FOREIGN KEY (signal_id) REFERENCES signals(id)
       );
+
+      CREATE TABLE IF NOT EXISTS entities (
+        id TEXT PRIMARY KEY,
+        name TEXT UNIQUE,
+        type TEXT,
+        description TEXT,
+        metadata JSON,
+        created_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS relationships (
+        id TEXT PRIMARY KEY,
+        source_id TEXT,
+        target_id TEXT,
+        relation_type TEXT,
+        strength REAL,
+        metadata JSON,
+        created_at INTEGER,
+        FOREIGN KEY (source_id) REFERENCES entities(id),
+        FOREIGN KEY (target_id) REFERENCES entities(id)
+      );
     `);
 
         this.ctx.storage.sql.exec(`
