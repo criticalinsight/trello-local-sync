@@ -899,7 +899,9 @@ export class BoardDO extends DurableObject<Env> {
 
             // 4. Update Scheduler Next Run (if it's a scheduled task)
             if (task.cron) {
-                const nextRun = now + 60000;
+                // For MVP, we recur every 5 minutes if a schedule is active
+                // In a production app, we'd use a cron parser like 'croner'
+                const nextRun = now + 5 * 60000;
                 this.ctx.storage.sql.exec(
                     `
                     UPDATE scheduled_tasks SET last_run = ?, next_run = ? WHERE id = ?
