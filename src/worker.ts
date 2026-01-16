@@ -1,6 +1,7 @@
 // Worker entry point for Cloudflare
 export { BoardDO } from './BoardDO';
 export { ResearchDO } from './ResearchDO';
+export { ContentDO } from './ContentDO';
 import { handleTelegramWebhook, registerWebhook } from './telegramBot';
 
 export const APP_VERSION = '1.0.1';
