@@ -122,6 +122,19 @@ interface PromptCard {
     pos: number;
     createdAt: number;
     deployedAt?: number;
+    schedule?: {
+        cron: string;
+        enabled: boolean;
+        lastRun?: number;
+        nextRun?: number;
+    };
+    workflow?: {
+        enabled: boolean;
+        triggers: {
+            type: 'card_added' | 'card_moved' | 'card_tagged';
+            config: { listId?: string; tag?: string };
+        }[];
+    };
 }
 
 interface PromptVersion {
@@ -160,8 +173,8 @@ interface PromptVersion {
 
 | Feature                 | Description                                     | Priority |
 | ----------------------- | ----------------------------------------------- | -------- |
-| **Scheduled Prompts**   | Cron-style execution for recurring AI tasks     | High     |
-| **Triggered Workflows** | Webhooks that trigger prompt execution          | High     |
+| **Scheduled Prompts**   | Cron-style execution for recurring AI tasks     | High ✅   |
+| **Triggered Workflows** | Webhooks that trigger prompt execution          | High ✅   |
 | **Output Pipelines**    | Auto-route outputs to Slack, email, Notion      | Medium   |
 | **Watch Folders**       | Monitor file changes → run prompts on new files | Low      |
 
