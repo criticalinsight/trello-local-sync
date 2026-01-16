@@ -34,5 +34,9 @@ EOF
    echo ""
 done
 
-echo "Messages sent. Check logs for 'Processing batch' and 'Intel'."
+echo "Triggering manual batch processing..."
+curl -s -X POST "https://work.moecapital.com/api/refinery/process"
+echo ""
+
+echo "Messages sent and processing triggered. Check logs for 'Processing batch' and 'Intel'."
 echo "run: npx wrangler tail"
