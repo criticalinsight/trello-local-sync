@@ -51,7 +51,50 @@ export class ResearchDO implements DurableObject {
             return this.handleStatus();
         }
 
+        // Synchronous Generation (Internal Utility)
+        if (request.method === 'POST' && path === '/api/generate') {
+            return this.handleGenerate(request);
+        }
+
         return new Response('Not found', { status: 404 });
+    }
+
+    private async handleGenerate(request: Request): Promise<Response> {
+        try {
+            const body = await request.json() as { prompt: string; system: string; model?: string };
+            const model = body.model || 'gemini-2.5-flash';
+
+            // Call Gemini API directly (Stateless)
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.env.GEMINI_API_KEY}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: body.prompt }] }],
+                        systemInstruction: body.system ? { parts: [{ text: body.system }] } : undefined,
+                        generationConfig: {
+                            temperature: 0.2, // Low temp for extraction tasks
+                        }
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                return new Response(JSON.stringify({ error: `Gemini API error: ${errorText}` }), { status: 500 });
+            }
+
+            const data = await response.json() as any;
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+            return new Response(JSON.stringify({ output: text }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+        } catch (e) {
+            return new Response(JSON.stringify({ error: String(e) }), { status: 500 });
+        }
     }
 
     private async handleStart(request: Request): Promise<Response> {
