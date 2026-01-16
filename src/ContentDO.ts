@@ -201,18 +201,65 @@ export class ContentDO extends DurableObject {
     }
 
     private async notifySignal(intel: any, sourceId: string) {
-        // Send to Telegram immediately (or create Card)
+        const relevance = intel.relevance_score || 0;
+
+        // 1. Send to Telegram immediately (Alert)
         if (this.env.TELEGRAM_BOT_TOKEN) {
             const msg = `🚨 **Intel: ${intel.summary}**\n` +
-                `📈 Sentiment: ${intel.sentiment}\n` +
-                `🎯 Tickers: ${intel.tickers.join(', ')}`;
+                `📈 Sentiment: ${intel.sentiment.toUpperCase()}\n` +
+                `🎯 Tickers: ${intel.tickers.join(', ')}\n` +
+                `🎯 Relevance: ${relevance}%`;
 
-            // Using BOARD_DO for admin broadcast if simpler, or direct if we had chatId
-            // For this implementation, we try BOARD_DO broadcast first
             await this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default')).fetch('http://do/api/admin/broadcast', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: msg })
+            });
+        }
+
+        // 2. Auto-Create Kanban Card if High Relevance
+        if (relevance >= 80) {
+            console.log(`[ContentDO] High relevance signal (${relevance}%), creating card...`);
+
+            const cardId = crypto.randomUUID();
+            const now = Date.now();
+            const description = `📈 **Sentiment:** ${intel.sentiment.toUpperCase()}\n` +
+                `🎯 **Tickers:** ${intel.tickers.join(', ')}\n` +
+                `📊 **Relevance:** ${relevance}%\n\n` +
+                `Source: Telegram Batch\n` +
+                `Refined by: Content Refinery (Gemini)`;
+
+            const sql = `
+                INSERT INTO cards (id, title, list_id, pos, created_at, description, tags) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            // Assume list-1 is "To Do"
+            const params = [
+                cardId,
+                `⚡ Intel: ${intel.summary}`,
+                'list-1',
+                now,
+                now,
+                description,
+                JSON.stringify(['intel', ...intel.tickers])
+            ];
+
+            await this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default')).fetch('http://do/api/sql', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sql, params })
+            });
+
+            // Log activity
+            await this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default')).fetch('http://do/api/log_activity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    event: 'card_auto_created',
+                    entityId: cardId,
+                    details: `Auto-created Intel Card: ${intel.summary}`
+                })
             });
         }
     }
