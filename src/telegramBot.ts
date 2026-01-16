@@ -1120,3 +1120,23 @@ async function handleBriefing(chatId: number, env: Env) {
         "📅 **Daily Briefing (Stub)**\n\n- No active alerts.\n- 3 Prompts in draft.\n- System Health: Optimal.\n\n*Full implementation coming in Phase 4.*"
     );
 }
+
+// Phase 7: Channel Post Handler
+async function handleChannelPost(post: any, env: Env) {
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+
+    // Log the event for analysis
+    await stub.fetch('http://do/api/log_activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            event: 'channel_post',
+            entityId: String(post.chat.id),
+            details: JSON.stringify({
+                title: post.chat.title,
+                text: post.text ? post.text.substring(0, 50) + '...' : '[Media]',
+                full: post
+            })
+        })
+    });
+}
