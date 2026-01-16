@@ -190,26 +190,23 @@ export class ContentDO extends DurableObject {
             console.error('Failed to parse AI response', e);
         }
 
-        // Updates DB
-        // In a real app, we might merge rows or update them. 
-        // Here, we update the original rows with the processed result (mapping back might be tricky if aggregated).
-        // implementation simplification: Update all processed rows as 'processed'
+        const sourceName = items[0]?.source_name || 'Unknown Channel';
 
+        // Updates DB
         const updates = items.map(i => i.id);
         for (const id of updates) {
             this.ctx.storage.sql.exec("UPDATE content_items SET processed_json = ? WHERE id = ?", JSON.stringify({ batch_processed: true }), id);
         }
 
         // Logic to push "Signals" to BoardDO would go here
-        // For now, valid signals > 70 relevance get a notification or stored as special "Signal"
         for (const intel of analysis) {
             if (intel.relevance_score > 70) {
-                await this.notifySignal(intel, sourceId);
+                await this.notifySignal(intel, sourceId, sourceName);
             }
         }
     }
 
-    private async notifySignal(intel: any, sourceId: string) {
+    private async notifySignal(intel: any, sourceId: string, sourceName: string) {
         const relevance = intel.relevance_score || 0;
         const tickers = Array.isArray(intel.tickers) ? intel.tickers : [];
 
@@ -394,14 +391,33 @@ export class ContentDO extends DurableObject {
 
         // 7. Auto-Create Kanban Card
         if (relevance >= 80) {
-            console.log(`[ContentDO] Creating card for validated signal...`);
+            console.log(`[ContentDO] Creating card for validated signal from ${sourceName}...`);
+
+            let targetBoardId = 'board-intel';
+            let targetListId = 'list-intel-todo';
+
+            // Route to channel-specific boards
+            const name = sourceName.toLowerCase();
+            if (name.includes('americamoe')) {
+                targetBoardId = 'board-americamoe';
+                targetListId = 'list-americamoe-todo';
+            } else if (name.includes('moneyacademy')) {
+                targetBoardId = 'board-moneyacademy';
+                targetListId = 'list-moneyacademy-todo';
+            } else if (name.includes('gotrythis')) {
+                targetBoardId = 'board-gotrythis';
+                targetListId = 'list-gotrythis-todo';
+            } else if (name.includes('moecrypto')) {
+                targetBoardId = 'board-moecrypto';
+                targetListId = 'list-moecrypto-todo';
+            }
 
             const cardId = crypto.randomUUID();
             const now = Date.now();
             const description = `📈 **Sentiment:** ${(intel.sentiment || "").toUpperCase()}\n` +
                 `🎯 **Tickers:** ${tickers.join(', ')}\n` +
                 `📊 **Relevance:** ${relevance}%\n\n` +
-                `Source: Telegram Batch\n` +
+                `Source: ${sourceName}\n` +
                 `Refined by: Content Refinery (Gemini)`;
 
             const sql = `
@@ -411,8 +427,8 @@ export class ContentDO extends DurableObject {
 
             const params = [
                 cardId,
-                'board-intel',
-                'list-intel-todo',
+                targetBoardId,
+                targetListId,
                 `⚡ Intel: ${intel.summary}`,
                 now,
                 now,
