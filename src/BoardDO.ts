@@ -866,6 +866,7 @@ export class BoardDO extends DurableObject<Env> {
                             lastError = new Error(`${response.status}: ${errorText}`);
                             // Phase 22B: Rate Limit Alert
                             if (this.env.TELEGRAM_BOT_TOKEN) {
+                                await this.rateLimiter.throttle();
                                 await sendNotification(
                                     this.env.TELEGRAM_BOT_TOKEN,
                                     this.env as any,
@@ -886,6 +887,7 @@ export class BoardDO extends DurableObject<Env> {
                     // Phase 22C: Model Success Notification with Output Preview
                     if (this.env.TELEGRAM_BOT_TOKEN) {
                         const preview = output.substring(0, 300).trim();
+                        await this.rateLimiter.throttle();
                         await sendNotification(
                             this.env.TELEGRAM_BOT_TOKEN,
                             this.env as any,
@@ -964,6 +966,7 @@ export class BoardDO extends DurableObject<Env> {
             if (this.env.TELEGRAM_BOT_TOKEN) {
                 const promptTitle = task.title || 'Untitled Prompt';
                 const outputPreview = output.substring(0, 800).trim();
+                await this.rateLimiter.throttle();
                 await sendNotification(
                     this.env.TELEGRAM_BOT_TOKEN,
                     this.env as any,
@@ -1006,6 +1009,7 @@ export class BoardDO extends DurableObject<Env> {
             // Notify via Telegram
             if (this.env.TELEGRAM_BOT_TOKEN) {
                 const errorMsg = error instanceof Error ? error.message : String(error);
+                await this.rateLimiter.throttle();
                 await sendNotification(
                     this.env.TELEGRAM_BOT_TOKEN,
                     this.env as any,
