@@ -8,7 +8,7 @@ const BATCH_THRESHOLD = 50;
 const BATCH_WINDOW_MS = 1000;
 
 export class BoardDO extends DurableObject<Env> {
-    private sessions: Map<WebSocket, { id: string }> = new Map();
+    private sessions: Map<WebSocket, { id: string, boardId: string }> = new Map();
     private writeQueue: Array<{ sql: string; params: unknown[]; clientId: string }> = [];
     private lastFlush: number = Date.now();
     private requestCount: number = 0;
@@ -231,7 +231,7 @@ export class BoardDO extends DurableObject<Env> {
             const [client, server] = Object.values(pair);
 
             const clientId = crypto.randomUUID();
-            this.sessions.set(server, { id: clientId });
+            this.sessions.set(server, { id: clientId, boardId: 'board-main' });
 
             server.accept();
 
@@ -692,14 +692,27 @@ export class BoardDO extends DurableObject<Env> {
     }
 
     private sendFullState(ws: WebSocket) {
-        const lists = [...this.ctx.storage.sql.exec('SELECT * FROM lists ORDER BY pos').toArray()];
-        const cards = [...this.ctx.storage.sql.exec('SELECT * FROM cards ORDER BY pos').toArray()];
-        ws.send(JSON.stringify({ type: 'SYNC_STATE', lists, cards }));
+        const session = this.sessions.get(ws);
+        const boardId = session?.boardId || 'board-main';
+
+        const lists = [...this.ctx.storage.sql.exec('SELECT * FROM lists WHERE board_id = ? ORDER BY pos', boardId).toArray()];
+        const cards = [...this.ctx.storage.sql.exec('SELECT * FROM cards WHERE board_id = ? ORDER BY pos', boardId).toArray()];
+        const boards = [...this.ctx.storage.sql.exec('SELECT * FROM boards').toArray()];
+
+        ws.send(JSON.stringify({ type: 'SYNC_STATE', lists, cards, boards, activeBoardId: boardId }));
     }
 
     private handleMessage(sender: WebSocket, data: string) {
         try {
             const msg = JSON.parse(data);
+
+            if (msg.type === 'SWITCH_BOARD') {
+                const session = this.sessions.get(sender);
+                if (session) {
+                    session.boardId = msg.boardId;
+                    this.sendFullState(sender);
+                }
+            }
 
             if (msg.type === 'EXECUTE_SQL') {
                 this.requestCount++;
@@ -776,7 +789,10 @@ export class BoardDO extends DurableObject<Env> {
             const result = await this.sql(sql, ...params);
             const rows = [...result.toArray()];
 
-            // Broadcast to all OTHER clients (not the sender)
+            const session = this.sessions.get(sender);
+            const boardId = session?.boardId || 'board-main';
+
+            // Broadcast to all OTHER clients on the SAME board
             this.broadcast(
                 JSON.stringify({
                     type: 'SQL_RESULT',
@@ -785,6 +801,7 @@ export class BoardDO extends DurableObject<Env> {
                     result: rows,
                 }),
                 clientId,
+                boardId
             );
 
             // Phase 11: Check for workflows if this was a card update
@@ -888,10 +905,13 @@ export class BoardDO extends DurableObject<Env> {
         return await this.ctx.storage.sql.exec(sql, ...params);
     }
 
-    private broadcast(message: string | object, excludeClientId?: string) {
+    private broadcast(message: string | object, excludeClientId?: string, boardId?: string) {
         const messageString = typeof message === 'string' ? message : JSON.stringify(message);
         for (const [ws, session] of this.sessions) {
             if (session.id !== excludeClientId) {
+                // If boardId is provided, only broadcast to clients on that board
+                if (boardId && session.boardId !== boardId) continue;
+
                 try {
                     ws.send(messageString);
                 } catch {
