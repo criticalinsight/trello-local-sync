@@ -27,9 +27,15 @@ interface TelegramUpdate {
     };
     callback_query?: {
         id: string;
-        from: { id: number; first_name: string };
-        message: { message_id: number; chat: { id: number }; text?: string };
+        from: { id: number; first_name: string; username?: string };
+        message: { message_id: number; chat: { id: number }; text?: string; from?: { id: number; username?: string; first_name?: string } };
         data: string;
+    };
+    channel_post?: {
+        message_id: number;
+        chat: { id: number; title: string; type: string };
+        text?: string;
+        date: number;
     };
 }
 
@@ -44,6 +50,13 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
             const messageId = update.callback_query.message.message_id;
 
             await handleCallbackQuery(chatId, messageId, data, update.callback_query.id, env);
+            await handleCallbackQuery(chatId, messageId, data, update.callback_query.id, env);
+            return new Response('OK');
+        }
+
+        // Phase 7: Channel Posts (Logging Strategy)
+        if (update.channel_post) {
+            await handleChannelPost(update.channel_post, env);
             return new Response('OK');
         }
 
