@@ -22,6 +22,7 @@ import { VersionDiff } from './VersionDiff';
 import { estimateTokens, estimateCost, formatCost } from '../utils/tokenEstimator';
 import { PromptHistoryView } from './PromptHistoryView';
 import { AVAILABLE_TOOLS, type HelperTool } from '../utils/mcpMapper';
+import { analyzePromptForParams } from '../utils/promptAnalyzer';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -134,6 +135,36 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     const [comparisonIsRunning, setComparisonIsRunning] = createSignal(false);
     const [comparisonError, setComparisonError] = createSignal('');
     const [showDiff, setShowDiff] = createSignal(false);
+
+    // Auto-Detect Mode (Phase 17)
+    const [isAutoMode, setIsAutoMode] = createSignal(false);
+    const [detectedIntent, setDetectedIntent] = createSignal<string>('');
+
+    // Auto-Tuning Effect
+    createEffect(() => {
+        if (!isAutoMode()) {
+            setDetectedIntent('');
+            return;
+        }
+
+        const text = content();
+        // Simple debounce via timeout not easily done in createEffect without primitives, 
+        // relying on Solid's batching or effectively running on every keypress is fine for this lightweight regex.
+        // For production, use a proper debounced signal.
+
+        const analysis = analyzePromptForParams(text);
+
+        if (analysis.intent !== 'default') {
+            setDetectedIntent(analysis.intent);
+            // Only update if changed to avoid loopiness? 
+            // Actually signals check equality, so setting same value is no-op.
+            if (analysis.model) setModel(analysis.model);
+            if (analysis.temperature !== undefined) setTemperature(analysis.temperature);
+            if (analysis.topP !== undefined) setTopP(analysis.topP);
+        } else {
+            setDetectedIntent('default');
+        }
+    });
 
     // Initialize from current version
     createEffect(() => {
@@ -620,6 +651,137 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                                            text-white placeholder-slate-500 resize-none focus:outline-none
                                            focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm"
                                 />
+                            </div>
+                        </details>
+
+                        {/* Generation Settings (Phase 16) */}
+                        <details class="border-t border-slate-700" open>
+                            <summary
+                                class="p-4 cursor-pointer text-sm font-medium text-slate-400 hover:text-slate-300 
+                                           flex items-center gap-2 select-none"
+                            >
+                                <svg
+                                    class="w-4 h-4 transition-transform details-open:rotate-90"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M9 5l7 7-7 7"
+                                    />
+                                </svg>
+                                Generation Settings
+                                <span class="px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded font-mono">
+                                    {model().replace('gemini-', '')}
+                                </span>
+
+                                <div class="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                                        Auto
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAutoMode(!isAutoMode())}
+                                        class={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800 ${isAutoMode() ? 'bg-blue-600' : 'bg-slate-600'
+                                            }`}
+                                    >
+                                        <span
+                                            class={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isAutoMode() ? 'translate-x-4.5' : 'translate-x-1'
+                                                }`}
+                                        />
+                                    </button>
+                                </div>
+                            </summary>
+                            <div class="px-4 pb-4 space-y-4">
+                                {/* Auto-Mode Indicator */}
+                                <Show when={isAutoMode() && detectedIntent()}>
+                                    <div class="p-2 bg-blue-900/20 border border-blue-800/50 rounded flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        <span class="text-xs text-blue-300">
+                                            Optimized for: <span class="font-bold uppercase">{detectedIntent()}</span>
+                                        </span>
+                                    </div>
+                                </Show>
+
+                                {/* Model Selector */}
+                                <div class={isAutoMode() ? 'opacity-50 pointer-events-none' : ''}>
+                                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Model</label>
+                                    <select
+                                        value={model()}
+                                        onChange={(e) => {
+                                            setModel(e.currentTarget.value);
+                                            markChanged();
+                                        }}
+                                        class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                                    >
+                                        <For each={GEMINI_MODELS}>
+                                            {(m) => (
+                                                <option value={m}>{m}</option>
+                                            )}
+                                        </For>
+                                    </select>
+                                </div>
+
+                                {/* Temperature */}
+                                <div class={isAutoMode() ? 'opacity-50 pointer-events-none' : ''}>
+                                    <div class="flex justify-between mb-1.5">
+                                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Temperature</label>
+                                        <span class="text-xs font-mono text-slate-300">{temperature()}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="2"
+                                        step="0.1"
+                                        value={temperature()}
+                                        onInput={(e) => {
+                                            setTemperature(parseFloat(e.currentTarget.value));
+                                            markChanged();
+                                        }}
+                                        class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                    />
+                                </div>
+
+                                {/* Top P */}
+                                <div class={isAutoMode() ? 'opacity-50 pointer-events-none' : ''}>
+                                    <div class="flex justify-between mb-1.5">
+                                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Top P</label>
+                                        <span class="text-xs font-mono text-slate-300">{topP()}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                        value={topP()}
+                                        onInput={(e) => {
+                                            setTopP(parseFloat(e.currentTarget.value));
+                                            markChanged();
+                                        }}
+                                        class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                    />
+                                </div>
+
+                                {/* Max Tokens */}
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Max Output Tokens</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        value={maxTokens()}
+                                        onInput={(e) => {
+                                            setMaxTokens(parseInt(e.currentTarget.value));
+                                            markChanged();
+                                        }}
+                                        class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                                    />
+                                </div>
                             </div>
                         </details>
 
