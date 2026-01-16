@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { sendNotification } from './telegramBot';
 import { Env } from './types';
+import { LeakyBucket } from './utils/rateLimiter';
 
 // Batch threshold - writes are batched if >50 requests/sec
 const BATCH_THRESHOLD = 50;
@@ -12,11 +13,14 @@ export class BoardDO extends DurableObject<Env> {
     private lastFlush: number = Date.now();
     private requestCount: number = 0;
     private batchTimeout: ReturnType<typeof setTimeout> | null = null;
+    private rateLimiter: LeakyBucket;
 
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
+        this.rateLimiter = new LeakyBucket(20, 1); // 20 burst, 1/sec
         this.initDatabase();
         this.initScheduler();
+        this.scheduleDailyBriefing();
     }
 
     private initDatabase() {
@@ -235,6 +239,7 @@ export class BoardDO extends DurableObject<Env> {
 
                 // Phase 22C: Lifecycle Notification - Run Started
                 if (this.env.TELEGRAM_BOT_TOKEN) {
+                    await this.rateLimiter.throttle(); // Rate Limit
                     await sendNotification(
                         this.env.TELEGRAM_BOT_TOKEN,
                         this.env as any,
@@ -460,6 +465,49 @@ export class BoardDO extends DurableObject<Env> {
         }
 
         return new Response('Not found', { status: 404 });
+        return new Response('Not found', { status: 404 });
+    }
+
+    async alarm(): Promise<void> {
+        // Daily Briefing Alarm
+        const now = Date.now();
+        const storedNext = await this.ctx.storage.get<number>('next_briefing_time');
+
+        if (storedNext && now >= storedNext) {
+            await this.sendDailyBriefing();
+            await this.scheduleDailyBriefing();
+        }
+    }
+
+    private async scheduleDailyBriefing() {
+        // Schedule for 9:00 AM UTC tomorrow (or today if not passed)
+        const now = new Date();
+        const next = new Date(now);
+        next.setUTCHours(9, 0, 0, 0);
+
+        if (next.getTime() <= now.getTime()) {
+            next.setDate(next.getDate() + 1);
+        }
+
+        await this.ctx.storage.put('next_briefing_time', next.getTime());
+        await this.ctx.storage.setAlarm(next.getTime());
+        console.log(`[BoardDO] Daily Briefing scheduled for ${next.toISOString()}`);
+    }
+
+    private async sendDailyBriefing() {
+        if (!this.env.TELEGRAM_BOT_TOKEN) return;
+
+        // Gather stats
+        const draftCount = this.ctx.storage.sql.exec("SELECT COUNT(*) as count FROM prompts WHERE status = 'draft'").one() as any;
+        const errorCount = this.ctx.storage.sql.exec("SELECT COUNT(*) as count FROM prompts WHERE status = 'error'").one() as any;
+
+        const msg = `📅 **Daily Briefing**\n\n` +
+            `📝 **Drafts:** ${draftCount?.count || 0}\n` +
+            `❌ **Errors:** ${errorCount?.count || 0}\n\n` +
+            `System is running smoothly. Use \`/stats\` for more info.`;
+
+        await this.rateLimiter.throttle();
+        await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any, msg);
     }
 
     private sendFullState(ws: WebSocket) {
