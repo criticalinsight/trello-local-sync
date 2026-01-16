@@ -185,65 +185,56 @@ export class BoardDO extends DurableObject<Env> {
             try {
                 this.ctx.storage.sql.exec('ALTER TABLE prompts ADD COLUMN schedule JSON');
             } catch { }
+
+            // Backfill migration: Assign existing rows without board_id to board-main
+            this.ctx.storage.sql.exec("UPDATE lists SET board_id = 'board-main' WHERE board_id IS NULL");
+            this.ctx.storage.sql.exec("UPDATE cards SET board_id = 'board-main' WHERE board_id IS NULL");
         } catch (e) {
             console.warn('Migration warning:', e);
         }
 
-        // Insert default boards if empty
-        const boardCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as count FROM boards').one();
-        if (boardCount && (boardCount.count as number) === 0) {
-            const now = Date.now();
-            this.ctx.storage.sql.exec(`
-                INSERT INTO boards (id, title, category, icon, created_at) VALUES
-                ('board-main', 'Standard Kanban', 'general', '📋', ?),
-                ('board-intel', 'Market Intelligence', 'refinery', '⚡', ?),
-                ('board-vetting', 'Epistemic Vetting', 'refinery', '🧠', ?),
-                ('board-portfolio', 'Portfolio Alpha', 'finance', '💰', ?),
-                ('board-americamoe', 'Americamoe', 'telegram', '🦅', ?),
-                ('board-moneyacademy', 'Money Academy KE', 'telegram', '🇰🇪', ?),
-                ('board-gotrythis', 'GoTryThis', 'telegram', '🚀', ?),
-                ('board-moecrypto', 'MoeCrypto', 'telegram', '💎', ?)
-            `, now, now, now, now, now, now, now, now);
+        // Seed default boards individually to ensure none are missing
+        const now = Date.now();
+        const defaultBoards = [
+            ['board-main', 'Standard Kanban', 'general', '📋'],
+            ['board-intel', 'Market Intelligence', 'refinery', '⚡'],
+            ['board-vetting', 'Epistemic Vetting', 'refinery', '🧠'],
+            ['board-portfolio', 'Portfolio Alpha', 'finance', '💰'],
+            ['board-americamoe', 'Americamoe', 'telegram', '🦅'],
+            ['board-moneyacademy', 'Money Academy KE', 'telegram', '🇰🇪'],
+            ['board-gotrythis', 'GoTryThis', 'telegram', '🚀'],
+            ['board-moecrypto', 'MoeCrypto', 'telegram', '💎']
+        ];
 
-            // Seed lists for all boards
-            this.ctx.storage.sql.exec(`
-                INSERT INTO lists(id, board_id, title, pos) VALUES
-                ('list-main-todo', 'board-main', 'To Do', 0),
-                ('list-main-doing', 'board-main', 'In Progress', 1),
-                ('list-main-done', 'board-main', 'Done', 2),
-                
-                ('list-intel-todo', 'board-intel', 'Hot Signals', 0),
-                ('list-intel-research', 'board-intel', 'Active Research', 1),
-                ('list-intel-archived', 'board-intel', 'Historical', 2),
+        for (const [id, title, cat, icon] of defaultBoards) {
+            this.ctx.storage.sql.exec(
+                'INSERT OR IGNORE INTO boards (id, title, category, icon, created_at) VALUES (?, ?, ?, ?, ?)',
+                id, title, cat, icon, now
+            );
+        }
 
-                ('list-vet-pending', 'board-vetting', 'Pending Vetting', 0),
-                ('list-vet-debating', 'board-vetting', 'In Debate', 1),
-                ('list-vet-validated', 'board-vetting', 'Validated', 2),
-
-                ('list-port-watchlist', 'board-portfolio', 'Watchlist', 0),
-                ('list-port-positions', 'board-portfolio', 'Active Positions', 1),
-                ('list-port-exits', 'board-portfolio', 'Recent Exits', 2),
-
-                ('list-americamoe-todo', 'board-americamoe', 'Signal Queue', 0),
-                ('list-americamoe-vetted', 'board-americamoe', 'Analyst Approved', 1),
-                
-                ('list-moneyacademy-todo', 'board-moneyacademy', 'Signal Queue', 0),
-                ('list-moneyacademy-vetted', 'board-moneyacademy', 'Analyst Approved', 1),
-
-                ('list-gotrythis-todo', 'board-gotrythis', 'Signal Queue', 0),
-                ('list-gotrythis-vetted', 'board-gotrythis', 'Analyst Approved', 1),
-
-                
-                ('list-moecrypto-todo', 'board-moecrypto', 'Signal Queue', 0),
-                ('list-moecrypto-vetted', 'board-moecrypto', 'Analyst Approved', 1),
-
-                -- Critical Alerts per Board
-                ('list-intel-critical', 'board-intel', '🔥 Critical Alerts', -1),
-                ('list-americamoe-critical', 'board-americamoe', '🚨 Critical Alerts', -1),
-                ('list-moneyacademy-critical', 'board-moneyacademy', '🚨 Critical Alerts', -1),
-                ('list-gotrythis-critical', 'board-gotrythis', '🚨 Critical Alerts', -1),
-                ('list-moecrypto-critical', 'board-moecrypto', '🚨 Critical Alerts', -1)
-            `);
+        // Seed lists ONLY if the board has no lists
+        for (const [boardId] of defaultBoards) {
+            const listCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as count FROM lists WHERE board_id = ?', boardId).one();
+            if (listCount && (listCount.count as number) === 0) {
+                if (boardId === 'board-main') {
+                    this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-main-todo', 'board-main', 'To Do', 0), ('list-main-doing', 'board-main', 'In Progress', 1), ('list-main-done', 'board-main', 'Done', 2)");
+                } else if (boardId === 'board-intel') {
+                    this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-intel-critical', 'board-intel', '🔥 Critical Alerts', -1), ('list-intel-todo', 'board-intel', 'Hot Signals', 0), ('list-intel-research', 'board-intel', 'Active Research', 1), ('list-intel-archived', 'board-intel', 'Historical', 2)");
+                } else if (boardId === 'board-vetting') {
+                    this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-vet-pending', 'board-vetting', 'Pending Vetting', 0), ('list-vet-debating', 'board-vetting', 'In Debate', 1), ('list-vet-validated', 'board-vetting', 'Validated', 2)");
+                } else if (boardId === 'board-portfolio') {
+                    this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-port-watchlist', 'board-portfolio', 'Watchlist', 0), ('list-port-positions', 'board-portfolio', 'Active Positions', 1), ('list-port-exits', 'board-portfolio', 'Recent Exits', 2)");
+                } else if (boardId.startsWith('board-')) {
+                    const channel = boardId.replace('board-', '');
+                    this.ctx.storage.sql.exec(
+                        "INSERT INTO lists(id, board_id, title, pos) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)",
+                        `list-${channel}-critical`, boardId, '🚨 Critical Alerts', -1,
+                        `list-${channel}-todo`, boardId, 'Signal Queue', 0,
+                        `list-${channel}-vetted`, boardId, 'Analyst Approved', 1
+                    );
+                }
+            }
         }
     }
 
