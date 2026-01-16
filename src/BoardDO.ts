@@ -505,6 +505,16 @@ export class BoardDO extends DurableObject<Env> {
             return this.handleLogActivity(request);
         }
 
+        if (url.pathname.startsWith('/api/refinery/signal/feedback')) {
+            const body = await request.json() as any;
+            const id = crypto.randomUUID();
+            this.ctx.storage.sql.exec(
+                'INSERT INTO signal_feedback (id, signal_id, user_id, vote, comment, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                id, body.signalId, body.userId, body.vote, body.comment || '', Date.now()
+            );
+            return Response.json({ success: true, id });
+        }
+
         return new Response('Not found', { status: 404 });
     }
 
