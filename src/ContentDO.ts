@@ -205,25 +205,31 @@ export class ContentDO extends DurableObject {
 
     private async notifySignal(intel: any, sourceId: string) {
         const relevance = intel.relevance_score || 0;
+        const tickers = Array.isArray(intel.tickers) ? intel.tickers : [];
 
         // 1. Generate Fingerprint (Normalized summary + tickers)
-        const fingerprint = `${intel.summary.toLowerCase().trim()}:${intel.tickers.sort().join(',')}`;
+        const sortedTickers = [...tickers].sort();
+        const fingerprint = `${(intel.summary || "").toLowerCase().trim()}:${sortedTickers.join(',')}`;
 
         // 2. Check for Duplicates in BoardDO (within last 6 hours)
         const boardStub = this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default'));
         const checkSql = `SELECT id FROM signals WHERE fingerprint = ? AND created_at > ?`;
         const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
 
-        const checkResponse = await boardStub.fetch('http://do/api/sql', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql: checkSql, params: [fingerprint, sixHoursAgo] })
-        });
+        try {
+            const checkResponse = await boardStub.fetch('http://do/api/sql', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sql: checkSql, params: [fingerprint, sixHoursAgo] })
+            });
 
-        const checkResult = await checkResponse.json() as any;
-        if (checkResult.result && checkResult.result.length > 0) {
-            console.log(`[ContentDO] Duplicate signal detected (fingerprint: ${fingerprint}), skipping.`);
-            return;
+            const checkResult = await checkResponse.json() as any;
+            if (checkResult.result && checkResult.result.length > 0) {
+                console.log(`[ContentDO] Duplicate signal detected (fingerprint: ${fingerprint}), skipping.`);
+                return;
+            }
+        } catch (e) {
+            console.error('[ContentDO] Duplicate check failed:', e);
         }
 
         // 3. Persist to signals table
@@ -232,36 +238,44 @@ export class ContentDO extends DurableObject {
             INSERT INTO signals (id, fingerprint, summary, sentiment, tickers, relevance, source_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        await boardStub.fetch('http://do/api/sql', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sql: saveSql,
-                params: [
-                    signalId,
-                    fingerprint,
-                    intel.summary,
-                    intel.sentiment,
-                    JSON.stringify(intel.tickers),
-                    relevance,
-                    sourceId,
-                    Date.now()
-                ]
-            })
-        });
+        try {
+            await boardStub.fetch('http://do/api/sql', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sql: saveSql,
+                    params: [
+                        signalId,
+                        fingerprint,
+                        intel.summary,
+                        intel.sentiment,
+                        JSON.stringify(tickers),
+                        relevance,
+                        sourceId,
+                        Date.now()
+                    ]
+                })
+            });
+        } catch (e) {
+            console.error('[ContentDO] Persistence failed:', e);
+        }
 
         // 4. Send to Telegram immediately (Alert)
         if (this.env.TELEGRAM_BOT_TOKEN) {
             const msg = `🚨 **Intel: ${intel.summary}**\n` +
-                `📈 Sentiment: ${intel.sentiment.toUpperCase()}\n` +
-                `🎯 Tickers: ${intel.tickers.join(', ')}\n` +
+                `📈 Sentiment: ${(intel.sentiment || "").toUpperCase()}\n` +
+                `🎯 Tickers: ${tickers.join(', ')}\n` +
                 `🎯 Relevance: ${relevance}%`;
 
-            await boardStub.fetch('http://do/api/admin/broadcast', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: msg })
-            });
+            try {
+                await boardStub.fetch('http://do/api/admin/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+            } catch (e) {
+                console.error('[ContentDO] Broadcast failed:', e);
+            }
         }
 
         // 5. Multi-Agent Vetting (Epistemic Analyst) for High-Relevance signals
@@ -274,23 +288,25 @@ export class ContentDO extends DurableObject {
             // Fetch Relational Context (recent activities on these tickers)
             let contextText = "No previous context found.";
             try {
-                const contextSql = `
-                    SELECT s.summary, s.sentiment, s.created_at 
-                    FROM signals s 
-                    WHERE s.tickers LIKE ? AND s.created_at > ?
-                    ORDER BY s.created_at DESC LIMIT 3
-                `;
-                const contextRes = await boardStub.fetch('http://do/api/sql', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sql: contextSql,
-                        params: [`%${intel.tickers[0]}%`, Date.now() - (48 * 60 * 60 * 1000)]
-                    })
-                });
-                const contextData = await contextRes.json() as any;
-                if (contextData.result && contextData.result.length > 0) {
-                    contextText = contextData.result.map((r: any) => `- [${new Date(r.created_at).toLocaleDateString()}] ${r.summary}`).join('\n');
+                if (tickers.length > 0) {
+                    const contextSql = `
+                        SELECT s.summary, s.sentiment, s.created_at 
+                        FROM signals s 
+                        WHERE s.tickers LIKE ? AND s.created_at > ?
+                        ORDER BY s.created_at DESC LIMIT 3
+                    `;
+                    const contextRes = await boardStub.fetch('http://do/api/sql', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sql: contextSql,
+                            params: [`%${tickers[0]}%`, Date.now() - (48 * 60 * 60 * 1000)]
+                        })
+                    });
+                    const contextData = await contextRes.json() as any;
+                    if (contextData.result && contextData.result.length > 0) {
+                        contextText = contextData.result.map((r: any) => `- [${new Date(r.created_at).toLocaleDateString()}] ${r.summary}`).join('\n');
+                    }
                 }
             } catch (e) {
                 console.error('[ContentDO] Context fetch failed:', e);
@@ -298,7 +314,7 @@ export class ContentDO extends DurableObject {
 
             const vettingPrompt = `Analyze the following financial signal for accuracy and depth.
             Signal: ${intel.summary}
-            Tickers: ${intel.tickers.join(', ')}
+            Tickers: ${tickers.join(', ')}
             
             Previous Relational Context (Last 48h):
             ${contextText}
@@ -322,7 +338,7 @@ export class ContentDO extends DurableObject {
 
                 if (res.ok) {
                     const data = await res.json() as any;
-                    const output = data.output;
+                    const output = data.output || "";
                     isValidated = output.includes('PROCEED');
                     analysisNotes = output.split('\n').pop() || "";
                     console.log(`[ContentDO] Epistemic Vetting Result: ${isValidated ? 'PROCEED' : 'DISCARD'}`);
@@ -340,7 +356,7 @@ export class ContentDO extends DurableObject {
 
         // 6. Save to Knowledge Graph (Entities & Relationships)
         try {
-            for (const ticker of intel.tickers) {
+            for (const ticker of tickers) {
                 // Insert entity
                 await boardStub.fetch('http://do/api/refinery/knowledge/insert', {
                     method: 'POST',
@@ -370,14 +386,14 @@ export class ContentDO extends DurableObject {
             console.error('[ContentDO] Knowledge Graph insertion failed:', e);
         }
 
-        // 6. Auto-Create Kanban Card
+        // 7. Auto-Create Kanban Card
         if (relevance >= 80) {
             console.log(`[ContentDO] Creating card for validated signal...`);
 
             const cardId = crypto.randomUUID();
             const now = Date.now();
-            const description = `📈 **Sentiment:** ${intel.sentiment.toUpperCase()}\n` +
-                `🎯 **Tickers:** ${intel.tickers.join(', ')}\n` +
+            const description = `📈 **Sentiment:** ${(intel.sentiment || "").toUpperCase()}\n` +
+                `🎯 **Tickers:** ${tickers.join(', ')}\n` +
                 `📊 **Relevance:** ${relevance}%\n\n` +
                 `Source: Telegram Batch\n` +
                 `Refined by: Content Refinery (Gemini)`;
@@ -387,7 +403,6 @@ export class ContentDO extends DurableObject {
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             `;
 
-            // Assume list-1 is "To Do"
             const params = [
                 cardId,
                 `⚡ Intel: ${intel.summary}`,
@@ -395,27 +410,32 @@ export class ContentDO extends DurableObject {
                 now,
                 now,
                 description,
-                JSON.stringify(['intel', ...intel.tickers])
+                JSON.stringify(['intel', ...tickers])
             ];
 
-            await boardStub.fetch('http://do/api/sql', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sql, params })
-            });
+            try {
+                await boardStub.fetch('http://do/api/sql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sql, params })
+                });
 
-            // Log activity
-            await boardStub.fetch('http://do/api/log_activity', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    event: 'card_auto_created',
-                    entityId: cardId,
-                    details: `Auto-created Intel Card: ${intel.summary}`
-                })
-            });
+                // Log activity
+                await boardStub.fetch('http://do/api/log_activity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event: 'card_auto_created',
+                        entityId: cardId,
+                        details: `Auto-created Intel Card: ${intel.summary}`
+                    })
+                });
+            } catch (e) {
+                console.error('[ContentDO] Card creation failed:', e);
+            }
         }
     }
+
 
     async handleRSSIngest(request: Request): Promise<Response> {
         try {
