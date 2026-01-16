@@ -77,7 +77,19 @@ interface List {
     id: string;
     title: string;
     pos: number;
-    board_id: string;
+    board_id: string; // Foreign Key -> Boards table
+}
+```
+
+### 5.3 Board (New)
+
+```typescript
+interface Board {
+    id: string;
+    title: string;
+    category: string;
+    icon: string;
+    created_at: number;
 }
 ```
 
@@ -158,7 +170,24 @@ interface PromptVersion {
 
 ---
 
-## 8. Product Roadmap (Alternative Ideas)
+---
+
+## 11. Content Refinery & Intelligence Engine
+
+### 11.1 Overview
+The system includes an autonomous backend pipeline for ingesting, refining, and routing market intelligence.
+
+### 11.2 Components
+- **Ingestion**: Telegram channel posts and RSS feeds.
+- **Deduplication Engine**: Fingerprinting to prevent redundant signal processing.
+- **Epistemic Analyst**: Multi-agent vetting loop to validate "PROCEED" status for high-relevance signals.
+- **Knowledge Graph**: Persistent storage of entities (Tickers) and relationships (Mentions).
+- **Daily Briefing**: 24h signal synthesis delivered via Telegram.
+
+### 11.3 Automated Routing Workflow
+1. **Signal Extraction**: AI extracts structured JSON from raw text.
+2. **Vetting**: High-relevance signals (>=80%) are debated by a secondary AI agent.
+3. **Card Creation**: Validated signals are auto-posted to **Market Intelligence** board.
 
 ### Track A: AI Agent Ecosystem 🤖
 
