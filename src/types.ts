@@ -150,6 +150,21 @@ export type PromptSyncMessage =
     | { type: 'PROMPT_DELETE'; promptId: string; clientId: string }
     | { type: 'SYNC_PROMPTS'; prompts: PromptCard[]; versions: PromptVersion[] };
 
+// Phase 20: Prompt Persistence
+export interface SavedPrompt {
+    id: string;
+    title: string;
+    content: string;
+    status: 'draft' | 'review' | 'approved';
+    updatedAt: number;
+    // Snapshot of settings when saved
+    settings?: {
+        model?: string;
+        temperature?: number;
+        topP?: number;
+    }
+}
+
 // ============= CLOUDFLARE ENVIRONMENT =============
 
 export interface Env {

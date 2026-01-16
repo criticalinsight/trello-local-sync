@@ -24,6 +24,9 @@ import { PromptHistoryView } from './PromptHistoryView';
 import { AVAILABLE_TOOLS, type HelperTool } from '../utils/mcpMapper';
 import { analyzePromptForParams } from '../utils/promptAnalyzer';
 import { findBestMatchingTemplate } from '../utils/templateMatcher';
+import { PromptManager } from './PromptManager';
+import { SavedPrompt } from '../types';
+import { usePromptSettings } from '../hooks/usePromptSettings';
 
 // Simple markdown to HTML converter (basic subset)
 // In production, use 'marked' library for full support
@@ -140,6 +143,70 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     // Auto-Detect Mode (Phase 17)
     const [isAutoMode, setIsAutoMode] = createSignal(false);
     const [detectedIntent, setDetectedIntent] = createSignal<string>('');
+
+    // Phase 20: Persistence & Workflow
+    const { settings: persistedSettings, updateSetting } = usePromptSettings();
+    const [savedPrompts, setSavedPrompts] = createSignal<SavedPrompt[]>([]);
+    const [showLibrary, setShowLibrary] = createSignal(false);
+
+    // Load saved prompts
+    createEffect(() => {
+        const saved = localStorage.getItem('prompt_library_v1');
+        if (saved) {
+            try {
+                setSavedPrompts(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to load prompt library", e);
+            }
+        }
+    });
+
+    const savePromptToLibrary = () => {
+        const newPrompt: SavedPrompt = {
+            id: crypto.randomUUID(),
+            title: content().slice(0, 30) + (content().length > 30 ? '...' : ''),
+            content: content(),
+            status: 'draft',
+            updatedAt: Date.now(),
+            settings: {
+                model: persistedSettings().model,
+                temperature: persistedSettings().temperature,
+                topP: persistedSettings().topP,
+            }
+        };
+        const next = [...savedPrompts(), newPrompt];
+        setSavedPrompts(next);
+        localStorage.setItem('prompt_library_v1', JSON.stringify(next));
+        setShowLibrary(true);
+    };
+
+    const updatePromptStatus = (id: string, status: SavedPrompt['status']) => {
+        const next = savedPrompts().map(p => p.id === id ? { ...p, status, updatedAt: Date.now() } : p);
+        setSavedPrompts(next);
+        localStorage.setItem('prompt_library_v1', JSON.stringify(next));
+    };
+
+    const deletePrompt = (id: string) => {
+        const next = savedPrompts().filter(p => p.id !== id);
+        setSavedPrompts(next);
+        localStorage.setItem('prompt_library_v1', JSON.stringify(next));
+    };
+
+    const loadSavedPrompt = (saved: SavedPrompt) => {
+        setContent(saved.content);
+        if (saved.settings?.model) setModel(saved.settings.model);
+        if (saved.settings?.temperature) setTemperature(saved.settings.temperature);
+        if (saved.settings?.topP) setTopP(saved.settings.topP);
+        setShowLibrary(false);
+    };
+
+    // Update persistence when signals change
+    createEffect(() => {
+        updateSetting('model', model());
+        updateSetting('temperature', temperature());
+        updateSetting('topP', topP());
+        updateSetting('isAutoMode', isAutoMode());
+    });
 
     // Auto-Tuning Effect
     createEffect(() => {
@@ -401,8 +468,25 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-slate-800/50">
                     <div class="flex items-center gap-3">
                         <h2 class="text-lg font-semibold text-white">Prompt Playground</h2>
+                        {/* Phase 20: Library Toggle */}
+                        <button
+                            onClick={() => setShowLibrary(!showLibrary())}
+                            class={`ml-2 px-3 py-1 text-xs font-medium rounded-full transition-colors border ${showLibrary() ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 hover:text-white'}`}
+                        >
+                            📚 Library ({savedPrompts().length})
+                        </button>
+                        <button
+                            onClick={savePromptToLibrary}
+                            class="ml-2 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white text-xs rounded transition-colors flex items-center gap-1"
+                            title="Save to Drafts"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                            </svg>
+                            Save Draft
+                        </button>
                         <Show when={hasUnsavedChanges()}>
-                            <span class="px-2 py-0.5 text-xs bg-amber-600/20 text-amber-400 rounded-full">
+                            <span class="px-2 py-0.5 text-xs bg-amber-600/20 text-amber-400 rounded-full border border-amber-600/30">
                                 Unsaved changes
                             </span>
                         </Show>
@@ -1524,6 +1608,16 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
                 isOpen={showTemplates()}
                 onClose={() => setShowTemplates(false)}
                 onSelect={handleLoadTemplate}
+            />
+
+            {/* Prompt Manager Sidebar (Phase 20) */}
+            <PromptManager
+                isOpen={showLibrary()}
+                onClose={() => setShowLibrary(false)}
+                prompts={savedPrompts()}
+                onUpdateStatus={updatePromptStatus}
+                onSelect={loadSavedPrompt}
+                onDelete={deletePrompt}
             />
         </div>
     );
