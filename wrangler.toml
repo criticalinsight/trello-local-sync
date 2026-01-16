@@ -9,8 +9,13 @@ routes = [{ pattern = "work.moecapital.com", custom_domain = true }]
 [durable_objects]
 bindings = [
     { name = "BOARD_DO", class_name = "BoardDO" },
-    { name = "RESEARCH_DO", class_name = "ResearchDO" }
+    { name = "RESEARCH_DO", class_name = "ResearchDO" },
+    { name = "CONTENT_DO", class_name = "ContentDO" }
 ]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["ContentDO"]
 
 [[migrations]]
 tag = "v1"
