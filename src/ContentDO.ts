@@ -56,6 +56,12 @@ export class ContentDO extends DurableObject {
             return this.handleIngest(request);
         }
 
+        if (url.pathname === '/sql' && request.method === 'POST') {
+            const body = await request.json() as any;
+            const result = this.ctx.storage.sql.exec(body.sql, ...(body.params || [])).toArray();
+            return Response.json({ result });
+        }
+
         if (url.pathname === '/process' && request.method === 'POST') {
             // Manual trigger for testing
             await this.processBatch();
