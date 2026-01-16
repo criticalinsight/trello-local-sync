@@ -75,12 +75,12 @@ const SpinnerIcon = () => (
             r="10"
             stroke="currentColor"
             stroke-width="4"
-         />
+        />
         <path
             class="opacity-75"
             fill="currentColor"
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-         />
+        />
     </svg>
 );
 
@@ -171,10 +171,26 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
             </Show>
 
             {/* Footer with metadata */}
-            <div class="flex items-center justify-between text-xs text-slate-500">
-                <Show when={version()?.executionTime}>
-                    <span>{(version()!.executionTime! / 1000).toFixed(1)}s</span>
-                </Show>
+            <div class="flex items-center justify-between mt-auto pt-2 border-t border-slate-700/50 text-xs text-slate-500">
+                <div class="flex items-center gap-2">
+                    <Show when={version()?.executionTime}>
+                        <span>{(version()!.executionTime! / 1000).toFixed(1)}s</span>
+                    </Show>
+                    <Show when={props.prompt.schedule?.enabled}>
+                        <span class="text-purple-400" title="Schedule Enabled">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </span>
+                    </Show>
+                    <Show when={props.prompt.workflow?.enabled}>
+                        <span class="text-emerald-400" title="Workflow Enabled">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </span>
+                    </Show>
+                </div>
                 <Show when={props.prompt.starred}>
                     <span class="text-yellow-400">★</span>
                 </Show>
