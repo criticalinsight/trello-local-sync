@@ -138,6 +138,8 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleDelete(chatId, args[0], env);
             } else if (cmd === '/health') { // Phase 22B
                 await handleHealth(chatId, env);
+            } else if (cmd === '/briefing') { // Phase 3
+                await handleBriefing(chatId, env);
             } else {
                 await sendTelegramMessage(
                     env.TELEGRAM_BOT_TOKEN,
@@ -1043,4 +1045,13 @@ async function handleHealth(chatId: number, env: Env) {
     }
 
     await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg);
+}
+
+async function handleBriefing(chatId: number, env: Env) {
+    // Stub for Daily Briefing
+    await sendTelegramMessage(
+        env.TELEGRAM_BOT_TOKEN,
+        chatId,
+        "📅 **Daily Briefing (Stub)**\n\n- No active alerts.\n- 3 Prompts in draft.\n- System Health: Optimal.\n\n*Full implementation coming in Phase 4.*"
+    );
 }
