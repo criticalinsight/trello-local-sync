@@ -207,16 +207,11 @@ export class ContentDO extends DurableObject {
                 `📈 Sentiment: ${intel.sentiment}\n` +
                 `🎯 Tickers: ${intel.tickers.join(', ')}`;
 
-            // We need to import sendNotification or duplicate logic
-            // Ideally ContentDO calls BoardDO or uses a shared util if Env allows.
-            // But ContentDO has env.TELEGRAM_BOT_TOKEN too.
-            const url = `https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-            // Need owner chat ID. For now fetching from internal setting might be hard without BoardDO access
-            // Assumption: We have a "Broadcast" list or Admin ID
-            // Hack: Broadcast via BoardDO admin broadcast
-
+            // Using BOARD_DO for admin broadcast if simpler, or direct if we had chatId
+            // For this implementation, we try BOARD_DO broadcast first
             await this.env.BOARD_DO.get(this.env.BOARD_DO.idFromName('default')).fetch('http://do/api/admin/broadcast', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: msg })
             });
         }
