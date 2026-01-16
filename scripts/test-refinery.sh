@@ -5,6 +5,10 @@ URL="https://work.moecapital.com/api/telegram/webhook"
 echo "Testing Content Refinery pipeline..."
 echo "Target: $URL"
 
+echo "Registering Admin User (Mock)..."
+curl -s -X POST -H "Content-Type: application/json" -d '{"chatId": 123456, "username": "testadmin", "firstName": "Test"}' "https://work.moecapital.com/api/admin/register"
+echo ""
+
 # Send 12 messages to trigger batch processing (Batch size is 10)
 for i in {1..12}
 do
