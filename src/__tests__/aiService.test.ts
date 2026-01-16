@@ -29,12 +29,15 @@ describe('AI Service', () => {
             const { GEMINI_MODELS } = await import('../aiService');
             expect(GEMINI_MODELS).toContain('deep-research-pro-preview-12-2025');
             expect(GEMINI_MODELS).toContain('gemini-3-pro-preview');
-            expect(GEMINI_MODELS.length).toBe(2);
+            expect(GEMINI_MODELS).toContain('gemini-3-flash');
+            expect(GEMINI_MODELS).toContain('gemini-2.5-pro');
+            expect(GEMINI_MODELS).toContain('gemini-2.5-flash');
+            expect(GEMINI_MODELS.length).toBe(5);
         });
 
-        test('default model is deep-research-pro-preview-12-2025', async () => {
+        test('default model is gemini-2.5-flash', async () => {
             const { AI_DEFAULT_CONFIG } = await import('../aiService');
-            expect(AI_DEFAULT_CONFIG.defaultModel).toBe('deep-research-pro-preview-12-2025');
+            expect(AI_DEFAULT_CONFIG.defaultModel).toBe('gemini-2.5-flash');
         });
 
         test('config includes proper timeout settings', async () => {
