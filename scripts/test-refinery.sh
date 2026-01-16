@@ -9,26 +9,31 @@ echo "Registering Admin User (Mock)..."
 curl -s -X POST -H "Content-Type: application/json" -d '{"chatId": 123456, "username": "testadmin", "firstName": "Test"}' "https://work.moecapital.com/api/admin/register"
 echo ""
 
-echo "Test: Channel-Specific Routing..."
-CHANNELS=("Americamoe" "MoneyAcademyKE" "GoTryThis" "MoeCrypto")
-TEXTS=("Safaricom dividend announcement #KE" "Tesla earnings beat #US" "New open source tool released #AI" "Bitcoin hits new ATH #Crypto")
+echo "Test: Multi-Source Consolidation & Urgency..."
+# Send same news from two channels
+COMMON_NEWS="BREAKING: Central Bank of Kenya announces rate hike to 13.0% from 12.5%. #CBK #Kenya"
 
-for i in "${!CHANNELS[@]}"
-do
-    CHANNEL="${CHANNELS[$i]}"
-    TEXT="${TEXTS[$i]}"
-    echo "Sending post from $CHANNEL..."
-    curl -s -X POST -H "Content-Type: application/json" -d "{
-        \"update_id\": $((3000 + i)),
-        \"channel_post\": {
-            \"message_id\": $((4000 + i)),
-            \"chat\": { \"id\": $((100 + i)), \"title\": \"$CHANNEL\", \"type\": \"channel\" },
-            \"date\": $(date +%s),
-            \"text\": \"$TEXT. High relevance signal for institutional alpha. (Channel Test)\"
-        }
-    }" "$URL"
-    echo ""
-done
+echo "Channel 1: Americamoe (Urgency High)..."
+curl -s -X POST -H "Content-Type: application/json" -d "{
+    \"update_id\": 5001,
+    \"channel_post\": {
+        \"message_id\": 6001,
+        \"chat\": { \"id\": 101, \"title\": \"Americamoe\", \"type\": \"channel\" },
+        \"date\": $(date +%s),
+        \"text\": \"$COMMON_NEWS. High importance for market stability.\"
+    }
+}" "$URL"
+
+echo "Channel 2: MoneyAcademyKE (Urgency High)..."
+curl -s -X POST -H "Content-Type: application/json" -d "{
+    \"update_id\": 5002,
+    \"channel_post\": {
+        \"message_id\": 6002,
+        \"chat\": { \"id\": 102, \"title\": \"MoneyAcademyKE\", \"type\": \"channel\" },
+        \"date\": $(date +%s),
+        \"text\": \"$COMMON_NEWS. Verified by analyst team.\"
+    }
+}" "$URL"
 
 curl -s -X POST "https://work.moecapital.com/api/refinery/process"
 
