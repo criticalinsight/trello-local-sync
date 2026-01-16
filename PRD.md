@@ -22,7 +22,9 @@
 
 - **FR-01:** System shall initialize with default lists.
 - **FR-02:** User can create, rename, delete, and reorder lists (Drag & Drop).
-- **FR-02B:** User can manage multiple independent boards via Home screen (Routing).
+- FR-02B: User can manage multiple independent boards via the Board Switcher.
+- FR-02C: System supports specialized board types: Market Intelligence, Epistemic Vetting, and Portfolio.
+- FR-02D: Boards are logically isolated in the sync protocol and database.
 
 ### 3.2 Card Management
 
