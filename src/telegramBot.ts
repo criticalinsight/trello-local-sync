@@ -128,6 +128,8 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleAssign(chatId, args[0], args[1], env);
             } else if (cmd === '/research') { // Phase 22
                 await handleResearch(chatId, args.join(' '), env);
+            } else if (cmd === '/insight') { // Phase 22 - Epistemic Analyst
+                await handleResearch(chatId, args.join(' '), env, 'epistemic-analyst');
             } else if (cmd === '/clone') { // Phase 22
                 await handleClone(chatId, args[0], env);
             } else if (cmd === '/delete') { // Phase 22
@@ -870,9 +872,9 @@ async function handleRunStatus(chatId: number, messageId: number, promptId: stri
     }
 }
 
-async function handleResearch(chatId: number, query: string, env: Env) {
+async function handleResearch(chatId: number, query: string, env: Env, agentType: string = 'deep-research-pro-preview-12-2025') {
     if (!query) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, '⚠️ Usage: `/research [topic]`');
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Usage: \`/${agentType === 'epistemic-analyst' ? 'insight' : 'research'} [topic]\``);
         return;
     }
 
@@ -882,14 +884,16 @@ async function handleResearch(chatId: number, query: string, env: Env) {
     // Start job
     const response = await researchStub.fetch('http://do/start', {
         method: 'POST',
-        body: JSON.stringify({ input: query, jobId }),
+        body: JSON.stringify({ input: query, jobId, agentType }),
         headers: { 'Content-Type': 'application/json' }
     });
 
     if (!response.ok) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `❌ Failed to start research: ${response.statusText}`);
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `❌ Failed to start job: ${response.statusText}`);
         return;
     }
+
+    const title = agentType === 'epistemic-analyst' ? '🧠 Epistemic Insight' : '🕵️‍♂️ Deep Research';
 
     // Send initial status message with Refresh button
     const keyboard = {
@@ -901,7 +905,7 @@ async function handleResearch(chatId: number, query: string, env: Env) {
     await sendTelegramMessage(
         env.TELEGRAM_BOT_TOKEN,
         chatId,
-        `🕵️‍♂️ **Research Started!**\n\nTopic: "${query}"\nJob ID: \`${jobId.slice(0, 8)}\`\n\nStatus: ⏳ PROCESSING...\n\n(Click Refresh to check progress)`,
+        `${title} Started!**\n\nTopic: "${query}"\nJob ID: \`${jobId.slice(0, 8)}\`\n\nStatus: ⏳ PROCESSING...\n\n(Click Refresh to check progress)`,
         keyboard
     );
 }

@@ -51,7 +51,7 @@ export class ResearchDO implements DurableObject {
     }
 
     private async handleStart(request: Request): Promise<Response> {
-        const body = (await request.json()) as { input: string; jobId: string };
+        const body = (await request.json()) as { input: string; jobId: string; agentType?: string };
         const { input, jobId } = body;
 
         // Call Gemini API to start background interaction
@@ -65,7 +65,7 @@ export class ResearchDO implements DurableObject {
                 },
                 body: JSON.stringify({
                     input,
-                    agent: 'deep-research-pro-preview-12-2025',
+                    agent: body.agentType || 'deep-research-pro-preview-12-2025',
                     background: true,
                 }),
             },
