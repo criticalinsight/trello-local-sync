@@ -152,23 +152,25 @@ export class ContentDO extends DurableObject {
         // Note: In real implementation, strict JSON mode or tool use is best.
         // Importing NEWS_ANALYST_PROMPT from data/prompts would be ideal, or hardcoding temporarily.
 
-        const systemPrompt = `You are a High-Frequency News Analyst. 
+        const systemPrompt = `You are an Institutional-Grade Financial News Analyst. 
         Your input is a batch of raw Telegram messages from a single channel.
         
         Tasks:
-        1. FILTER: Ignore conversational noise ("k", "lol"), spam, or irrelevant updates.
-        2. EXTRACT: Identify specific financial signals (Tickers, Earnings, Macro Events).
-        3. SYNTHESIZE: Combine related messages into a single "Intel Card".
+        1. FILTER: Ignore conversational noise, spam, and unverified rumors unless high-impact.
+        2. EXTRACT: Identify specific stickers ($TICKER), sentiment, and macro relevance.
+        3. CLASSIFY: Determine Urgency (low, med, high) and Impact Radius (narrow, wide).
         
         Output valid JSON array:
         [{
-            "summary": "Safaricom declares 0.50 dividend",
-            "tickers": ["$SAFCOM"],
+            "summary": "Full technical digest of the news",
+            "tickers": ["$TICKER"],
             "sentiment": "bullish" | "bearish" | "neutral",
             "relevance_score": 0-100,
-            "source_ids": ["msg_id_1", "msg_id_2"]
+            "urgency": "low" | "med" | "high",
+            "impact_analysis": "One sentence reasoning for the score",
+            "source_ids": ["msg_id_1"]
         }]
-        If mainly noise, return empty array.`;
+        Strict JSON only. If primarily noise, return empty array [].`;
 
         const response = await this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default')).fetch('http://do/api/generate', {
             method: 'POST',
@@ -225,14 +227,30 @@ export class ContentDO extends DurableObject {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sql: checkSql, params: [fingerprint, sixHoursAgo] })
             });
-
             const checkResult = await checkResponse.json() as any;
             if (checkResult.result && checkResult.result.length > 0) {
-                console.log(`[ContentDO] Duplicate signal detected (fingerprint: ${fingerprint}), skipping.`);
+                const existing = checkResult.result[0];
+                console.log(`[ContentDO] Duplicate signal detected. Consolidating source ${sourceName}...`);
+
+                // Consolidation Logic: Update existing signal with new source
+                const updateSql = `
+                    UPDATE signals 
+                    SET additional_sources = CASE 
+                        WHEN additional_sources IS NULL OR additional_sources = '' THEN ? 
+                        ELSE additional_sources || ',' || ? 
+                    END,
+                    relevance = MIN(relevance + 5, 100)
+                    WHERE id = ?
+                `;
+                await boardStub.fetch('http://do/api/sql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sql: updateSql, params: [sourceName, sourceName, existing.id] })
+                });
                 return;
             }
         } catch (e) {
-            console.error('[ContentDO] Duplicate check failed:', e);
+            console.error('[ContentDO] Consolidation failed:', e);
         }
 
         // 3. Persist to signals table
