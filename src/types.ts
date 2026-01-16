@@ -44,12 +44,15 @@ export interface Board {
 export type SyncMessage =
     | { type: 'EXECUTE_SQL'; sql: string; params: unknown[]; clientId: string }
     | { type: 'SQL_RESULT'; sql: string; params: unknown[]; result: unknown }
-    | { type: 'SYNC_STATE'; cards: Card[]; lists: List[] }
+    | { type: 'SYNC_STATE'; cards: Card[]; lists: List[]; boards?: Board[]; activeBoardId?: string }
+    | { type: 'SWITCH_BOARD'; boardId: string }
     | { type: 'CLIENT_ID'; id: string };
 
 export interface StoreState {
     lists: Record<string, List>;
     cards: Record<string, Card>;
+    boards: Record<string, Board>;
+    activeBoardId: string;
     connected: boolean;
     syncing: boolean;
 }
