@@ -88,7 +88,7 @@ export class BoardDO extends DurableObject<Env> {
         output TEXT,
         created_at INTEGER NOT NULL,
         FOREIGN KEY (prompt_id) REFERENCES prompts(id)
-
+      );
     `);
 
         this.ctx.storage.sql.exec(`
