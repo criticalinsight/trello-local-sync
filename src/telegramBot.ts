@@ -1122,21 +1122,19 @@ async function handleBriefing(chatId: number, env: Env) {
 }
 
 // Phase 7: Channel Post Handler
+// Phase 7: Channel Post Handler
 async function handleChannelPost(post: any, env: Env) {
-    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    const stub = env.CONTENT_DO.get(env.CONTENT_DO.idFromName('default'));
 
-    // Log the event for analysis
-    await stub.fetch('http://do/api/log_activity', {
+    // Ingest content for filtering and analysis
+    await stub.fetch('http://do/ingest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            event: 'channel_post',
-            entityId: String(post.chat.id),
-            details: JSON.stringify({
-                title: post.chat.title,
-                text: post.text ? post.text.substring(0, 50) + '...' : '[Media]',
-                full: post
-            })
+            chatId: String(post.chat.id),
+            title: post.chat.title || 'Unknown Channel',
+            text: post.text || post.caption || '', // Handle captions too
+            full: post
         })
     });
 }
