@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Ralph Autonomous Loop
+# Redirect all output to ralph.log
+exec >> ralph.log 2>&1
+
 while true; do
   echo "--- Starting Ralph Iteration: $(date) ---"
   
