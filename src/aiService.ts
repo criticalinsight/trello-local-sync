@@ -75,7 +75,7 @@ const DEFAULT_CONFIG: AIConfig = {
         import.meta.env.VITE_AI_WORKER_URL ||
         (import.meta.env.PROD ? 'https://work.moecapital.com/api/ai/interact' : '/api/ai/interact'),
     apiKey: import.meta.env.VITE_GEMINI_API_KEY,
-    defaultModel: 'deep-research-pro-preview-12-2025',
+    defaultModel: 'gemini-2.5-flash',
     enableFallback: true,
     timeout: 60 * 60 * 1000, // 1 hour for deep research reports
     pollInterval: 10000, // Poll every 10 seconds (matches ResearchDO)

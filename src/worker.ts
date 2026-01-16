@@ -62,6 +62,62 @@ export default {
                     GEMINI_MODELS[0]) as GeminiModel;
                 const config = MODEL_CONFIG[requestedModel];
 
+                // Helper function to try fallback chain
+                const tryFallbackChain = async (startModel: GeminiModel, initialError: Error) => {
+                    const fallbackChain: GeminiModel[] = [
+                        'gemini-3-pro-preview',
+                        'gemini-3-flash',
+                        'gemini-2.5-pro',
+                        'gemini-2.5-flash',
+                    ];
+
+                    let currentError = initialError;
+
+                    // Find where to start in the chain (after the failed model)
+                    let startIndex = fallbackChain.indexOf(startModel);
+                    if (startIndex === -1 && startModel === 'deep-research-pro-preview-12-2025') {
+                        startIndex = -1; // Start at beginning (index 0)
+                    } else if (startIndex === -1) {
+                        // Model not in chain, start at beginning
+                        startIndex = -1;
+                    }
+
+
+                    for (let i = startIndex + 1; i < fallbackChain.length; i++) {
+                        const fallbackModel = fallbackChain[i];
+                        console.log(`[Worker] Falling back to ${fallbackModel}`);
+
+                        try {
+                            const result = await callInteractionsAPI(
+                                env.GEMINI_API_KEY,
+                                fallbackModel,
+                                body,
+                            );
+
+                            return new Response(JSON.stringify(result), {
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-Model-Used': fallbackModel,
+                                    'X-Fallback-Reason': 'rate_limited',
+                                    ...corsHeaders,
+                                },
+                            });
+                        } catch (err) {
+                            const errorMsg = (err as Error).message;
+                            if (
+                                errorMsg.includes('429') ||
+                                errorMsg.includes('503') ||
+                                errorMsg.includes('RESOURCE_EXHAUSTED')
+                            ) {
+                                currentError = err as Error;
+                                continue; // Try next model in chain
+                            }
+                            throw err; // Non-rate-limit error
+                        }
+                    }
+                    throw currentError; // All fallbacks failed
+                };
+
                 // For agent models, use ResearchDO for async processing
                 if (config?.requiresBackground) {
                     try {
@@ -77,15 +133,12 @@ export default {
 
                         if (!doResponse.ok) {
                             const errorText = await doResponse.text();
-                            // Check for rate limit errors - fallback to sync model
                             if (
                                 errorText.includes('429') ||
                                 errorText.includes('503') ||
                                 errorText.includes('RESOURCE_EXHAUSTED')
                             ) {
-                                console.log(
-                                    '[Worker] Agent rate limited, falling back to sync model',
-                                );
+                                console.log('[Worker] Agent rate limited, starting fallback chain');
                                 throw new Error('FALLBACK_TO_SYNC');
                             }
                             throw new Error(errorText);
@@ -101,28 +154,13 @@ export default {
                         });
                     } catch (agentError) {
                         const errorMsg = (agentError as Error).message;
-                        // Fallback to sync model on rate limits
                         if (
                             errorMsg === 'FALLBACK_TO_SYNC' ||
                             errorMsg.includes('429') ||
                             errorMsg.includes('503') ||
                             errorMsg.includes('RESOURCE_EXHAUSTED')
                         ) {
-                            console.log('[Worker] Falling back to gemini-2.5-flash');
-                            const fallbackModel = 'gemini-2.5-flash' as GeminiModel;
-                            const result = await callInteractionsAPI(
-                                env.GEMINI_API_KEY,
-                                fallbackModel,
-                                body,
-                            );
-                            return new Response(JSON.stringify(result), {
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-Model-Used': fallbackModel,
-                                    'X-Fallback-Reason': 'rate_limited',
-                                    ...corsHeaders,
-                                },
-                            });
+                            return await tryFallbackChain(requestedModel, agentError as Error);
                         }
                         throw agentError;
                     }
@@ -144,26 +182,12 @@ export default {
                     });
                 } catch (syncError) {
                     const errorMsg = (syncError as Error).message;
-                    // Try fallback if not already on fallback model
                     if (
-                        requestedModel !== 'gemini-2.5-flash' &&
-                        (errorMsg.includes('429') || errorMsg.includes('503'))
+                        errorMsg.includes('429') ||
+                        errorMsg.includes('503') ||
+                        errorMsg.includes('RESOURCE_EXHAUSTED')
                     ) {
-                        console.log('[Worker] Sync model rate limited, trying fallback');
-                        const fallbackModel = 'gemini-2.5-flash' as GeminiModel;
-                        const result = await callInteractionsAPI(
-                            env.GEMINI_API_KEY,
-                            fallbackModel,
-                            body,
-                        );
-                        return new Response(JSON.stringify(result), {
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-Model-Used': fallbackModel,
-                                'X-Fallback-Reason': 'rate_limited',
-                                ...corsHeaders,
-                            },
-                        });
+                        return await tryFallbackChain(requestedModel, syncError as Error);
                     }
                     throw syncError;
                 }
