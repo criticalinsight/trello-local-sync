@@ -1,3 +1,6 @@
+import { DurableObject } from 'cloudflare:workers';
+import { EPISTEMIC_ANALYST_PROMPT } from './data/prompts';
+
 /**
  * ResearchDO - Durable Object for handling Deep Research Agent jobs
  *
@@ -162,6 +165,11 @@ export class ResearchDO implements DurableObject {
             return;
         }
 
+        if (job.interactionId === 'internal-epistemic') {
+            await this.runEpistemicGeneration(job);
+            return;
+        }
+
         // Poll Gemini API for status
         try {
             const pollResponse = await fetch(
@@ -225,6 +233,45 @@ export class ResearchDO implements DurableObject {
             console.error(`[ResearchDO] Alarm error:`, error);
             // Continue polling on transient errors
             await this.state.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
+        }
+    }
+    async runEpistemicGeneration(job: ResearchJob) {
+        try {
+            // Use Gemini 1.5 Pro for reasoning
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${this.env.GEMINI_API_KEY}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [
+                            { role: 'user', parts: [{ text: job.input }] }
+                        ],
+                        systemInstruction: { parts: [{ text: EPISTEMIC_ANALYST_PROMPT }] },
+                        generationConfig: {
+                            temperature: 0.7,
+                            maxOutputTokens: 8192
+                        }
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`Gemini Error: ${response.statusText}`);
+            }
+
+            const data = await response.json() as any;
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+            job.status = 'completed';
+            job.text = text;
+            job.completedAt = Date.now();
+            await this.state.storage.put('job', job);
+
+        } catch (e) {
+            job.status = 'failed';
+            job.error = String(e);
+            await this.state.storage.put('job', job);
         }
     }
 }
