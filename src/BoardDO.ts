@@ -722,10 +722,10 @@ export class BoardDO extends DurableObject<Env> {
 
             // Fallback chain for rate limit resilience (sync models only)
             const fallbackModels = [
-                params.model || 'gemini-2.5-flash', // Primary
+                params.model || 'gemini-3-pro-preview', // Primary
                 'gemini-3-flash',                   // Fast fallback
                 'gemini-2.5-pro',                   // Stable fallback
-                'gemini-3-pro-preview',             // Preview fallback
+                'gemini-2.5-flash',             // Final fallback
             ];
 
             const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/interactions';
