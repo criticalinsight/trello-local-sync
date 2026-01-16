@@ -18,6 +18,7 @@ A high-performance AI-powered Kanban board built with **SolidJS**, **PGlite** (P
 ### AI Capabilities
 
 - 🤖 **Autonomous Agents**: Multi-agent swarms with Coordinator/Worker orchestration
+- 🧠 **Long-Term Memory**: Ralph remembers project context, architectural decisions, and tasks via Graphiti MCP.
 - 🔁 **Self-Correcting AI**: Recursive critique loops with automatic feedback injection
 - 📅 **Scheduled Prompts**: Cron-based AI execution
 - ⚡ **Triggered Workflows**: Event-driven prompt automation
