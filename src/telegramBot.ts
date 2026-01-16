@@ -130,6 +130,8 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                 await handleResearch(chatId, args.join(' '), env);
             } else if (cmd === '/insight') { // Phase 22 - Epistemic Analyst
                 await handleResearch(chatId, args.join(' '), env, 'epistemic-analyst');
+            } else if (cmd === '/briefing') { // Phase 3 - Daily Briefing Stub
+                await handleBriefing(chatId, env);
             } else if (cmd === '/clone') { // Phase 22
                 await handleClone(chatId, args[0], env);
             } else if (cmd === '/delete') { // Phase 22
