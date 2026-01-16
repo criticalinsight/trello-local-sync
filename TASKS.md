@@ -18,5 +18,5 @@
 - [x] /test @[/refactor] @[/test] - Comprehensive refactor and verification <!-- id: p11_0 -->
     - [x] Stabilize unit tests and environment types
     - [x] Integrate Workflow & Schedule UI in Playground
-- [ ] Update documentation after refactor <!-- id: p11_1 -->
+- [x] Update documentation after refactor <!-- id: p11_1 -->
 - [ ] @[/c] with authlogin - Production deployment <!-- id: p11_2 -->
