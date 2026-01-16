@@ -57,6 +57,11 @@ export class ResearchDO implements DurableObject {
         const body = (await request.json()) as { input: string; jobId: string; agentType?: string };
         const { input, jobId } = body;
 
+        // Branch logic based on agent type
+        if (body.agentType === 'epistemic-analyst') {
+            return this.startEpistemicJob(input, jobId);
+        }
+
         // Call Gemini API to start background interaction
         const geminiResponse = await fetch(
             'https://generativelanguage.googleapis.com/v1beta/interactions',
@@ -120,6 +125,28 @@ export class ResearchDO implements DurableObject {
             JSON.stringify({
                 jobId,
                 interactionId,
+                status: 'processing',
+            }),
+            { headers: { 'Content-Type': 'application/json' } },
+        );
+    }
+
+    private async startEpistemicJob(input: string, jobId: string): Promise<Response> {
+        const job: ResearchJob = {
+            id: jobId,
+            interactionId: 'internal-epistemic',
+            status: 'processing',
+            input,
+            createdAt: Date.now(),
+        };
+
+        await this.state.storage.put('job', job);
+        await this.state.storage.setAlarm(Date.now() + 100);
+
+        return new Response(
+            JSON.stringify({
+                jobId,
+                interactionId: 'internal-epistemic',
                 status: 'processing',
             }),
             { headers: { 'Content-Type': 'application/json' } },
