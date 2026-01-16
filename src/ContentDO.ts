@@ -405,14 +405,15 @@ export class ContentDO extends DurableObject {
                 `Refined by: Content Refinery (Gemini)`;
 
             const sql = `
-                INSERT INTO cards (id, title, list_id, pos, created_at, description, tags) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO cards (id, board_id, list_id, title, pos, created_at, description, tags) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             const params = [
                 cardId,
+                'board-intel',
+                'list-intel-todo',
                 `⚡ Intel: ${intel.summary}`,
-                'list-1',
                 now,
                 now,
                 description,
