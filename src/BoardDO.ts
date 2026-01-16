@@ -232,8 +232,16 @@ export class BoardDO extends DurableObject<Env> {
                 ('list-gotrythis-todo', 'board-gotrythis', 'Signal Queue', 0),
                 ('list-gotrythis-vetted', 'board-gotrythis', 'Analyst Approved', 1),
 
+                
                 ('list-moecrypto-todo', 'board-moecrypto', 'Signal Queue', 0),
-                ('list-moecrypto-vetted', 'board-moecrypto', 'Analyst Approved', 1)
+                ('list-moecrypto-vetted', 'board-moecrypto', 'Analyst Approved', 1),
+
+                -- Critical Alerts per Board
+                ('list-intel-critical', 'board-intel', '🔥 Critical Alerts', -1),
+                ('list-americamoe-critical', 'board-americamoe', '🚨 Critical Alerts', -1),
+                ('list-moneyacademy-critical', 'board-moneyacademy', '🚨 Critical Alerts', -1),
+                ('list-gotrythis-critical', 'board-gotrythis', '🚨 Critical Alerts', -1),
+                ('list-moecrypto-critical', 'board-moecrypto', '🚨 Critical Alerts', -1)
             `);
         }
     }
