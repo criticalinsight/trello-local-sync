@@ -89,6 +89,17 @@ export class BoardDO extends DurableObject<Env> {
         created_at INTEGER NOT NULL,
         FOREIGN KEY (prompt_id) REFERENCES prompts(id)
       );
+
+      CREATE TABLE IF NOT EXISTS signals (
+        id TEXT PRIMARY KEY,
+        fingerprint TEXT UNIQUE,
+        summary TEXT,
+        sentiment TEXT,
+        tickers TEXT,
+        relevance INTEGER,
+        source_id TEXT,
+        created_at INTEGER
+      );
     `);
 
         this.ctx.storage.sql.exec(`
