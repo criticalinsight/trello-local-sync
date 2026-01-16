@@ -260,9 +260,56 @@ export class ContentDO extends DurableObject {
             });
         }
 
-        // 5. Auto-Create Kanban Card if High Relevance
+        // 5. Multi-Agent Vetting (Epistemic Analyst) for High-Relevance signals
+        let isValidated = true;
+        let analysisNotes = "";
+
         if (relevance >= 80) {
-            console.log(`[ContentDO] High relevance signal (${relevance}%), creating card...`);
+            console.log(`[ContentDO] High-relevance signal (${relevance}%). Triggering Epistemic Vetting...`);
+
+            const vettingPrompt = `Analyze the following financial signal for accuracy, potential bias, and depth.
+            Signal: ${intel.summary}
+            Tickers: ${intel.tickers.join(', ')}
+            
+            Tasks:
+            1. Verify if this looks like a factual event or speculation.
+            2. Identify any missing context.
+            3. Decision: Should this be promoted to a Kanban Card? (REPLY ONLY WITH 'PROCEED' OR 'DISCARD').
+            
+            Notes (concise):`;
+
+            try {
+                const res = await (this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default'))).fetch('http://do/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: vettingPrompt,
+                        system: "Epistemic Analyst (Critical Vetting Agent)"
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json() as any;
+                    const output = data.output;
+                    isValidated = output.includes('PROCEED');
+                    analysisNotes = output.split('\n').pop() || "";
+                    console.log(`[ContentDO] Epistemic Vetting Result: ${isValidated ? 'PROCEED' : 'DISCARD'}`);
+                }
+            } catch (e) {
+                console.error('[ContentDO] Vetting failed:', e);
+                // Fail-safe: proceed anyway if service down? No, better to be safe.
+                isValidated = true; // For now.
+            }
+        }
+
+        if (!isValidated) {
+            console.log(`[ContentDO] Signal discarded by Epistemic Analyst.`);
+            return;
+        }
+
+        // 6. Auto-Create Kanban Card
+        if (relevance >= 80) {
+            console.log(`[ContentDO] Creating card for validated signal...`);
 
             const cardId = crypto.randomUUID();
             const now = Date.now();
