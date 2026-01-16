@@ -104,13 +104,15 @@ export class BoardDO extends DurableObject<Env> {
       );
     `);
 
-      CREATE TABLE IF NOT EXISTS users(
-            chat_id INTEGER PRIMARY KEY,
-            username TEXT,
-            first_name TEXT,
-            role TEXT DEFAULT 'user', -- 'admin' or 'user'
+        this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        chat_id INTEGER PRIMARY KEY,
+        username TEXT,
+        first_name TEXT,
+        role TEXT DEFAULT 'user',
         joined_at INTEGER
-        );
+      );
+    `);
 
         // Migration for existing databases
         try {
