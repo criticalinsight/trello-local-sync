@@ -19,4 +19,4 @@
     - [x] Stabilize unit tests and environment types
     - [x] Integrate Workflow & Schedule UI in Playground
 - [x] Update documentation after refactor <!-- id: p11_1 -->
-- [ ] @[/c] with authlogin - Production deployment <!-- id: p11_2 -->
+- [x] @[/c] with authlogin - Production deployment <!-- id: p11_2 -->
