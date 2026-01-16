@@ -202,19 +202,28 @@ async function handleStatus(chatId: number, env: Env) {
     }
 }
 
-async function handleList(chatId: number, env: Env) {
+async function handleList(chatId: number, env: Env, page: number = 0) {
+    const limit = 3;
+    const offset = page * limit;
+
     const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
     const response = await stub.fetch('http://do/api/sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            sql: "SELECT id, title, status FROM prompts WHERE status = 'draft' ORDER BY created_at DESC LIMIT 3",
+            sql: `SELECT id, title, status, count(*) OVER() as full_count FROM prompts WHERE status = 'draft' ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
         }),
     });
 
     const data = (await response.json()) as { result: any[] };
     if (data.result && data.result.length > 0) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, '📝 **Recent Drafts:**');
+        const totalCount = data.result[0].full_count;
+        const totalPages = Math.ceil(totalCount / limit);
+
+        // Only send header on first page or if explicitly requested (could be optimized)
+        if (page === 0) {
+            await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, '📝 **Recent Drafts:**');
+        }
 
         for (const row of data.result) {
             const keyboard = {
@@ -226,10 +235,31 @@ async function handleList(chatId: number, env: Env) {
             await sendTelegramMessage(
                 env.TELEGRAM_BOT_TOKEN,
                 chatId,
-                `📌 **${row.title}**\nStatus: ${row.status}`,
+                `📌 **${escapeMarkdownV2(row.title)}**\nStatus: ${row.status}`,
                 keyboard
             );
         }
+
+        // Pagination Controls
+        if (totalPages > 1) {
+            const paginationButtons = [];
+            if (page > 0) {
+                paginationButtons.push({ text: '⬅️ Prev', callback_data: `LIST_PAGE:${page - 1}` });
+            }
+            if (page < totalPages - 1) {
+                paginationButtons.push({ text: 'Next ➡️', callback_data: `LIST_PAGE:${page + 1}` });
+            }
+
+            if (paginationButtons.length > 0) {
+                await sendTelegramMessage(
+                    env.TELEGRAM_BOT_TOKEN,
+                    chatId,
+                    `Page ${page + 1} of ${totalPages}`,
+                    { inline_keyboard: [paginationButtons] }
+                );
+            }
+        }
+
     } else {
         await sendTelegramMessage(
             env.TELEGRAM_BOT_TOKEN,
@@ -367,10 +397,21 @@ async function handleNewPrompt(chatId: number, titleText: string, env: Env) {
     });
 
     await logActivity(env, 'prompt_created', id, `Quick Draft created via Telegram: ${title}`);
+
+    // Smart Replies (Phase 2)
+    const keyboard = {
+        inline_keyboard: [[
+            { text: '🚀 Run', callback_data: `RUN:${id}` },
+            { text: '🧠 Refine', callback_data: `REFINE:${id}` },
+            { text: '🗑 Delete', callback_data: `DELETE:${id}` }
+        ]]
+    };
+
     await sendTelegramMessage(
         env.TELEGRAM_BOT_TOKEN,
         chatId,
-        `📝 **Draft Created!**\n\nTitle: ${title}\nID: \`${id}\``,
+        `📝 **Draft Created!**\n\nTitle: ${escapeMarkdownV2(title)}\nID: \`${id}\``,
+        keyboard
     );
 }
 
@@ -497,12 +538,12 @@ export async function registerWebhook(env: Env, host: string): Promise<Response>
     });
 }
 
-async function sendTelegramMessage(token: string, chatId: number, text: string, keyboard?: any) {
+async function sendTelegramMessage(token: string, chatId: number, text: string, keyboard?: any, parseMode: string = 'Markdown') {
     const url = `https://api.telegram.org/bot${token}/sendMessage`;
     const body: any = {
         chat_id: chatId,
         text: text,
-        parse_mode: 'Markdown',
+        parse_mode: parseMode,
     };
 
     if (keyboard) {
@@ -516,13 +557,13 @@ async function sendTelegramMessage(token: string, chatId: number, text: string, 
     });
 }
 
-async function editTelegramMessage(token: string, chatId: number, messageId: number, text: string, keyboard?: any) {
+async function editTelegramMessage(token: string, chatId: number, messageId: number, text: string, keyboard?: any, parseMode: string = 'Markdown') {
     const url = `https://api.telegram.org/bot${token}/editMessageText`;
     const body: any = {
         chat_id: chatId,
         message_id: messageId,
         text: text,
-        parse_mode: 'Markdown',
+        parse_mode: parseMode,
     };
 
     if (keyboard) {
@@ -534,6 +575,10 @@ async function editTelegramMessage(token: string, chatId: number, messageId: num
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
+}
+
+function escapeMarkdownV2(text: string): string {
+    return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
 }
 
 async function answerCallbackQuery(token: string, callbackQueryId: string, text?: string) {
@@ -768,6 +813,12 @@ async function handleCallbackQuery(chatId: number, messageId: number, data: stri
     } else if (action === 'RESEARCH_REFRESH') {
         await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '🔄 Refreshing...');
         await updateResearchStatus(chatId, messageId, id, env);
+    } else if (action === 'LIST_PAGE') {
+        await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId); // No visual feedback needed
+        const page = parseInt(id, 10);
+        // Maybe we should edit the message instead of sending new ones? 
+        // For now, simpler to just send the new page.
+        await handleList(chatId, env, page);
     } else {
         await answerCallbackQuery(env.TELEGRAM_BOT_TOKEN, callbackId, '❓ Unknown action');
     }
