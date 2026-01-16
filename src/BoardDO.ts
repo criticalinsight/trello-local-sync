@@ -869,6 +869,16 @@ export class BoardDO extends DurableObject<Env> {
                     await this.rateLimiter.throttle();
                     await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any, body.message, user.chat_id);
                     sent++;
+
+                    // Log to activity_log
+                    this.ctx.storage.sql.exec(
+                        'INSERT INTO activity_log (id, event, entity_id, details, created_at) VALUES (?, ?, ?, ?, ?)',
+                        crypto.randomUUID(),
+                        'broadcast_sent',
+                        String(user.chat_id),
+                        body.message.substring(0, 50),
+                        Date.now()
+                    );
                 } catch (e) {
                     console.error(`Failed to send to ${user.chat_id}`, e);
                 }
