@@ -100,6 +100,16 @@ export class BoardDO extends DurableObject<Env> {
         source_id TEXT,
         created_at INTEGER
       );
+
+      CREATE TABLE IF NOT EXISTS signal_feedback (
+        id TEXT PRIMARY KEY,
+        signal_id TEXT,
+        user_id TEXT,
+        vote INTEGER, -- 1 for good, -1 for bad
+        comment TEXT,
+        created_at INTEGER,
+        FOREIGN KEY (signal_id) REFERENCES signals(id)
+      );
     `);
 
         this.ctx.storage.sql.exec(`
