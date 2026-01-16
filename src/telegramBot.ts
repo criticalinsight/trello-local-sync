@@ -50,7 +50,7 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
             const messageId = update.callback_query.message.message_id;
 
             await handleCallbackQuery(chatId, messageId, data, update.callback_query.id, env);
-            await handleCallbackQuery(chatId, messageId, data, update.callback_query.id, env);
+
             return new Response('OK');
         }
 
