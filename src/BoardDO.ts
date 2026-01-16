@@ -110,6 +110,7 @@ export class BoardDO extends DurableObject<Env> {
         tickers TEXT,
         relevance INTEGER,
         source_id TEXT,
+         additional_sources TEXT,
         created_at INTEGER
       );
 
