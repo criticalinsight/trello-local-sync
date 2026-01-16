@@ -197,8 +197,12 @@ export class BoardDO extends DurableObject<Env> {
                 ('board-main', 'Standard Kanban', 'general', '📋', ?),
                 ('board-intel', 'Market Intelligence', 'refinery', '⚡', ?),
                 ('board-vetting', 'Epistemic Vetting', 'refinery', '🧠', ?),
-                ('board-portfolio', 'Portfolio Alpha', 'finance', '💰', ?)
-            `, now, now, now, now);
+                ('board-portfolio', 'Portfolio Alpha', 'finance', '💰', ?),
+                ('board-americamoe', 'Americamoe', 'telegram', '🦅', ?),
+                ('board-moneyacademy', 'Money Academy KE', 'telegram', '🇰🇪', ?),
+                ('board-gotrythis', 'GoTryThis', 'telegram', '🚀', ?),
+                ('board-moecrypto', 'MoeCrypto', 'telegram', '💎', ?)
+            `, now, now, now, now, now, now, now, now);
 
             // Seed lists for all boards
             this.ctx.storage.sql.exec(`
@@ -217,7 +221,19 @@ export class BoardDO extends DurableObject<Env> {
 
                 ('list-port-watchlist', 'board-portfolio', 'Watchlist', 0),
                 ('list-port-positions', 'board-portfolio', 'Active Positions', 1),
-                ('list-port-exits', 'board-portfolio', 'Recent Exits', 2)
+                ('list-port-exits', 'board-portfolio', 'Recent Exits', 2),
+
+                ('list-americamoe-todo', 'board-americamoe', 'Signal Queue', 0),
+                ('list-americamoe-vetted', 'board-americamoe', 'Analyst Approved', 1),
+                
+                ('list-moneyacademy-todo', 'board-moneyacademy', 'Signal Queue', 0),
+                ('list-moneyacademy-vetted', 'board-moneyacademy', 'Analyst Approved', 1),
+
+                ('list-gotrythis-todo', 'board-gotrythis', 'Signal Queue', 0),
+                ('list-gotrythis-vetted', 'board-gotrythis', 'Analyst Approved', 1),
+
+                ('list-moecrypto-todo', 'board-moecrypto', 'Signal Queue', 0),
+                ('list-moecrypto-vetted', 'board-moecrypto', 'Analyst Approved', 1)
             `);
         }
     }
