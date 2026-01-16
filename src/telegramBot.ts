@@ -54,7 +54,9 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
             const [cmd, ...args] = text.split(' ');
 
             if (cmd === '/start') {
-                await saveChatId(chatId, env);
+                const username = update.message.from?.username;
+                const firstName = update.message.from?.first_name;
+                await saveChatId(chatId, env, username, firstName);
                 await sendTelegramMessage(
                     env.TELEGRAM_BOT_TOKEN,
                     chatId,
@@ -65,7 +67,9 @@ export async function handleTelegramWebhook(request: Request, env: Env): Promise
                     '- `/list` - View recent drafts',
                 );
             } else if (cmd === '/help') {
-                await saveChatId(chatId, env);
+                const username = update.message.from?.username;
+                const firstName = update.message.from?.first_name;
+                await saveChatId(chatId, env, username, firstName);
                 await sendTelegramMessage(
                     env.TELEGRAM_BOT_TOKEN,
                     chatId,
@@ -609,31 +613,53 @@ async function answerCallbackQuery(token: string, callbackQueryId: string, text?
     });
 }
 
-async function saveChatId(chatId: number, env: Env) {
-    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
-    await stub.fetch('http://do/api/sql', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            sql: "INSERT INTO settings (key, value) VALUES ('telegram_owner_chat_id', $1) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params: [String(chatId)],
-        }),
     });
 }
 
-export async function sendNotification(token: string, env: Env, text: string) {
+// Phase 6: Register User
+async function saveChatId(chatId: number, env: Env, username?: string, firstName?: string) {
     const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    await stub.fetch('http://do/api/admin/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId, username, firstName }),
+    });
+}
+
+export async function sendNotification(token: string, env: Env, text: string, targetChatId?: number) {
+    if (targetChatId) {
+        await sendTelegramMessage(token, targetChatId, text);
+        return;
+    }
+
+    const stub = env.BOARD_DO.get(env.BOARD_DO.idFromName('default'));
+    // Try to get admin from users table
     const response = await stub.fetch('http://do/api/sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            sql: "SELECT value FROM settings WHERE key = 'telegram_owner_chat_id'",
+            sql: "SELECT chat_id FROM users WHERE role = 'admin' LIMIT 1",
         }),
     });
+
     const data = (await response.json()) as { result: any[] };
     if (data.result && data.result.length > 0) {
-        const chatId = parseInt(data.result[0].value);
+        const chatId = data.result[0].chat_id;
         await sendTelegramMessage(token, chatId, text);
+    } else {
+        // Fallback to legacy settings
+        const settingsResponse = await stub.fetch('http://do/api/sql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sql: "SELECT value FROM settings WHERE key = 'telegram_owner_chat_id'",
+            }),
+        });
+        const sData = (await settingsResponse.json()) as { result: any[] };
+        if (sData.result && sData.result.length > 0) {
+            const chatId = parseInt(sData.result[0].value);
+            await sendTelegramMessage(token, chatId, text);
+        }
     }
 }
 
