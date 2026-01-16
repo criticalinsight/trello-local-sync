@@ -923,6 +923,17 @@ export class BoardDO extends DurableObject<Env> {
                 );
             }
 
+            // Phase 4: Clarification Needed Detection
+            if (output.match(/clarification needed/i) || output.match(/please clarify/i) || output.match(/missing information/i)) {
+                if (this.env.TELEGRAM_BOT_TOKEN) {
+                    await sendNotification(
+                        this.env.TELEGRAM_BOT_TOKEN,
+                        this.env as any,
+                        `⚠️ **Clarification Needed**\n\nThe AI has a question regarding prompt "**${task.title}**".\n\n"${output.substring(0, 200)}..."`
+                    );
+                }
+            }
+
             console.log(`[BoardDO] Task complete: ${task.id}`);
         } catch (error) {
             console.error(`[BoardDO] Task ${task.id} failed:`, error);

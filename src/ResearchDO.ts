@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { EPISTEMIC_ANALYST_PROMPT } from './data/prompts';
+import { sendNotification } from './telegramBot';
 
 /**
  * ResearchDO - Durable Object for handling Deep Research Agent jobs
@@ -238,6 +239,16 @@ export class ResearchDO implements DurableObject {
                 job.completedAt = Date.now();
                 await this.state.storage.put('job', job);
                 console.log(`[ResearchDO] Job ${job.id} completed`);
+
+                // Phase 4: Notify
+                if (this.env.GEMINI_API_KEY) { // Check if we have env, though we need TELEGRAM_BOT_TOKEN. Env interface needs update.
+                    // We need to cast env to any or update interface to include TELEGRAM_BOT_TOKEN
+                    const token = (this.env as any).TELEGRAM_BOT_TOKEN;
+                    if (token) {
+                        const preview = text.substring(0, 500).trim();
+                        await sendNotification(token, this.env as any, `✅ **Research Complete!**\n\nJob: \`${job.id.slice(0, 8)}\`\n\n📄 **Output:**\n${preview}...`);
+                    }
+                }
                 return;
             }
 
@@ -251,6 +262,12 @@ export class ResearchDO implements DurableObject {
                 job.error = `Job ${pollData.status}`;
                 await this.state.storage.put('job', job);
                 console.log(`[ResearchDO] Job ${job.id} failed`);
+
+                // Phase 4: Notify Failure
+                const token = (this.env as any).TELEGRAM_BOT_TOKEN;
+                if (token) {
+                    await sendNotification(token, this.env as any, `❌ **Research Failed**\n\nJob: \`${job.id}\`\nError: ${job.error}`);
+                }
                 return;
             }
 
@@ -294,6 +311,13 @@ export class ResearchDO implements DurableObject {
             job.text = text;
             job.completedAt = Date.now();
             await this.state.storage.put('job', job);
+
+            // Phase 4: Notify Epistemic Completion
+            const token = (this.env as any).TELEGRAM_BOT_TOKEN;
+            if (token) {
+                const preview = text.substring(0, 500).trim();
+                await sendNotification(token, this.env as any, `🧠 **Epistemic Insight Ready!**\n\nJob: \`${job.id.slice(0, 8)}\`\n\n**Analysis:**\n${preview}...`);
+            }
 
         } catch (e) {
             job.status = 'failed';
