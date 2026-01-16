@@ -170,6 +170,7 @@ export interface SavedPrompt {
 export interface Env {
     BOARD_DO: DurableObjectNamespace;
     RESEARCH_DO: DurableObjectNamespace;
+    CONTENT_DO: DurableObjectNamespace;
     ASSETS: Fetcher;
     MEDIA_BUCKET: R2Bucket;
     GEMINI_API_KEY: string;
