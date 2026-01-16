@@ -62,6 +62,10 @@ export class ContentDO extends DurableObject {
             return Response.json({ success: true, message: 'Batch processing triggered' });
         }
 
+        if (url.pathname === '/rss' && request.method === 'POST') {
+            return this.handleRSSIngest(request);
+        }
+
         if (url.pathname === '/channels' && request.method === 'GET') {
             const channels = this.ctx.storage.sql.exec('SELECT * FROM channels').toArray();
             return Response.json({ result: channels });
@@ -351,6 +355,43 @@ export class ContentDO extends DurableObject {
                     details: `Auto-created Intel Card: ${intel.summary}`
                 })
             });
+        }
+    }
+
+    async handleRSSIngest(request: Request): Promise<Response> {
+        try {
+            const body = await request.json() as { url: string; sourceName?: string };
+            const response = await fetch(body.url);
+            if (!response.ok) throw new Error(`Failed to fetch RSS: ${response.statusText}`);
+
+            const xml = await response.text();
+            // Simple regex extraction for POC (in real apps, use a proper RSS parser)
+            const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
+
+            let count = 0;
+            for (const match of items.slice(0, 10)) { // Limit to 10 for safety
+                const itemXml = match[1];
+                const title = itemXml.match(/<title>(.*?)<\/title>/)?.[1] || "";
+                const description = itemXml.match(/<description>(.*?)<\/description>/)?.[1] || "";
+                const link = itemXml.match(/<link>(.*?)<\/link>/)?.[1] || "";
+
+                await this.handleIngest(new Request('http://do/ingest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chatId: body.url,
+                        title: body.sourceName || 'RSS Feed',
+                        text: `${title}\n\n${description}\n\nLink: ${link}`,
+                        full: { source: 'rss', url: body.url }
+                    })
+                }));
+                count++;
+            }
+
+            return Response.json({ success: true, itemsIngested: count });
+        } catch (e) {
+            console.error('RSS Ingest error:', e);
+            return new Response('Error', { status: 500 });
         }
     }
 }
