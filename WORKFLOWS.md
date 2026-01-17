@@ -1,4 +1,4 @@
-# System Workflows: Content Refinery & Intelligence Engine
+hj# System Workflows: Content Refinery & Intelligence Engine
 
 This document outlines the core automated workflows implemented within the **Work** (Local-First Kanban) ecosystem, specifically focusing on the **Content Refinery** pipeline.
 
