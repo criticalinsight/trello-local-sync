@@ -314,7 +314,7 @@ export class ContentDO extends DurableObject<Env> {
         const updates = items.map(i => i.id);
         const debugInfo = JSON.stringify({
             batch_processed: true,
-            analysis_count: analysis.length,
+            analysis: analysis,
             timestamp: Date.now()
         });
 
