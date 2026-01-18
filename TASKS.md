@@ -37,3 +37,9 @@
 - [x] Improve ContentDO robustness and reliability <!-- id: p15_0 -->
 - [x] Migrate Refinery Dashboard to dedicated `/r` route <!-- id: p15_1 -->
 - [x] Implement source-level health metrics and retries <!-- id: p15_2 -->
+
+## 🌐 Production Domain & Routing (Phase 16)
+- [x] Configure SPA routing fallback in Worker <!-- id: p16_0 -->
+- [x] Add custom domain `moecapital.com` to `wrangler.toml` <!-- id: p16_1 -->
+- [ ] Authenticate with Cloudflare and Deploy <!-- id: p16_2 -->
+- [ ] Verify `moecapital.com/r` in production <!-- id: p16_3 -->
