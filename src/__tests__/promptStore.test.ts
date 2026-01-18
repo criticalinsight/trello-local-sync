@@ -3,16 +3,37 @@ import { createStore } from 'solid-js/store';
 import { PGlite } from '@electric-sql/pglite';
 
 // Mock PGlite and dependencies
-vi.mock('@electric-sql/pglite');
+const mockExec = vi.fn().mockResolvedValue(undefined);
+const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+const mockClose = vi.fn().mockResolvedValue(undefined);
+const mockWaitReady = Promise.resolve();
+
+vi.mock('@electric-sql/pglite', () => {
+    return {
+        PGlite: vi.fn().mockImplementation(() => ({
+            exec: mockExec,
+            query: mockQuery,
+            close: mockClose,
+            waitReady: mockWaitReady,
+        })),
+    };
+});
+
 vi.mock('../syncManager', () => ({
     syncManager: {
         isConnected: vi.fn(),
         subscribe: vi.fn(),
         publish: vi.fn(),
+        init: vi.fn().mockResolvedValue(undefined),
     }
 }));
 vi.mock('../utils/autoTagger', () => ({
-    generateTags: vi.fn(),
+    generateTags: vi.fn().mockResolvedValue([]),
+}));
+
+// Mock memoryStore init
+vi.mock('../memoryStore', () => ({
+    initMemoryStore: vi.fn().mockResolvedValue(undefined),
 }));
 
 // We need to partially test internal state, but since promptStore exports a store directly,
