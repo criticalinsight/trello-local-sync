@@ -29,7 +29,10 @@ export class ContentDO extends DurableObject<Env> {
                 id TEXT PRIMARY KEY,
                 name TEXT,
                 config JSON,
-                created_at INTEGER
+                created_at INTEGER,
+                success_count INTEGER DEFAULT 0,
+                failure_count INTEGER DEFAULT 0,
+                last_ingested_at INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS content_items (
@@ -43,10 +46,103 @@ export class ContentDO extends DurableObject<Env> {
                 created_at INTEGER
             );
         `);
+
+        // Migration: Add new columns if they don't exist
+        try {
+            this.ctx.storage.sql.exec(`ALTER TABLE channels ADD COLUMN success_count INTEGER DEFAULT 0`);
+        } catch (e) { /* Column exists */ }
+        try {
+            this.ctx.storage.sql.exec(`ALTER TABLE channels ADD COLUMN failure_count INTEGER DEFAULT 0`);
+        } catch (e) { /* Column exists */ }
+        try {
+            this.ctx.storage.sql.exec(`ALTER TABLE channels ADD COLUMN last_ingested_at INTEGER`);
+        } catch (e) { /* Column exists */ }
+    }
+
+    // Retry helper with exponential backoff
+    private async fetchWithRetry(stub: DurableObjectStub, path: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+        let lastError: Error | null = null;
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+                const res = await stub.fetch(`http://do${path}`, { ...options, signal: controller.signal });
+                clearTimeout(timeout);
+                if (res.ok) return res;
+                if (res.status >= 500) throw new Error(`Server error: ${res.status}`);
+                return res;
+            } catch (e) {
+                lastError = e as Error;
+                if ((e as Error).name === 'AbortError') {
+                    console.warn(`[ContentDO] Request timeout after 30s`);
+                }
+                const delay = 1000 * Math.pow(2, i);
+                console.warn(`[ContentDO] Retry ${i + 1}/${maxRetries} after ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+        throw lastError || new Error('Fetch failed after retries');
+    }
+
+    // Update source metrics
+    private updateSourceMetrics(sourceId: string, success: boolean) {
+        try {
+            if (success) {
+                this.ctx.storage.sql.exec(
+                    'UPDATE channels SET success_count = COALESCE(success_count, 0) + 1, last_ingested_at = ? WHERE id = ?',
+                    Date.now(), sourceId
+                );
+            } else {
+                this.ctx.storage.sql.exec(
+                    'UPDATE channels SET failure_count = COALESCE(failure_count, 0) + 1 WHERE id = ?',
+                    sourceId
+                );
+            }
+        } catch (e) {
+            console.error('[ContentDO] Failed to update source metrics:', e);
+        }
     }
 
     async fetch(request: Request): Promise<Response> {
         const url = new URL(request.url);
+
+        // Health check endpoint
+        if (url.pathname === '/health' && request.method === 'GET') {
+            try {
+                const channelCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as cnt FROM channels').toArray()[0] as any;
+                const pendingCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as cnt FROM content_items WHERE processed_json IS NULL').toArray()[0] as any;
+                return Response.json({
+                    status: 'healthy',
+                    channels: channelCount?.cnt || 0,
+                    pendingItems: pendingCount?.cnt || 0,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (e) {
+                return Response.json({ status: 'error', error: String(e) }, { status: 500 });
+            }
+        }
+
+        // Statistics endpoint
+        if (url.pathname === '/stats' && request.method === 'GET') {
+            try {
+                const totalItems = this.ctx.storage.sql.exec('SELECT COUNT(*) as cnt FROM content_items').toArray()[0] as any;
+                const signalCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as cnt FROM content_items WHERE is_signal = 1').toArray()[0] as any;
+                const last24h = this.ctx.storage.sql.exec(
+                    'SELECT COUNT(*) as cnt FROM content_items WHERE created_at > ?',
+                    Date.now() - 24 * 60 * 60 * 1000
+                ).toArray()[0] as any;
+                const processedCount = this.ctx.storage.sql.exec('SELECT COUNT(*) as cnt FROM content_items WHERE processed_json IS NOT NULL').toArray()[0] as any;
+                return Response.json({
+                    totalItems: totalItems?.cnt || 0,
+                    processedItems: processedCount?.cnt || 0,
+                    signals: signalCount?.cnt || 0,
+                    last24Hours: last24h?.cnt || 0,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (e) {
+                return Response.json({ status: 'error', error: String(e) }, { status: 500 });
+            }
+        }
 
         if (url.pathname === '/ingest' && request.method === 'POST') {
             return this.handleIngest(request);
@@ -59,7 +155,6 @@ export class ContentDO extends DurableObject<Env> {
         }
 
         if (url.pathname === '/process' && request.method === 'POST') {
-            // Manual trigger for testing
             await this.processBatch();
             return Response.json({ success: true, message: 'Batch processing triggered' });
         }
@@ -69,7 +164,14 @@ export class ContentDO extends DurableObject<Env> {
         }
 
         if (url.pathname === '/channels' && request.method === 'GET') {
-            const channels = this.ctx.storage.sql.exec('SELECT * FROM channels').toArray();
+            const channels = this.ctx.storage.sql.exec(`
+                SELECT id, name, config, created_at, 
+                       COALESCE(success_count, 0) as success_count, 
+                       COALESCE(failure_count, 0) as failure_count,
+                       last_ingested_at
+                FROM channels
+                ORDER BY last_ingested_at DESC
+            `).toArray();
             return Response.json({ result: channels });
         }
 
