@@ -29,6 +29,6 @@
 
 ## 🛠 System Verification (Phase 14)
 - [ ] Verify Ralph loop stability and MCP responsiveness <!-- id: p14_0 -->
-    - [ ] Resolve "Bad file descriptor" error in `ralph.log`
-    - [ ] Confirm `search_memories` works within `ralph_driver.py`
-    - [ ] Perform a simple code modification via Ralph
+    - [x] Resolve "Bad file descriptor" error in `ralph.log`
+    - [x] Confirm `search_memories` works within `ralph_driver.py`
+    - [/] Perform a simple code modification via Ralph (e.g., update README.md)
