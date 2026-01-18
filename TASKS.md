@@ -43,3 +43,18 @@
 - [x] Add custom domain `moecapital.com` to `wrangler.toml` <!-- id: p16_1 -->
 - [ ] Authenticate with Cloudflare and Deploy <!-- id: p16_2 -->
 - [ ] Verify `moecapital.com/r` in production <!-- id: p16_3 -->
+
+## 🛡️ Comprehensive QA & Refactor Loop (Phase 17)
+- [ ] **Core Logic QA** (`promptStore`, `aiService`) <!-- id: p17_0 -->
+    - [ ] Test `promptStore.ts` coverage & refactor <!-- id: p17_0_0 -->
+    - [ ] Test `aiService.ts` coverage & refactor <!-- id: p17_0_1 -->
+- [ ] **Backend Agents QA** (Durable Objects) <!-- id: p17_1 -->
+    - [ ] Refactor `ContentDO.ts` (Robustness) <!-- id: p17_1_0 -->
+    - [ ] Refactor `BoardDO.ts` (Logic) <!-- id: p17_1_1 -->
+    - [ ] Refactor `ResearchDO.ts` (Agent) <!-- id: p17_1_2 -->
+- [ ] **Frontend QA** (Components) <!-- id: p17_2 -->
+    - [ ] Refactor `RefineryDashboard.tsx` <!-- id: p17_2_0 -->
+    - [ ] Refactor `AgentDashboard.tsx` <!-- id: p17_2_1 -->
+- [ ] **End-to-End Verification** <!-- id: p17_3 -->
+    - [ ] Fix `final_simulation.spec.ts` <!-- id: p17_3_0 -->
+    - [ ] Fix `live_simulation_v2.spec.ts` <!-- id: p17_3_1 -->
