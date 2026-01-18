@@ -136,6 +136,9 @@ const App = () => {
                     onClose={() => navigate('/prompts/' + boardId())}
                 />
             </Show>
+            <Show when={page() === 'refinery'}>
+                <RefineryDashboard onNavigateHome={() => navigate('/')} />
+            </Show>
 
             {/* Global UX Components */}
             <GlobalAgentBar />
