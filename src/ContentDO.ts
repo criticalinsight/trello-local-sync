@@ -292,10 +292,17 @@ export class ContentDO extends DurableObject<Env> {
             );
 
             const result = await response.json() as any;
+            const outputText = result.output || '';
+            console.log('[ContentDO] Raw LLM Output:', outputText.substring(0, 500) + '...'); // Debug Log
+
             // Clean code block if present
-            const clean = result.output.replace(/```json/g, '').replace(/```/g, '').trim();
-            analysis = JSON.parse(clean);
-            success = true;
+            const clean = outputText.replace(/```json/g, '').replace(/```/g, '').trim();
+            try {
+                analysis = JSON.parse(clean);
+                success = true;
+            } catch (e) {
+                console.error('[ContentDO] JSON Parse Error:', e, 'Raw:', clean);
+            }
         } catch (e) {
             console.error('[ContentDO] Failed to analyze source batch:', e);
             this.updateSourceMetrics(sourceId, false);
@@ -303,15 +310,22 @@ export class ContentDO extends DurableObject<Env> {
 
         const sourceName = items[0]?.source_name || 'Unknown Channel';
 
-        // Updates DB
+        // Updates DB with debug info
         const updates = items.map(i => i.id);
+        const debugInfo = JSON.stringify({
+            batch_processed: true,
+            analysis_count: analysis.length,
+            timestamp: Date.now()
+        });
+
         for (const id of updates) {
-            this.ctx.storage.sql.exec("UPDATE content_items SET processed_json = ? WHERE id = ?", JSON.stringify({ batch_processed: true }), id);
+            this.ctx.storage.sql.exec("UPDATE content_items SET processed_json = ? WHERE id = ?", debugInfo, id);
         }
 
         // Logic to push "Signals" to BoardDO would go here
         for (const intel of analysis) {
-            if (intel.relevance_score > 70) {
+            // Lower threshold for debugging
+            if (intel.relevance_score > 40) {
                 await this.notifySignal(intel, sourceId, sourceName);
             }
         }
