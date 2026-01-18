@@ -226,8 +226,8 @@ export class ContentDO extends DurableObject<Env> {
     }
 
     private async processBatch() {
-        // Fetch unprocessed items
-        const items = this.ctx.storage.sql.exec('SELECT * FROM content_items WHERE processed_json IS NULL LIMIT 20').toArray() as any[];
+        // Fetch unprocessed items - reduced batch for higher reasoning quality
+        const items = this.ctx.storage.sql.exec('SELECT * FROM content_items WHERE processed_json IS NULL LIMIT 10').toArray() as any[];
 
         if (items.length === 0) return;
 
@@ -247,23 +247,19 @@ export class ContentDO extends DurableObject<Env> {
     }
 
     private async analyzeSourceBatch(sourceId: string, items: any[]) {
-        const texts = items.map(i => `- ${i.raw_text}`).join('\n');
+        const texts = items.map(i => `[ID: ${i.id}] ${i.raw_text}`).join('\n---\n');
 
-        // Call Gemini (NewsAnalyst Agent)
-        // Note: In real implementation, strict JSON mode or tool use is best.
-        // Importing NEWS_ANALYST_PROMPT from data/prompts would be ideal, or hardcoding temporarily.
+        const systemPrompt = `You are an Institutional-Grade Financial Signal Extractor.
+        Your goal is to detect ANY market-relevant information in the provided batch of messages.
 
-        const systemPrompt = `You are an Institutional-Grade Financial News Analyst. 
-        Your input is a batch of raw Telegram messages from a single channel.
-        
-        Tasks:
-        1. ANALYZE ALL: Extract any potential financial signal, even if low confidence or conversational.
-        2. CONTEXT: If a message mentions a ticker ($TICKER) or asset, it is relevant.
-        3. CLASSIFY: Determine Urgency (low, med, high). Defaults to "low" for rumors.
-        
+        CRITICAL INSTRUCTIONS:
+        1. NO FILTERING: Do not skip an item if it contains numbers, percentages, company names, or economic indicators (unemployment, inflation, rates).
+        2. EXAMPLES OF SIGNALS: Buybacks, Earnings reports, Ticker mentions ($BTC, $TSLA), layoffs, partnerships, revenue growth.
+        3. CONTEXT: Messages are delimited by "---". Use the ID if provided to reference source.
+
         Output valid JSON array:
         [{
-            "summary": "Full technical digest of the news",
+            "summary": "High-density technical summary",
             "tickers": ["$TICKER"],
             "sentiment": "bullish" | "bearish" | "neutral",
             "relevance_score": 10-100,
@@ -271,7 +267,8 @@ export class ContentDO extends DurableObject<Env> {
             "impact_analysis": "One sentence reasoning for the score",
             "source_ids": ["msg_id_1"]
         }]
-        Strict JSON only. Return empty array [] ONLY if the input is purely "gm", "gn", or spam with no financial terms.`;
+        
+        Return empty array [] ONLY if the input contains NO financial data whatsoever. If in doubt, EXTRACT IT.`;
 
         let analysis: any[] = [];
         let success = false;
