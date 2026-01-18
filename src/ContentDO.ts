@@ -337,19 +337,6 @@ export class ContentDO extends DurableObject<Env> {
 
         const sourceName = items[0]?.source_name || 'Unknown Channel';
 
-        const updates = items.map(i => i.id);
-        const debugInfo = JSON.stringify({
-            batch_processed: true,
-            analysis: analysis,
-            raw_output: (result as any)?.output || 'No output',
-            error: (result as any)?.error,
-            timestamp: Date.now()
-        });
-
-        for (const id of updates) {
-            this.ctx.storage.sql.exec("UPDATE content_items SET processed_json = ? WHERE id = ?", debugInfo, id);
-        }
-
         // Logic to push "Signals" to BoardDO would go here
         for (const intel of analysis) {
             // Lower threshold for debugging
