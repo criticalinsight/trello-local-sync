@@ -19,6 +19,7 @@ export interface Card {
     id: string;
     title: string;
     listId: string;
+    boardId?: string; // Phase 11: Cross-board reference
     pos: number;
     createdAt: number;
     description?: string;
@@ -36,6 +37,7 @@ export interface List {
 export interface Board {
     id: string;
     title: string;
+    icon?: string;
     lists: List[];
     cards: Card[];
 }

@@ -16,15 +16,10 @@ interface ContentItem {
     createdAt: number;
 }
 
-export class ContentDO extends DurableObject {
-    env: Env;
-    ctx: DurableObjectState;
+export class ContentDO extends DurableObject<Env> {
 
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
-        this.env = env;
-        this.ctx = ctx;
-        this.initDatabase();
     }
 
     private initDatabase() {
@@ -108,7 +103,8 @@ export class ContentDO extends DurableObject {
             );
 
             // 3. Schedule processing (debounce/batch)
-            if (!currentAlarm) {
+            const alarm = await this.ctx.storage.getAlarm();
+            if (alarm === null) {
                 // Process in 5 seconds to gather batch
                 await this.ctx.storage.setAlarm(Date.now() + 5 * 1000);
             }
