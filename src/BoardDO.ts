@@ -700,7 +700,7 @@ export class BoardDO extends DurableObject<Env> {
 
         // 3. Broadcast to all admins
         const url = new URL('http://do/api/admin/broadcast');
-        await this.handleAdminRequest(new Request(url.toString(), {
+        await this.handleAdminRequest(url, new Request(url.toString(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: msg })
@@ -1065,7 +1065,7 @@ export class BoardDO extends DurableObject<Env> {
 
                 try {
                     await this.rateLimiter.throttle();
-                    await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any, body.message, user.chat_id);
+                    await sendNotification(this.env.TELEGRAM_BOT_TOKEN, this.env as any, body.message, user.chat_id as number);
                     sent++;
 
                     // Log to activity_log
