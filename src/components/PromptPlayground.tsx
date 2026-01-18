@@ -251,8 +251,8 @@ export const PromptPlayground: Component<PromptPlaygroundProps> = (props) => {
     createEffect(() => {
         const text = content();
         // Very simple debounce
-        const timer = setTimeout(() => {
-            const match = findBestMatchingTemplate(text);
+        const timer = setTimeout(async () => {
+            const match = await findBestMatchingTemplate(text);
             // Don't suggest if we are already using that template content roughly
             if (match && !text.includes(match.content.substring(0, 20))) {
                 setSuggestedTemplate(match);
