@@ -283,40 +283,60 @@ export class ContentDO extends DurableObject<Env> {
         let success = false;
 
         try {
-            const response = await this.fetchWithRetry(
-                this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default')),
-                '/api/generate',
+            // Call Gemini API directly
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.env.GEMINI_API_KEY}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        prompt: texts,
-                        system: systemPrompt,
-                        model: 'gemini-1.5-flash' // Standard Flash model
+                        contents: [{ role: 'user', parts: [{ text: texts }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: {
+                            temperature: 0.2,
+                            response_mime_type: "application/json"
+                        }
                     })
                 }
             );
 
             const result = await response.json() as any;
-            const outputText = result.output || '';
-            console.log('[ContentDO] Raw LLM Output:', outputText.substring(0, 500) + '...'); // Debug Log
+            const outputText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            console.log('[ContentDO] Raw LLM Output:', outputText.substring(0, 500) + '...');
 
-            // Clean code block if present
-            const clean = outputText.replace(/```json/g, '').replace(/```/g, '').trim();
             try {
-                analysis = JSON.parse(clean);
+                analysis = JSON.parse(outputText);
                 success = true;
             } catch (e) {
-                console.error('[ContentDO] JSON Parse Error:', e, 'Raw:', clean);
+                console.error('[ContentDO] JSON Parse Error:', e, 'Raw:', outputText);
             }
+
+            // Updates DB with debug info (inside try to capture result)
+            const updates = items.map(i => i.id);
+            const debugInfo = JSON.stringify({
+                batch_processed: true,
+                analysis: analysis,
+                raw_output: outputText,
+                error: (result as any)?.error,
+                timestamp: Date.now()
+            });
+
+            for (const id of updates) {
+                this.ctx.storage.sql.exec("UPDATE content_items SET processed_json = ? WHERE id = ?", debugInfo, id);
+            }
+
         } catch (e) {
             console.error('[ContentDO] Failed to analyze source batch:', e);
             this.updateSourceMetrics(sourceId, false);
+            // Log failure to DB
+            const updates = items.map(i => i.id);
+            for (const id of updates) {
+                this.ctx.storage.sql.exec("UPDATE content_items SET processed_json = ? WHERE id = ?", JSON.stringify({ status: "failed", error: String(e) }), id);
+            }
         }
 
         const sourceName = items[0]?.source_name || 'Unknown Channel';
 
-        // Updates DB with debug info
         const updates = items.map(i => i.id);
         const debugInfo = JSON.stringify({
             batch_processed: true,
