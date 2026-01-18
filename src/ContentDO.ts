@@ -271,24 +271,32 @@ export class ContentDO extends DurableObject<Env> {
         }]
         Strict JSON only. If primarily noise, return empty array [].`;
 
-        const response = await this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default')).fetch('http://do/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                prompt: texts,
-                system: systemPrompt,
-                model: 'gemini-2.5-flash' // Fast model for batching
-            })
-        });
-
-        const result = await response.json() as any;
         let analysis: any[] = [];
+        let success = false;
+
         try {
+            const response = await this.fetchWithRetry(
+                this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default')),
+                '/api/generate',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: texts,
+                        system: systemPrompt,
+                        model: 'gemini-2.5-flash' // Fast model for batching
+                    })
+                }
+            );
+
+            const result = await response.json() as any;
             // Clean code block if present
             const clean = result.output.replace(/```json/g, '').replace(/```/g, '').trim();
             analysis = JSON.parse(clean);
+            success = true;
         } catch (e) {
-            console.error('Failed to parse AI response', e);
+            console.error('[ContentDO] Failed to analyze source batch:', e);
+            this.updateSourceMetrics(sourceId, false);
         }
 
         const sourceName = items[0]?.source_name || 'Unknown Channel';
@@ -304,6 +312,10 @@ export class ContentDO extends DurableObject<Env> {
             if (intel.relevance_score > 70) {
                 await this.notifySignal(intel, sourceId, sourceName);
             }
+        }
+
+        if (success) {
+            this.updateSourceMetrics(sourceId, true);
         }
     }
 
@@ -321,7 +333,7 @@ export class ContentDO extends DurableObject<Env> {
         const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
 
         try {
-            const checkResponse = await boardStub.fetch('http://do/api/sql', {
+            const checkResponse = await this.fetchWithRetry(boardStub, '/api/sql', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sql: checkSql, params: [fingerprint, sixHoursAgo] })
@@ -341,7 +353,7 @@ export class ContentDO extends DurableObject<Env> {
                     relevance = MIN(relevance + 5, 100)
                     WHERE id = ?
                 `;
-                await boardStub.fetch('http://do/api/sql', {
+                await this.fetchWithRetry(boardStub, '/api/sql', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sql: updateSql, params: [sourceName, sourceName, existing.id] })
@@ -349,7 +361,7 @@ export class ContentDO extends DurableObject<Env> {
                 return;
             }
         } catch (e) {
-            console.error('[ContentDO] Consolidation failed:', e);
+            console.error('[ContentDO] Consolidation check failed:', e);
         }
 
         // 3. Persist to signals table
@@ -359,7 +371,7 @@ export class ContentDO extends DurableObject<Env> {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
         try {
-            await boardStub.fetch('http://do/api/sql', {
+            await this.fetchWithRetry(boardStub, '/api/sql', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -388,7 +400,7 @@ export class ContentDO extends DurableObject<Env> {
                 `🎯 Relevance: ${relevance}%`;
 
             try {
-                await boardStub.fetch('http://do/api/admin/broadcast', {
+                await this.fetchWithRetry(boardStub, '/api/admin/broadcast', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: msg })
@@ -415,7 +427,7 @@ export class ContentDO extends DurableObject<Env> {
                         WHERE s.tickers LIKE ? AND s.created_at > ?
                         ORDER BY s.created_at DESC LIMIT 3
                     `;
-                    const contextRes = await boardStub.fetch('http://do/api/sql', {
+                    const contextRes = await this.fetchWithRetry(boardStub, '/api/sql', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -447,14 +459,18 @@ export class ContentDO extends DurableObject<Env> {
             Notes:`;
 
             try {
-                const res = await (this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default'))).fetch('http://do/api/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: vettingPrompt,
-                        system: "Epistemic Analyst (Critical Vetting Agent)"
-                    })
-                });
+                const res = await this.fetchWithRetry(
+                    this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default')),
+                    '/api/generate',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            prompt: vettingPrompt,
+                            system: "Epistemic Analyst (Critical Vetting Agent)"
+                        })
+                    }
+                );
 
                 if (res.ok) {
                     const data = await res.json() as any;
@@ -478,7 +494,7 @@ export class ContentDO extends DurableObject<Env> {
         try {
             for (const ticker of tickers) {
                 // Insert entity
-                await boardStub.fetch('http://do/api/refinery/knowledge/insert', {
+                await this.fetchWithRetry(boardStub, '/api/refinery/knowledge/insert', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -490,7 +506,7 @@ export class ContentDO extends DurableObject<Env> {
                 });
 
                 // Insert relationship
-                await boardStub.fetch('http://do/api/refinery/knowledge/insert', {
+                await this.fetchWithRetry(boardStub, '/api/refinery/knowledge/insert', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -560,14 +576,14 @@ export class ContentDO extends DurableObject<Env> {
             ];
 
             try {
-                await boardStub.fetch('http://do/api/sql', {
+                await this.fetchWithRetry(boardStub, '/api/sql', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sql, params })
                 });
 
                 // Log activity
-                await boardStub.fetch('http://do/api/log_activity', {
+                await this.fetchWithRetry(boardStub, '/api/log_activity', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

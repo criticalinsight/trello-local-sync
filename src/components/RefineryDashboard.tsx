@@ -55,7 +55,7 @@ export function RefineryDashboard(props: Props) {
                 setStats(await statsRes.json());
             }
             if (channelsRes.ok) {
-                const data = await channelsRes.json();
+                const data = await channelsRes.json() as { result: Channel[] };
                 setChannels(data.result || []);
             }
 
