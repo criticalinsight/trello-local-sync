@@ -357,6 +357,18 @@ export default {
         // Serve static assets with appropriate caching
         const response = await env.ASSETS.fetch(request);
 
+        // if the asset fetch fails (404) and it's not an API route, fallback to index.html for SPA routing
+        if (response.status === 404 && !url.pathname.startsWith('/api')) {
+            const indexRequest = new Request(new URL('/', request.url).toString(), request);
+            const indexResponse = await env.ASSETS.fetch(indexRequest);
+            const headers = new Headers(indexResponse.headers);
+            headers.set('Cache-Control', 'no-cache, must-revalidate');
+            return new Response(indexResponse.body, {
+                status: indexResponse.status,
+                headers,
+            });
+        }
+
         // Add cache headers based on file type
         const responseUrl = new URL(request.url);
         const headers = new Headers(response.headers);
