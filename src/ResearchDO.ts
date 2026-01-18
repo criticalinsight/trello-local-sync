@@ -61,7 +61,7 @@ export class ResearchDO extends DurableObject<Env> {
     private async handleGenerate(request: Request): Promise<Response> {
         try {
             const body = await request.json() as { prompt: string; system: string; model?: string };
-            const model = body.model || 'gemini-2.5-flash';
+            const model = body.model || 'gemini-1.5-flash';
 
             // Call Gemini API directly (Stateless)
             const response = await fetch(
