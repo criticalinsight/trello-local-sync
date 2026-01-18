@@ -33,7 +33,7 @@ describe('Automation Filtering Logic', () => {
         const matched = mockWorkflows.filter(pw => {
             const config = JSON.parse(pw.workflow);
             if (!config.enabled) return false;
-            return config.triggers.some(t => {
+            return config.triggers.some((t: any) => {
                 if (t.type !== triggerType) return false;
                 if (t.config?.listId && t.config.listId !== card.list_id) return false;
                 return true;
@@ -51,7 +51,7 @@ describe('Automation Filtering Logic', () => {
         const matched = mockWorkflows.filter(pw => {
             const config = JSON.parse(pw.workflow);
             if (!config.enabled) return false;
-            return config.triggers.some(t => {
+            return config.triggers.some((t: any) => {
                 if (t.type !== triggerType) return false;
                 if (t.config?.listId && t.config.listId !== card.list_id) return false;
                 return true;
@@ -69,7 +69,7 @@ describe('Automation Filtering Logic', () => {
         const matched = mockWorkflows.filter(pw => {
             const config = JSON.parse(pw.workflow);
             if (!config.enabled) return false;
-            return config.triggers.some(t => {
+            return config.triggers.some((t: any) => {
                 if (t.type !== triggerType) return false;
                 if (t.config?.tag && !cardTags.includes(t.config.tag)) return false;
                 return true;
@@ -86,7 +86,7 @@ describe('Automation Filtering Logic', () => {
 
         const matched = mockWorkflows.filter(pw => {
             const config = JSON.parse(pw.workflow);
-            return config.enabled && config.triggers.some(t => t.type === triggerType);
+            return config.enabled && config.triggers.some((t: any) => t.type === triggerType);
         });
 
         expect(matched.some(m => m.id === 'prompt-3')).toBe(false);

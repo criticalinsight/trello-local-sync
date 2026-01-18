@@ -28,13 +28,9 @@ interface Env {
 const POLL_INTERVAL_MS = 10000; // 10 seconds
 const MAX_POLL_DURATION_MS = 60 * 60 * 1000; // 1 hour max (for long Deep Research reports)
 
-export class ResearchDO implements DurableObject {
-    private state: DurableObjectState;
-    private env: Env;
-
-    constructor(state: DurableObjectState, env: Env) {
-        this.state = state;
-        this.env = env;
+export class ResearchDO extends DurableObject<Env> {
+    constructor(ctx: DurableObjectState, env: Env) {
+        super(ctx, env);
     }
 
     async fetch(request: Request): Promise<Response> {
@@ -158,10 +154,10 @@ export class ResearchDO implements DurableObject {
             createdAt: Date.now(),
         };
 
-        await this.state.storage.put('job', job);
+        await this.ctx.storage.put('job', job);
 
         // Set alarm to poll for results
-        await this.state.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
+        await this.ctx.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
 
         console.log(`[ResearchDO] Started job ${jobId} with interaction ${interactionId}`);
 
@@ -184,8 +180,8 @@ export class ResearchDO implements DurableObject {
             createdAt: Date.now(),
         };
 
-        await this.state.storage.put('job', job);
-        await this.state.storage.setAlarm(Date.now() + 100);
+        await this.ctx.storage.put('job', job);
+        await this.ctx.storage.setAlarm(Date.now() + 100);
 
         return new Response(
             JSON.stringify({
@@ -198,7 +194,7 @@ export class ResearchDO implements DurableObject {
     }
 
     private async handleStatus(): Promise<Response> {
-        const job = await this.state.storage.get<ResearchJob>('job');
+        const job = await this.ctx.storage.get<ResearchJob>('job');
 
         if (!job) {
             return new Response(JSON.stringify({ error: 'No job found' }), {
@@ -222,7 +218,7 @@ export class ResearchDO implements DurableObject {
     }
 
     async alarm(): Promise<void> {
-        const job = await this.state.storage.get<ResearchJob>('job');
+        const job = await this.ctx.storage.get<ResearchJob>('job');
         if (!job || job.status !== 'processing') {
             return;
         }
@@ -231,7 +227,7 @@ export class ResearchDO implements DurableObject {
         if (Date.now() - job.createdAt > MAX_POLL_DURATION_MS) {
             job.status = 'failed';
             job.error = 'Polling timeout exceeded';
-            await this.state.storage.put('job', job);
+            await this.ctx.storage.put('job', job);
             console.log(`[ResearchDO] Job ${job.id} timed out`);
             return;
         }
@@ -257,7 +253,7 @@ export class ResearchDO implements DurableObject {
                 const errorText = await pollResponse.text();
                 console.error(`[ResearchDO] Poll error: ${errorText}`);
                 // Continue polling on transient errors
-                await this.state.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
+                await this.ctx.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
                 return;
             }
 
@@ -280,7 +276,7 @@ export class ResearchDO implements DurableObject {
                 job.outputs = pollData.outputs;
                 job.text = text;
                 job.completedAt = Date.now();
-                await this.state.storage.put('job', job);
+                await this.ctx.storage.put('job', job);
                 console.log(`[ResearchDO] Job ${job.id} completed`);
 
                 // Phase 4: Notify
@@ -303,7 +299,7 @@ export class ResearchDO implements DurableObject {
             ) {
                 job.status = 'failed';
                 job.error = `Job ${pollData.status}`;
-                await this.state.storage.put('job', job);
+                await this.ctx.storage.put('job', job);
                 console.log(`[ResearchDO] Job ${job.id} failed`);
 
                 // Phase 4: Notify Failure
@@ -315,11 +311,11 @@ export class ResearchDO implements DurableObject {
             }
 
             // Still processing, set next alarm
-            await this.state.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
+            await this.ctx.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
         } catch (error) {
             console.error(`[ResearchDO] Alarm error:`, error);
             // Continue polling on transient errors
-            await this.state.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
+            await this.ctx.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
         }
     }
     async runEpistemicGeneration(job: ResearchJob) {
@@ -353,7 +349,7 @@ export class ResearchDO implements DurableObject {
             job.status = 'completed';
             job.text = text;
             job.completedAt = Date.now();
-            await this.state.storage.put('job', job);
+            await this.ctx.storage.put('job', job);
 
             // Phase 4: Notify Epistemic Completion
             const token = (this.env as any).TELEGRAM_BOT_TOKEN;
@@ -365,7 +361,7 @@ export class ResearchDO implements DurableObject {
         } catch (e) {
             job.status = 'failed';
             job.error = String(e);
-            await this.state.storage.put('job', job);
+            await this.ctx.storage.put('job', job);
         }
     }
 }

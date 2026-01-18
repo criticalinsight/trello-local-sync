@@ -20,6 +20,7 @@ export class ContentDO extends DurableObject<Env> {
 
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
+        this.initDatabase();
     }
 
     private initDatabase() {
