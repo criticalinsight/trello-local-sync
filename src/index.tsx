@@ -6,6 +6,7 @@ import { Board } from './components/Board';
 import { PromptBoard } from './components/PromptBoard';
 import { PresentationView } from './components/PresentationView';
 import { AgentDashboard } from './components/AgentDashboard';
+import { RefineryDashboard } from './components/RefineryDashboard';
 import { SnackbarContainer } from './components/Snackbar';
 import { GlobalAgentBar } from './components/GlobalAgentBar';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -22,11 +23,11 @@ polyfill({
 });
 
 // Fix for iOS scrolling while dragging
-window.addEventListener('touchmove', function () {}, { passive: false });
+window.addEventListener('touchmove', function () { }, { passive: false });
 
 const App = () => {
     // Simple routing state
-    const [page, setPage] = createSignal<'home' | 'board' | 'prompts' | 'presentation'>('home');
+    const [page, setPage] = createSignal<'home' | 'board' | 'prompts' | 'presentation' | 'refinery'>('home');
     const [boardId, setBoardId] = createSignal<string>('');
     const [promptId, setPromptId] = createSignal<string>('');
 
@@ -40,6 +41,9 @@ const App = () => {
 
         if (path === '/' || path === '') {
             setPage('home');
+        } else if (path === '/r' || path.startsWith('/r/')) {
+            // Refinery route: /r
+            setPage('refinery');
         } else if (path.includes('/present/')) {
             // Presentation route: /prompts/:boardId/present/:promptId
             const parts = path.split('/');
