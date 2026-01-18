@@ -25,6 +25,7 @@ vi.mock('../syncManager', () => ({
         subscribe: vi.fn(),
         publish: vi.fn(),
         init: vi.fn().mockResolvedValue(undefined),
+        enqueue: vi.fn().mockResolvedValue(undefined),
     }
 }));
 vi.mock('../utils/autoTagger', () => ({
