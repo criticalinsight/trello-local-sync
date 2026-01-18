@@ -58,3 +58,15 @@
 - [x] **End-to-End Verification** <!-- id: p17_3 -->
     - [x] Fix `final_simulation.spec.ts` <!-- id: p17_3_0 -->
     - [x] Fix `live_simulation_v2.spec.ts` <!-- id: p17_3_1 -->
+
+## 🧠 Epistemic Analyst & Deep Research (Phase 18)
+- [ ] **Epistemic Analyst Agent** <!-- id: p18_0 -->
+    - [ ] Formalize `EPISTEMIC_ANALYST_PROMPT` in `data/prompts.ts` <!-- id: p18_0_0 -->
+    - [ ] Enhance `ResearchDO.ts` with structured reasoning (CoT) <!-- id: p18_0_1 -->
+    - [ ] Integrate with Telegram `/insight` command logic <!-- id: p18_0_2 -->
+- [ ] **Deep Research Capabilities** <!-- id: p18_1 -->
+    - [ ] Implement multi-step research loop (search -> analyze -> synthesize) <!-- id: p18_1_0 -->
+    - [ ] Add source citation and reliability scoring <!-- id: p18_1_1 -->
+- [ ] **Frontend Integration** <!-- id: p18_2 -->
+    - [ ] Create `EpistemicView` for displaying deep reasoning chains <!-- id: p18_2_0 -->
+    - [ ] Add "Deep Research" mode to Prompt Playground <!-- id: p18_2_1 -->
