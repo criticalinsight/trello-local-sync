@@ -69,7 +69,9 @@ export class ContentDO extends DurableObject<Env> {
                 const res = await stub.fetch(`http://do${path}`, { ...options, signal: controller.signal });
                 clearTimeout(timeout);
                 if (res.ok) return res;
-                if (res.status >= 500) throw new Error(`Server error: ${res.status}`);
+                if (res.status === 429 || res.status >= 500) {
+                    throw new Error(`Server error: ${res.status}`);
+                }
                 return res;
             } catch (e) {
                 lastError = e as Error;

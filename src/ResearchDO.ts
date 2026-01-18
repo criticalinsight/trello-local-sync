@@ -78,7 +78,11 @@ export class ResearchDO extends DurableObject<Env> {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                return new Response(JSON.stringify({ error: `Gemini API error: ${errorText}` }), { status: 500 });
+                // Propagate status code (especially 429) so ContentDO can retry
+                return new Response(JSON.stringify({ error: `Gemini API error: ${errorText}` }), {
+                    status: response.status,
+                    headers: { 'Content-Type': 'application/json' }
+                });
             }
 
             const data = await response.json() as any;
