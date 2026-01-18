@@ -10,12 +10,12 @@ const mockWaitReady = Promise.resolve();
 
 vi.mock('@electric-sql/pglite', () => {
     return {
-        PGlite: vi.fn().mockImplementation(() => ({
-            exec: mockExec,
-            query: mockQuery,
-            close: mockClose,
-            waitReady: mockWaitReady,
-        })),
+        PGlite: class {
+            async exec(...args: any[]) { return mockExec(...args); }
+            async query(...args: any[]) { return mockQuery(...args); }
+            async close() { return mockClose(); }
+            get waitReady() { return mockWaitReady; }
+        }
     };
 });
 
