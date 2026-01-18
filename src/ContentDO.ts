@@ -227,11 +227,17 @@ export class ContentDO extends DurableObject<Env> {
 
     private async processBatch() {
         // Fetch unprocessed items
-        const items = this.ctx.storage.sql.exec('SELECT * FROM content_items WHERE processed_json IS NULL LIMIT 5').toArray() as any[];
+        const items = this.ctx.storage.sql.exec('SELECT * FROM content_items WHERE processed_json IS NULL LIMIT 1').toArray() as any[];
 
         if (items.length === 0) return;
 
         console.log(`[ContentDO] Processing batch of ${items.length} items...`);
+
+        // Checkpoint: Mark as processing
+        const updates = items.map(i => i.id);
+        for (const id of updates) {
+            this.ctx.storage.sql.exec("UPDATE content_items SET processed_json = ? WHERE id = ?", JSON.stringify({ status: "processing" }), id);
+        }
 
         // Group by Source
         const bySource: Record<string, any[]> = {};
