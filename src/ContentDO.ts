@@ -333,6 +333,13 @@ export class ContentDO extends DurableObject<Env> {
             // Lower threshold for debugging
             if (intel.relevance_score > 40) {
                 await this.notifySignal(intel, sourceId, sourceName);
+
+                // Track signal locally for stats
+                if (Array.isArray(intel.source_ids)) {
+                    for (const id of intel.source_ids) {
+                        this.ctx.storage.sql.exec('UPDATE content_items SET is_signal = 1 WHERE id = ?', id);
+                    }
+                }
             }
         }
 
