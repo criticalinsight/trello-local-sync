@@ -286,7 +286,7 @@ export class ContentDO extends DurableObject<Env> {
                     body: JSON.stringify({
                         prompt: texts,
                         system: systemPrompt,
-                        model: 'gemini-2.5-flash' // Fast model for batching
+                        model: 'gemini-1.5-flash' // Standard Flash model
                     })
                 }
             );
