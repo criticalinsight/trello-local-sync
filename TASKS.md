@@ -31,4 +31,4 @@
 - [ ] Verify Ralph loop stability and MCP responsiveness <!-- id: p14_0 -->
     - [x] Resolve "Bad file descriptor" error in `ralph.log`
     - [x] Confirm `search_memories` works within `ralph_driver.py`
-    - [/] Perform a simple code modification via Ralph (e.g., update README.md)
+    - [x] Perform a simple code modification via Ralph (e.g., update README.md)

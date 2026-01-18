@@ -412,7 +412,7 @@ export async function addCard(listId: string, title: string, recordHistory = tru
     const pos = Object.values(store.cards).filter((c) => c && c.listId === listId).length;
     const createdAt = Date.now();
 
-    const card: Card = { id, title, listId, pos, createdAt };
+    const card: Card = { id, title, listId, pos, createdAt, boardId: store.activeBoardId };
 
     // Record history
     if (recordHistory) {
