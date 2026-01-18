@@ -283,9 +283,9 @@ export class ContentDO extends DurableObject<Env> {
         let success = false;
 
         try {
-            // Call Gemini API directly
+            // Call Gemini API directly (v1beta for correct endpoint)
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${this.env.GEMINI_API_KEY}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.env.GEMINI_API_KEY}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -293,8 +293,7 @@ export class ContentDO extends DurableObject<Env> {
                         contents: [{ role: 'user', parts: [{ text: texts }] }],
                         systemInstruction: { parts: [{ text: systemPrompt }] },
                         generationConfig: {
-                            temperature: 0.2,
-                            response_mime_type: "application/json"
+                            temperature: 0.2
                         }
                     })
                 }
