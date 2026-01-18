@@ -1,0 +1,62 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - button "Back to Home" [ref=e7] [cursor=pointer]:
+          - img [ref=e8]
+        - generic [ref=e10]:
+          - heading "Prompt Engineering Board" [level=1] [ref=e11]
+          - paragraph [ref=e12]: 2d409722...
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - button "Board" [ref=e15] [cursor=pointer]
+          - button "Analytics" [ref=e16] [cursor=pointer]
+        - generic [ref=e17]:
+          - generic [ref=e18]: 1 drafts
+          - generic [ref=e19]: 0 queued
+          - generic [ref=e20]: 0 running
+          - generic [ref=e21]: 0 deployed
+        - button "Switch to Light Mode" [ref=e22] [cursor=pointer]:
+          - img [ref=e23]
+  - generic [ref=e25]:
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - heading "Draft Prompts" [level=2] [ref=e29]
+          - generic [ref=e31]: "0"
+        - generic [ref=e32]:
+          - button "Delete all drafts" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+          - button "Run All" [ref=e36] [cursor=pointer]:
+            - img [ref=e37]
+            - generic [ref=e39]: Run All
+          - button "Add new prompt" [ref=e40] [cursor=pointer]:
+            - img [ref=e41]
+      - generic [ref=e44] [cursor=pointer]:
+        - generic [ref=e45]:
+          - generic [ref=e46]: Draft
+          - button "Delete prompt" [ref=e48]:
+            - img [ref=e49]
+        - heading "Live E2E 589" [level=3] [ref=e51]
+        - paragraph [ref=e52]: Write a 2-sentence poem about a coding assistant named Ralph.
+        - paragraph [ref=e53]: Write a 2-sentence poem about a coding assistant named Ralph.
+        - generic [ref=e55]: Creative
+    - generic [ref=e57]:
+      - generic [ref=e59]:
+        - heading "Queued" [level=2] [ref=e60]
+        - generic [ref=e62]: "0"
+      - generic [ref=e64]: No prompts yet
+    - generic [ref=e65]:
+      - generic [ref=e67]:
+        - heading "Generating" [level=2] [ref=e68]
+        - generic [ref=e70]: "0"
+      - generic [ref=e72]: No prompts yet
+    - generic [ref=e73]:
+      - generic [ref=e75]:
+        - heading "Deployed" [level=2] [ref=e76]
+        - generic [ref=e78]: "0"
+      - generic [ref=e80]: No prompts yet
+```
