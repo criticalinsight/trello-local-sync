@@ -570,6 +570,31 @@ export async function registerWebhook(env: Env, host: string): Promise<Response>
     });
 }
 
+// Helper for retrying fetches
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const res = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(timeout);
+
+            if (res.ok) return res;
+            if (res.status === 429 || res.status >= 500) {
+                const delay = 1000 * Math.pow(2, i);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+            return res;
+        } catch (e) {
+            if (i === retries - 1) throw e;
+            const delay = 1000 * Math.pow(2, i);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+    throw new Error('Max retries exceeded');
+}
+
 async function sendTelegramMessage(token: string, chatId: number, text: string, keyboard?: any, parseMode: string = 'Markdown') {
     const url = `https://api.telegram.org/bot${token}/sendMessage`;
     const body: any = {
@@ -582,7 +607,7 @@ async function sendTelegramMessage(token: string, chatId: number, text: string, 
         body.reply_markup = keyboard;
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -603,7 +628,7 @@ async function editTelegramMessage(token: string, chatId: number, messageId: num
         body.reply_markup = keyboard;
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
