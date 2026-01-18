@@ -28,7 +28,12 @@
     - [x] Inject memories into system prompt
 
 ## 🛠 System Verification (Phase 14)
-- [ ] Verify Ralph loop stability and MCP responsiveness <!-- id: p14_0 -->
+- [x] Verify Ralph loop stability and MCP responsiveness <!-- id: p14_0 -->
     - [x] Resolve "Bad file descriptor" error in `ralph.log`
     - [x] Confirm `search_memories` works within `ralph_driver.py`
     - [x] Perform a simple code modification via Ralph (e.g., update README.md)
+
+## 🏗 AI Refinery Optimization (Phase 15)
+- [x] Improve ContentDO robustness and reliability <!-- id: p15_0 -->
+- [x] Migrate Refinery Dashboard to dedicated `/r` route <!-- id: p15_1 -->
+- [x] Implement source-level health metrics and retries <!-- id: p15_2 -->
