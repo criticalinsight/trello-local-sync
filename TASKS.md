@@ -52,9 +52,9 @@
     - [x] Refactor `ContentDO.ts` (Robustness) <!-- id: p17_1_0 -->
     - [x] Refactor `BoardDO.ts` (Logic) <!-- id: p17_1_1 -->
     - [x] Refactor `ResearchDO.ts` (Agent) <!-- id: p17_1_2 -->
-- [ ] **Frontend QA** (Components) <!-- id: p17_2 -->
-    - [ ] Refactor `RefineryDashboard.tsx` <!-- id: p17_2_0 -->
-    - [ ] Refactor `AgentDashboard.tsx` <!-- id: p17_2_1 -->
+- [x] **Frontend QA** (Components) <!-- id: p17_2 -->
+    - [x] Refactor `RefineryDashboard.tsx` <!-- id: p17_2_0 -->
+    - [x] Refactor `AgentDashboard.tsx` <!-- id: p17_2_1 -->
 - [ ] **End-to-End Verification** <!-- id: p17_3 -->
     - [ ] Fix `final_simulation.spec.ts` <!-- id: p17_3_0 -->
     - [ ] Fix `live_simulation_v2.spec.ts` <!-- id: p17_3_1 -->
