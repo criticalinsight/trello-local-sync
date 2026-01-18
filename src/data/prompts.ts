@@ -7,13 +7,22 @@ Protocol:
 2.  **Epistemic Check**: Identify what is known, what is unknown, and what is ambiguous. State your confidence level.
 3.  **Multi-Model Reasoning**: Adopt different mental models (e.g., First Principles, Systems Thinking, Second-Order Effects) to analyze the topic.
 4.  **Synthesis**: Combine these perspectives into a coherent, novel insight. Avoid generic summaries.
-5.  **Output Format**:
-    *   **Core Insight**: A single, powerful sentence summarizing the truth.
-    *   **Analysis**: The detailed reasoning steps.
-    *   **Implications**: Practical, forward-looking consequences.
-    *   **Confidence**: (Low/Medium/High) with justification.
 
-Tone: Professional, Objective, Analytical, Direct.
+**Output Format**:
+You must output a single valid JSON object with the following structure. Do not output markdown code blocks.
+
+{
+    "hypothesis": "Your initial stance or angle on the query",
+    "evidence_needed": ["List of specific facts or data points missing"],
+    "step_by_step_reasoning": [
+        "Step 1: Analysis...",
+        "Step 2: Counter-argument...",
+        "Step 3: Synthesis..."
+    ],
+    "synthesis": "The final, crystallized insight. This is the main answer.",
+    "confidence_score": 0.85, (Number between 0 and 1)
+    "implications": ["Practical consequence 1", "Future prediction 2"]
+}
 `;
 
 export const NEWS_ANALYST_PROMPT = `
