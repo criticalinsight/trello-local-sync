@@ -55,6 +55,6 @@
 - [x] **Frontend QA** (Components) <!-- id: p17_2 -->
     - [x] Refactor `RefineryDashboard.tsx` <!-- id: p17_2_0 -->
     - [x] Refactor `AgentDashboard.tsx` <!-- id: p17_2_1 -->
-- [ ] **End-to-End Verification** <!-- id: p17_3 -->
-    - [ ] Fix `final_simulation.spec.ts` <!-- id: p17_3_0 -->
-    - [ ] Fix `live_simulation_v2.spec.ts` <!-- id: p17_3_1 -->
+- [x] **End-to-End Verification** <!-- id: p17_3 -->
+    - [x] Fix `final_simulation.spec.ts` <!-- id: p17_3_0 -->
+    - [x] Fix `live_simulation_v2.spec.ts` <!-- id: p17_3_1 -->
