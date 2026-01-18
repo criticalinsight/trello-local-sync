@@ -60,10 +60,10 @@
     - [x] Fix `live_simulation_v2.spec.ts` <!-- id: p17_3_1 -->
 
 ## 🧠 Epistemic Analyst & Deep Research (Phase 18)
-- [ ] **Epistemic Analyst Agent** <!-- id: p18_0 -->
-    - [ ] Formalize `EPISTEMIC_ANALYST_PROMPT` in `data/prompts.ts` <!-- id: p18_0_0 -->
-    - [ ] Enhance `ResearchDO.ts` with structured reasoning (CoT) <!-- id: p18_0_1 -->
-    - [ ] Integrate with Telegram `/insight` command logic <!-- id: p18_0_2 -->
+- [x] **Epistemic Analyst Agent** <!-- id: p18_0 -->
+    - [x] Formalize `EPISTEMIC_ANALYST_PROMPT` in `data/prompts.ts` <!-- id: p18_0_0 -->
+    - [x] Enhance `ResearchDO.ts` with structured reasoning (CoT) <!-- id: p18_0_1 -->
+    - [x] Integrate with Telegram `/insight` command logic <!-- id: p18_0_2 -->
 - [ ] **Deep Research Capabilities** <!-- id: p18_1 -->
     - [ ] Implement multi-step research loop (search -> analyze -> synthesize) <!-- id: p18_1_0 -->
     - [ ] Add source citation and reliability scoring <!-- id: p18_1_1 -->
