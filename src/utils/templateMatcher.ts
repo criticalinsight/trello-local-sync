@@ -1,55 +1,92 @@
 import { PROMPT_TEMPLATES, type PromptTemplate } from '../data/templates';
+import { getEmbedding } from '../aiService';
 
-export function findBestMatchingTemplate(userText: string): PromptTemplate | null {
+// Cache for template embeddings
+const templateEmbeddings = new Map<string, number[]>();
+let isCaching = false;
+
+// Cosine similarity
+function cosineSimilarity(vecA: number[], vecB: number[]) {
+    if (vecA.length !== vecB.length) return 0;
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+    }
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+// Pre-calculate embeddings (lazy load)
+async function ensureEmbeddings() {
+    if (templateEmbeddings.size > 0 || isCaching) return;
+    isCaching = true;
+    console.log('[TemplateMatcher] Caching embeddings...');
+
+    // Process in parallel chunks to avoid rate limits
+    // For now, just do all 
+    for (const t of PROMPT_TEMPLATES) {
+        // Embed the trigger + description for rich context
+        const text = `${t.trigger}: ${t.description}`;
+        const emb = await getEmbedding(text);
+        if (emb.length > 0) {
+            templateEmbeddings.set(t.id, emb);
+        }
+    }
+    isCaching = false;
+    console.log(`[TemplateMatcher] Cached ${templateEmbeddings.size} templates.`);
+}
+
+export async function findBestMatchingTemplate(userText: string): Promise<PromptTemplate | null> {
     if (!userText || userText.length < 10) return null;
 
+    // Trigger background caching if needed (fire and forget)
+    if (templateEmbeddings.size === 0) {
+        ensureEmbeddings();
+    }
+
     const normalizedText = userText.toLowerCase();
-    const tokens = new Set(normalizedText.split(/\W+/).filter((t) => t.length > 3));
 
-    let bestMatch: PromptTemplate | null = null;
-    let maxScore = 0;
-
+    // 1. FAST PATH: Keyword Matching (Legacy)
+    // Run this first to avoid API call latency if there's an obvious exact match
     for (const template of PROMPT_TEMPLATES) {
-        let score = 0;
-        const trigger = template.trigger.toLowerCase();
-        const description = template.description.toLowerCase();
-
-        // 1. Exact trigger phrase match (High confidence)
-        if (normalizedText.includes(trigger)) {
-            score += 50;
-        }
-
-        // 2. Keyword matching from trigger
-        const triggerTokens = trigger.split(/\W+/);
-        triggerTokens.forEach((t) => {
-            if (t.length > 3 && normalizedText.includes(t)) {
-                score += 10;
-            }
-        });
-
-        // 3. Keyword matching from description (Lower weight)
-        if (tokens.size > 0) {
-            const descTokens = description.split(/\W+/).filter((t) => t.length > 3);
-            let matches = 0;
-            descTokens.forEach((t) => {
-                if (tokens.has(t)) matches++;
-            });
-            // Jaccard-ish component
-            score += (matches / (tokens.size + descTokens.length)) * 20;
-        }
-
-        // 4. Specific heuristic overrides
-        if (template.id === 'sql-optimize' && (normalizedText.includes('select') || normalizedText.includes('query'))) score += 15;
-        if (template.id === 'code-refactor' && (normalizedText.includes('clean up') || normalizedText.includes('improve code'))) score += 15;
-        if (template.id === 'unit-tests' && (normalizedText.includes('test') || normalizedText.includes('coverage'))) score += 15;
-        if (template.id === 'landing-page' && (normalizedText.includes('website') || normalizedText.includes('hero section'))) score += 15;
-
-        if (score > maxScore) {
-            maxScore = score;
-            bestMatch = template;
+        if (normalizedText.includes(template.trigger.toLowerCase())) {
+            return template; // Immediate High Confidence Match
         }
     }
 
-    // Threshold (tune as needed)
-    return maxScore > 15 ? bestMatch : null;
+    // 2. SEMANTIC PATH: Embeddings
+    // Only pay the API cost if we have cached templates to compare against
+    if (templateEmbeddings.size > 0) {
+        try {
+            const userEmb = await getEmbedding(userText);
+            if (userEmb.length === 0) return null;
+
+            let bestMatch: PromptTemplate | null = null;
+            let maxScore = -1;
+
+            for (const template of PROMPT_TEMPLATES) {
+                const templEmb = templateEmbeddings.get(template.id);
+                if (!templEmb) continue;
+
+                const score = cosineSimilarity(userEmb, templEmb);
+                if (score > maxScore) {
+                    maxScore = score;
+                    bestMatch = template;
+                }
+            }
+
+            // Semantic Threshold
+            if (maxScore > 0.75) {
+                console.log(`[TemplateMatcher] Semantic Match: ${bestMatch?.id} (${maxScore.toFixed(2)})`);
+                return bestMatch;
+            }
+        } catch (e) {
+            console.warn('[TemplateMatcher] Semantic search failed', e);
+        }
+    }
+
+    return null;
 }
