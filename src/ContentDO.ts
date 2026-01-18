@@ -315,7 +315,8 @@ export class ContentDO extends DurableObject<Env> {
         const debugInfo = JSON.stringify({
             batch_processed: true,
             analysis: analysis,
-            raw_result: result, // Full API response
+            raw_output: (result as any)?.output || 'No output',
+            error: (result as any)?.error,
             timestamp: Date.now()
         });
 
