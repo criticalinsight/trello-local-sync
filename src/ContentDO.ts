@@ -257,21 +257,21 @@ export class ContentDO extends DurableObject<Env> {
         Your input is a batch of raw Telegram messages from a single channel.
         
         Tasks:
-        1. FILTER: Ignore conversational noise, spam, and unverified rumors unless high-impact.
-        2. EXTRACT: Identify specific stickers ($TICKER), sentiment, and macro relevance.
-        3. CLASSIFY: Determine Urgency (low, med, high) and Impact Radius (narrow, wide).
+        1. ANALYZE ALL: Extract any potential financial signal, even if low confidence or conversational.
+        2. CONTEXT: If a message mentions a ticker ($TICKER) or asset, it is relevant.
+        3. CLASSIFY: Determine Urgency (low, med, high). Defaults to "low" for rumors.
         
         Output valid JSON array:
         [{
             "summary": "Full technical digest of the news",
             "tickers": ["$TICKER"],
             "sentiment": "bullish" | "bearish" | "neutral",
-            "relevance_score": 0-100,
+            "relevance_score": 10-100,
             "urgency": "low" | "med" | "high",
             "impact_analysis": "One sentence reasoning for the score",
             "source_ids": ["msg_id_1"]
         }]
-        Strict JSON only. If primarily noise, return empty array [].`;
+        Strict JSON only. Return empty array [] ONLY if the input is purely "gm", "gn", or spam with no financial terms.`;
 
         let analysis: any[] = [];
         let success = false;
