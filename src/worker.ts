@@ -211,6 +211,41 @@ export default {
             }
         }
 
+        // Embedding Route: POST /api/ai/embedding
+        if (request.method === 'POST' && url.pathname === '/api/ai/embedding') {
+            try {
+                const body = (await request.json()) as { text: string };
+                if (!body.text) {
+                    return new Response(JSON.stringify({ error: 'Missing text' }), { status: 400, headers: corsHeaders });
+                }
+
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${env.GEMINI_API_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            content: { parts: [{ text: body.text }] }
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    return new Response(await response.text(), { status: response.status, headers: corsHeaders });
+                }
+
+                const data = await response.json() as any;
+                const embedding = data.embedding?.values || [];
+
+                return new Response(JSON.stringify({ embedding }), {
+                    headers: { 'Content-Type': 'application/json', ...corsHeaders }
+                });
+
+            } catch (e) {
+                return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: corsHeaders });
+            }
+        }
+
         // Telegram Webhook
         if (request.method === 'POST' && url.pathname === '/api/telegram/webhook') {
             return handleTelegramWebhook(request, env);
