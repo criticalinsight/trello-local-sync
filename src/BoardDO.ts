@@ -315,6 +315,81 @@ export class BoardDO extends DurableObject<Env> {
             });
         }
 
+        if (url.pathname === '/api/refinery/signal' && request.method === 'POST') {
+            try {
+                const signal = await request.json() as any;
+                const { intel, sourceId, sourceName, fingerprint } = signal;
+                const relevance = intel.relevance_score || 0;
+                const tickers = Array.isArray(intel.tickers) ? intel.tickers : [];
+                const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
+
+                // 1. Check for Duplicates / Consolidation
+                const existing = this.ctx.storage.sql.exec(
+                    'SELECT id FROM signals WHERE fingerprint = ? AND created_at > ?',
+                    fingerprint, sixHoursAgo
+                ).one() as any;
+
+                if (existing) {
+                    console.log(`[BoardDO] Consolidating signal from ${sourceName}...`);
+                    this.ctx.storage.sql.exec(
+                        `UPDATE signals 
+                         SET additional_sources = CASE 
+                            WHEN additional_sources IS NULL OR additional_sources = '' THEN ? 
+                            ELSE additional_sources || ',' || ? 
+                         END,
+                         relevance = MIN(relevance + 5, 100)
+                         WHERE id = ?`,
+                        sourceName, sourceName, existing.id
+                    );
+                    return Response.json({ success: true, duplicated: true });
+                }
+
+                // 2. Persist Signal
+                const signalId = crypto.randomUUID();
+                this.ctx.storage.sql.exec(
+                    `INSERT INTO signals (id, fingerprint, summary, sentiment, tickers, relevance, source_id, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    signalId, fingerprint, intel.summary, intel.sentiment, JSON.stringify(tickers), relevance, sourceId, Date.now()
+                );
+
+                // 3. Broadcast Alert
+                const msg = `🚨 **Intel: ${intel.summary}**\n` +
+                    `📈 Sentiment: ${(intel.sentiment || "").toUpperCase()}\n` +
+                    `🎯 Tickers: ${tickers.join(', ')}\n` +
+                    `🎯 Relevance: ${relevance}%`;
+                this.broadcast(msg);
+
+                // 4. Auto-Create Card if high relevance
+                if (relevance >= 80) {
+                    const cardId = crypto.randomUUID();
+                    const now = Date.now();
+                    const description = `📈 **Sentiment:** ${(intel.sentiment || "").toUpperCase()}\n` +
+                        `🎯 **Tickers:** ${tickers.join(', ')}\n` +
+                        `📊 **Relevance:** ${relevance}%\n` +
+                        `🚨 **Urgency:** ${(intel.urgency || "med").toUpperCase()}\n\n` +
+                        `🧠 **Impact Analysis:** ${intel.impact_analysis || "No analysis provided."}\n\n` +
+                        `Source: ${sourceName}`;
+
+                    this.ctx.storage.sql.exec(
+                        `INSERT INTO cards (id, board_id, list_id, title, pos, created_at, description, tags) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                        cardId, 'board-intel', 'list-intel-todo', `⚡ Intel: ${intel.summary}`, now, now, description, JSON.stringify(['intel', ...tickers])
+                    );
+
+                    this.broadcast({
+                        event: 'card_auto_created',
+                        entityId: cardId,
+                        details: `Auto-created Intel Card: ${intel.summary}`
+                    });
+                }
+
+                return Response.json({ success: true, signalId });
+            } catch (e) {
+                console.error('[BoardDO] Signal processing failed:', e);
+                return Response.json({ success: false, error: String(e) }, { status: 500 });
+            }
+        }
+
         if (url.pathname === '/api/sql') {
             const body = (await request.json()) as { sql: string; params?: unknown[] };
             const result = this.ctx.storage.sql.exec(body.sql, ...(body.params || []));
