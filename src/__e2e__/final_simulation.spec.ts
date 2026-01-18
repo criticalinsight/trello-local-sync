@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('Visual Lifecycle Simulation (Final)', async ({ page }) => {
+    test.setTimeout(120000); // 2 minutes for full AI lifecycle
     const simulationTitle = 'Live E2E ' + Math.floor(Math.random() * 10000);
 
     console.log('Navigating to live site...');

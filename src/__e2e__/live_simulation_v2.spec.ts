@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test('End-to-end visual simulation on live site', async ({ page }) => {
-    // Step 1: Navigate to the live site with cache bypass
+    test.setTimeout(180000); // 3 minutes for full AI lifecycle
+    const simulationTitle = 'Live E2E ' + Math.floor(Math.random() * 10000);
     console.log('Navigating to live site with cache bypass...');
     await page.goto('https://work.moecapital.com/?t=' + Date.now());
     await expect(page).toHaveTitle('Work');
@@ -61,6 +62,7 @@ test('End-to-end visual simulation on live site', async ({ page }) => {
     console.log('Status: Deployed (Success)');
 
     // Final check of output
+    await page.keyboard.press('Escape'); // Close any open modals
     await lastCard.click();
     const output = page.locator('.prose');
     await expect(output).not.toBeEmpty();
