@@ -48,10 +48,10 @@
 - [x] **Core Logic QA** (`promptStore`, `aiService`) <!-- id: p17_0 -->
     - [x] Test `promptStore.ts` coverage & refactor <!-- id: p17_0_0 -->
     - [x] Test `aiService.ts` coverage & refactor <!-- id: p17_0_1 -->
-- [ ] **Backend Agents QA** (Durable Objects) <!-- id: p17_1 -->
-    - [ ] Refactor `ContentDO.ts` (Robustness) <!-- id: p17_1_0 -->
-    - [ ] Refactor `BoardDO.ts` (Logic) <!-- id: p17_1_1 -->
-    - [ ] Refactor `ResearchDO.ts` (Agent) <!-- id: p17_1_2 -->
+- [x] **Backend Agents QA** (Durable Objects) <!-- id: p17_1 -->
+    - [x] Refactor `ContentDO.ts` (Robustness) <!-- id: p17_1_0 -->
+    - [x] Refactor `BoardDO.ts` (Logic) <!-- id: p17_1_1 -->
+    - [x] Refactor `ResearchDO.ts` (Agent) <!-- id: p17_1_2 -->
 - [ ] **Frontend QA** (Components) <!-- id: p17_2 -->
     - [ ] Refactor `RefineryDashboard.tsx` <!-- id: p17_2_0 -->
     - [ ] Refactor `AgentDashboard.tsx` <!-- id: p17_2_1 -->
