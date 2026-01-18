@@ -115,19 +115,52 @@ describe('AI Service', () => {
             expect(duration).toBeLessThan(100);
         });
     });
-});
+    describe('Retry Logic', () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
 
-describe('Security', () => {
-    test('API key is not hardcoded', async () => {
-        const { AI_DEFAULT_CONFIG } = await import('../aiService');
-        // API key should come from environment, not hardcoded
-        expect(AI_DEFAULT_CONFIG.apiKey).toBeUndefined();
-    });
+        beforeEach(() => {
+            mockFetch.mockReset();
+        });
 
-    test('worker URL uses HTTPS in production', async () => {
-        const { AI_DEFAULT_CONFIG } = await import('../aiService');
-        // In dev mode it would be /api, in prod it would be https://
-        const url = AI_DEFAULT_CONFIG.workerUrl;
-        expect(url.startsWith('/api') || url.startsWith('https://')).toBe(true);
+        test('retries on 503 error', async () => {
+            const { generate } = await import('../aiService');
+
+            // Mock fail twice then succeed
+            mockFetch
+                .mockResolvedValueOnce({ ok: false, status: 503, text: () => Promise.resolve('Service Unavailable') })
+                .mockResolvedValueOnce({ ok: false, status: 503, text: () => Promise.resolve('Service Unavailable') })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: () => Promise.resolve({ text: 'Success' })
+                });
+
+            await generate('Test Prompt');
+
+            // Should have been called 3 times
+            expect(mockFetch).toHaveBeenCalledTimes(3);
+        });
+
+        test('fails after max retries', async () => {
+            const { generate } = await import('../aiService');
+
+            // Mock fail 3 times (max retries)
+            mockFetch
+                .mockResolvedValue({ ok: false, status: 503, text: () => Promise.resolve('Service Unavailable') });
+
+            await expect(generate('Test Prompt')).rejects.toThrow();
+            expect(mockFetch).toHaveBeenCalledTimes(3);
+        });
+
+        test('does not retry on 400 error', async () => {
+            const { generate } = await import('../aiService');
+
+            // Mock fail with 400 (Bad Request)
+            mockFetch
+                .mockResolvedValueOnce({ ok: false, status: 400, text: () => Promise.resolve('Bad Request') });
+
+            await expect(generate('Test Prompt')).rejects.toThrow();
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
     });
 });

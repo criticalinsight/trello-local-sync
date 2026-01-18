@@ -45,9 +45,9 @@
 - [ ] Verify `moecapital.com/r` in production <!-- id: p16_3 -->
 
 ## 🛡️ Comprehensive QA & Refactor Loop (Phase 17)
-- [ ] **Core Logic QA** (`promptStore`, `aiService`) <!-- id: p17_0 -->
-    - [ ] Test `promptStore.ts` coverage & refactor <!-- id: p17_0_0 -->
-    - [ ] Test `aiService.ts` coverage & refactor <!-- id: p17_0_1 -->
+- [x] **Core Logic QA** (`promptStore`, `aiService`) <!-- id: p17_0 -->
+    - [x] Test `promptStore.ts` coverage & refactor <!-- id: p17_0_0 -->
+    - [x] Test `aiService.ts` coverage & refactor <!-- id: p17_0_1 -->
 - [ ] **Backend Agents QA** (Durable Objects) <!-- id: p17_1 -->
     - [ ] Refactor `ContentDO.ts` (Robustness) <!-- id: p17_1_0 -->
     - [ ] Refactor `BoardDO.ts` (Logic) <!-- id: p17_1_1 -->
