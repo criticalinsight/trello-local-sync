@@ -2,7 +2,8 @@ export interface Env {
     TELEGRAM_BOT_TOKEN: string;
     BOARD_DO: DurableObjectNamespace;
     RESEARCH_DO: DurableObjectNamespace;
-    GEMINI_API_KEY: string; // Added explicitly to interface
+    CONTENT_DO: DurableObjectNamespace;
+    GEMINI_API_KEY: string;
 }
 
 interface TelegramUpdate {
