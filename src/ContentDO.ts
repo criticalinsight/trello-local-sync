@@ -319,6 +319,13 @@ export class ContentDO extends DurableObject<Env> {
         if (success) {
             this.updateSourceMetrics(sourceId, true);
         }
+
+        // Check for remaining items and reschedule
+        const pending = this.ctx.storage.sql.exec('SELECT COUNT(*) as cnt FROM content_items WHERE processed_json IS NULL').toArray()[0] as any;
+        if (pending.cnt > 0) {
+            console.log(`[ContentDO] ${pending.cnt} items remaining. Rescheduling batch...`);
+            await this.ctx.storage.setAlarm(Date.now() + 2000); // 2s processing gap
+        }
     }
 
     private async notifySignal(intel: any, sourceId: string, sourceName: string) {
