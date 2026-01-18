@@ -627,3 +627,30 @@ Each sub-task should be self-contained and contribute to answering the main task
     // Fallback: single task with original prompt
     return [{ title: 'Primary Task', description: prompt }];
 }
+/**
+ * Generate embeddings for text using Gemini.
+ * @param text The text to embed.
+ * @returns A number array representing the embedding vector.
+ */
+export async function getEmbedding(text: string): Promise<number[]> {
+    if (!text || !text.trim()) return [];
+
+    try {
+        const response = await fetch(`${WORKER_URL}/embedding`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+        });
+
+        if (!response.ok) {
+            console.warn(`[AI Service] Embedding failed: ${response.status}`);
+            return [];
+        }
+
+        const data = await response.json() as { embedding: number[] };
+        return data.embedding || [];
+    } catch (e) {
+        console.warn('[AI Service] Embedding error:', e);
+        return [];
+    }
+}
