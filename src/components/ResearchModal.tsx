@@ -133,13 +133,24 @@ export const ResearchModal: Component<Props> = (props) => {
                                 </div>
                             </div>
 
-                            <div class="bg-slate-950 rounded-lg border border-slate-800 min-h-[300px] p-4 font-mono text-sm text-slate-300 whitespace-pre-wrap overflow-x-auto">
-                                {status()?.text || (
-                                    <div class="h-full flex flex-col items-center justify-center text-slate-600 space-y-4">
-                                        <div class="animate-pulse text-4xl">🧬</div>
-                                        <p>Analyzing web sources... This may take up to 2 minutes.</p>
-                                    </div>
-                                )}
+                            <div class="bg-slate-950 rounded-lg border border-slate-800 min-h-[300px] p-4 font-mono text-sm text-slate-300 overflow-x-auto">
+                                <Show
+                                    when={status()?.outputs && status()?.outputs!.length > 0}
+                                    fallback={
+                                        status()?.text || (
+                                            <div class="h-full flex flex-col items-center justify-center text-slate-600 space-y-4 pt-10">
+                                                <div class="animate-pulse text-4xl">🧬</div>
+                                                <p>Analyzing web sources... This may take up to 2 minutes.</p>
+                                            </div>
+                                        )
+                                    }
+                                >
+                                    <EpistemicView
+                                        outputs={status()!.outputs!}
+                                        logs={status()?.logs}
+                                        isProcessing={status()?.status === 'processing'}
+                                    />
+                                </Show>
                             </div>
                         </div>
                     </Show>

@@ -11,6 +11,10 @@ export interface ResearchJobStatus {
     status: 'processing' | 'completed' | 'failed';
     input: string;
     text?: string;
+    outputs?: any[];
+    iteration?: number;
+    maxIterations?: number;
+    logs?: string[];
     error?: string;
     createdAt: number;
     completedAt?: number;
