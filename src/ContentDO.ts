@@ -227,7 +227,7 @@ export class ContentDO extends DurableObject<Env> {
 
     private async processBatch() {
         // Fetch unprocessed items
-        const items = this.ctx.storage.sql.exec('SELECT * FROM content_items WHERE processed_json IS NULL LIMIT 20').toArray() as any[];
+        const items = this.ctx.storage.sql.exec('SELECT * FROM content_items WHERE processed_json IS NULL LIMIT 5').toArray() as any[];
 
         if (items.length === 0) return;
 
