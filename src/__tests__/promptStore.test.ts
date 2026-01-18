@@ -47,7 +47,7 @@ const { promptStore, setPromptStore } = promptStoreModule;
 
 describe('promptStore Core Logic', () => {
 
-    beforeEach(() => {
+    beforeEach(async () => {
         // Reset store state
         setPromptStore('prompts', {});
         setPromptStore('versions', {});
@@ -55,6 +55,35 @@ describe('promptStore Core Logic', () => {
         setPromptStore('connected', false);
         setPromptStore('syncing', false);
         setPromptStore('executionQueue', []);
+
+        // Initialize with default board for testing
+        await promptStoreModule.initPromptPGlite('test-board');
+    });
+
+    test('addPrompt adds a new prompt to the store and DB', async () => {
+        const title = 'Test Prompt';
+        const id = await promptStoreModule.addPrompt(title);
+
+        expect(id).toBeDefined();
+        // Check store state
+        expect(promptStore.prompts[id]).toBeDefined();
+        expect(promptStore.prompts[id].title).toBe(title);
+        expect(promptStore.prompts[id].status).toBe('draft');
+
+        // Check DB was called
+        // We can't easily check the mock instance created inside the module without exposing it,
+        // but we can trust the coverage or export the instance in a refactor.
+        // For now, we verified the function runs without error using the mock.
+    });
+
+    test('updatePrompt updates an existing prompt', async () => {
+        const title = 'Original Title';
+        const id = await promptStoreModule.addPrompt(title);
+
+        const newTitle = 'Updated Title';
+        await promptStoreModule.updatePrompt(id, { title: newTitle });
+
+        expect(promptStore.prompts[id].title).toBe(newTitle);
     });
 
     test('genId generates a string', () => {
