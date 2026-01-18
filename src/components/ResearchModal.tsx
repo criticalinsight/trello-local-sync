@@ -1,5 +1,6 @@
 import { Component, createSignal, Show, onCleanup } from 'solid-js';
 import { startResearchJob, pollResearchStatus, ResearchJobStatus } from '../utils/researchService';
+import { EpistemicView } from './EpistemicView';
 
 interface Props {
     isOpen: boolean;
