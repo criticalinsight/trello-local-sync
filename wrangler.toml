@@ -22,3 +22,23 @@ new_sqlite_classes = ["BoardDO"]
 tag = "v2"
 new_sqlite_classes = ["ResearchDO"]
 
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "work-media"
+
+# Secret: GEMINI_API_KEY
+# Set via: wrangler secret put GEMINI_API_KEY
+# Then paste your Gemini API key when prompted
