@@ -14,7 +14,10 @@ interface ResearchJob {
     interactionId: string; // Gemini interaction ID
     status: 'processing' | 'completed' | 'failed';
     input: string;
-    outputs?: unknown[];
+    outputs?: any[];
+    iteration?: number; // Current iteration (0-indexed)
+    maxIterations?: number; // Stop after this many loops
+    logs?: string[]; // Log of research steps
     text?: string;
     error?: string;
     createdAt: number;
@@ -324,62 +327,103 @@ export class ResearchDO extends DurableObject<Env> {
     }
     async runEpistemicGeneration(job: ResearchJob) {
         try {
-            // Use Gemini 1.5 Pro for reasoning
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${this.env.GEMINI_API_KEY}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [
-                            { role: 'user', parts: [{ text: job.input }] }
-                        ],
-                        systemInstruction: { parts: [{ text: EPISTEMIC_ANALYST_PROMPT }] },
-                        generationConfig: {
-                            temperature: 0.7,
-                            maxOutputTokens: 8192
-                        }
-                    })
+            job.iteration = 0;
+            job.maxIterations = 3; // Max 3 deep dive steps
+            job.logs = [];
+            job.outputs = [];
+
+            while (job.iteration < job.maxIterations) {
+                console.log(`[ResearchDO] Epistemic Loop ${job.iteration + 1}/${job.maxIterations}`);
+
+                // Construct context from previous findings
+                let context = `Original Query: "${job.input}"\n\n`;
+                if (job.outputs && job.outputs.length > 0) {
+                    context += `Previous Findings:\n${JSON.stringify(job.outputs, null, 2)}\n\n`;
+                    context += `Current Task: Based on the above, fill in the missing 'evidence_needed' or synthesize the final answer if confidence is high.`;
                 }
-            );
 
-            if (!response.ok) {
-                throw new Error(`Gemini Error: ${response.statusText}`);
-            }
+                // Call Gemini
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${this.env.GEMINI_API_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [
+                                { role: 'user', parts: [{ text: context }] }
+                            ],
+                            tools: [{ googleSearch: {} }], // Enable real-time grounding
+                            systemInstruction: { parts: [{ text: EPISTEMIC_ANALYST_PROMPT }] },
+                            generationConfig: {
+                                temperature: 0.7,
+                                maxOutputTokens: 8192
+                            }
+                        })
+                    }
+                );
 
-            const data = await response.json() as any;
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                if (!response.ok) {
+                    throw new Error(`Gemini Error: ${response.statusText}`);
+                }
 
-            // Clean markdown code blocks if present
-            const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const data = await response.json() as any;
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
 
-            let parsedOutput = null;
-            try {
-                parsedOutput = JSON.parse(cleanText);
-            } catch (e) {
-                console.warn('[ResearchDO] Failed to parse Epistemic JSON, falling back to raw text', e);
+                // Clean markdown code blocks
+                const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+                let parsedOutput = null;
+                try {
+                    parsedOutput = JSON.parse(cleanText);
+                } catch (e) {
+                    console.warn('[ResearchDO] Failed to parse Epistemic JSON', e);
+                }
+
+                if (parsedOutput) {
+                    // Inject grounding data into output if available
+                    if (groundingChunks.length > 0) {
+                        parsedOutput.grounding = groundingChunks;
+                    }
+
+                    job.outputs.push(parsedOutput);
+                    job.logs.push(`Step ${job.iteration + 1}: Confidence ${parsedOutput.confidence_score}`);
+
+                    // Stop if confidence is high enough
+                    if (parsedOutput.confidence_score > 0.9 || parsedOutput.evidence_needed?.length === 0) {
+                        break;
+                    }
+                } else {
+                    job.outputs.push({ raw: text });
+                    // If we can't parse, we probably shouldn't loop blindly
+                    break;
+                }
+
+                job.iteration++;
+                // Small delay to be nice to rate limits
+                await new Promise(r => setTimeout(r, 1000));
             }
 
             job.status = 'completed';
-            job.text = text; // Keep raw text as backup
-            job.outputs = parsedOutput ? [parsedOutput] : [{ raw: text }];
+            job.text = JSON.stringify(job.outputs?.[job.outputs.length - 1] || {}); // Last output is the result
             job.completedAt = Date.now();
             await this.ctx.storage.put('job', job);
 
             // Phase 4: Notify Epistemic Completion
             const token = (this.env as any).TELEGRAM_BOT_TOKEN;
             if (token) {
-                // If parsed, show smart summary
+                const finalResult = job.outputs?.[job.outputs.length - 1] || {};
                 let msg = '';
-                if (parsedOutput) {
-                    msg = `🧠 **Epistemic Insight Ready!**\n\n` +
-                        `🎯 **Hypothesis:** ${parsedOutput.hypothesis}\n\n` +
-                        `💡 **Core Insight:** ${parsedOutput.synthesis}\n\n` +
-                        `📊 **Confidence:** ${parsedOutput.confidence_score * 100}%\n\n` +
-                        `Read full analysis in dashboard.`;
+                if (finalResult.synthesis) {
+                    let searchIcon = (finalResult.grounding || []).length > 0 ? '🌍' : '🧠';
+                    msg = `${searchIcon} **Deep Research Complete**\n\n` +
+                        `🎯 **Hypothesis:** ${finalResult.hypothesis}\n\n` +
+                        `💡 **Insight:** ${finalResult.synthesis}\n\n` +
+                        `📝 **Steps:** ${job.iteration! + 1}\n` +
+                        `📊 **Confidence:** ${(finalResult.confidence_score * 100).toFixed(0)}%`;
                 } else {
-                    const preview = text.substring(0, 500).trim();
-                    msg = `🧠 **Epistemic Insight Ready!** (Raw)\n\nJob: \`${job.id.slice(0, 8)}\`\n\n**Analysis:**\n${preview}...`;
+                    const preview = String(finalResult.raw || '').substring(0, 500).trim();
+                    msg = `🧠 **Research Done** (Raw)\n\nAnalysis:\n${preview}...`;
                 }
 
                 await sendNotification(token, this.env as any, msg);
