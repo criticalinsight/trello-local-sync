@@ -67,6 +67,6 @@
 - [x] **Deep Research Capabilities** <!-- id: p18_1 -->
     - [x] Implement multi-step research loop (search -> analyze -> synthesize) <!-- id: p18_1_0 -->
     - [x] Add source citation and reliability scoring <!-- id: p18_1_1 -->
-- [ ] **Frontend Integration** <!-- id: p18_2 -->
-    - [ ] Create `EpistemicView` for displaying deep reasoning chains <!-- id: p18_2_0 -->
-    - [ ] Add "Deep Research" mode to Prompt Playground <!-- id: p18_2_1 -->
+- [x] **Frontend Integration** <!-- id: p18_2 -->
+    - [x] Create `EpistemicView` for displaying deep reasoning chains <!-- id: p18_2_0 -->
+    - [x] Add "Deep Research" mode to Prompt Playground <!-- id: p18_2_1 -->
