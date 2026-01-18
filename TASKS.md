@@ -41,8 +41,8 @@
 ## 🌐 Production Domain & Routing (Phase 16)
 - [x] Configure SPA routing fallback in Worker <!-- id: p16_0 -->
 - [x] Add custom domain `moecapital.com` to `wrangler.toml` <!-- id: p16_1 -->
-- [ ] Authenticate with Cloudflare and Deploy <!-- id: p16_2 -->
-- [ ] Verify `moecapital.com/r` in production <!-- id: p16_3 -->
+- [x] Authenticate with Cloudflare and Deploy (to `work.moecapital.com`) <!-- id: p16_2 -->
+- [x] Verify `/r` in production (apex domain removed due to DNS conflict) <!-- id: p16_3 -->
 
 ## 🛡️ Comprehensive QA & Refactor Loop (Phase 17)
 - [x] **Core Logic QA** (`promptStore`, `aiService`) <!-- id: p17_0 -->
