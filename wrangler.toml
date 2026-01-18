@@ -3,8 +3,11 @@ main = "src/worker.ts"
 compatibility_date = "2024-09-23"
 account_id = "c61fd30bce61d2d26de34db53b001e3d"
 
-# Custom domain route
-routes = [{ pattern = "work.moecapital.com", custom_domain = true }]
+# Custom domain routes
+routes = [
+    { pattern = "work.moecapital.com", custom_domain = true },
+    { pattern = "moecapital.com", custom_domain = true }
+]
 
 [durable_objects]
 bindings = [
