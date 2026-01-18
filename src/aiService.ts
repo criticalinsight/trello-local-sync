@@ -290,15 +290,52 @@ Example:
     const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
     try {
-        const response = await fetch(config.workerUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-            },
-            body: JSON.stringify(payload),
-            signal: controller.signal,
-        });
+        let response: Response | undefined;
+        let lastErr: unknown;
+
+        // Retry logic for transient errors (5xx, 429)
+        const retries = 3;
+        for (let i = 0; i < retries; i++) {
+            try {
+                // Re-create signals for each attempt if previous aborted? 
+                // No, controller is for overall timeout. 
+                // But if network failure, we retry.
+                response = await fetch(config.workerUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+                    },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal,
+                });
+
+                if (response.ok) break; // Success
+
+                // Check for retryable status codes
+                if (response.status === 429 || response.status >= 500) {
+                    throw new Error(`Retryable HTTP error: ${response.status}`);
+                }
+
+                // If not retryable (e.g. 400), break immediately
+                break;
+            } catch (e) {
+                lastErr = e;
+                const isTimeout = (e as Error).name === 'AbortError';
+                if (isTimeout) throw e; // Don't retry on user timeout
+
+                if (i === retries - 1) break; // Last attempt failed
+
+                // Exponential backoff: 500, 1000, 2000 ms
+                const delay = 500 * Math.pow(2, i);
+                console.warn(`[AI] Attempt ${i + 1} failed for ${model}, retrying in ${delay}ms...`, e);
+                await new Promise((r) => setTimeout(r, delay));
+            }
+        }
+
+        if (!response) {
+            throw lastErr || new Error('Network request failed completely');
+        }
 
         clearTimeout(timeoutId);
 
