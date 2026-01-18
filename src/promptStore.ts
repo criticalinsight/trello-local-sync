@@ -8,9 +8,42 @@ import type {
     PromptParameters,
     PromptBoardMeta,
     PromptWorkflow,
+    PromptWorkflow,
 } from './types';
 import { generateTags } from './utils/autoTagger';
 import { syncManager } from './syncManager';
+
+// ============= TYPES =============
+interface PromptRow {
+    id: string;
+    title: string;
+    boardId: string;
+    status: string;
+    currentVersionId: string | null;
+    pos: number;
+    createdAt: number;
+    deployedAt: number | null;
+    starred: boolean;
+    archived: boolean;
+    schedule_json: string | null;
+    workflow_json: string | null;
+    tags: string | null; // stored as JSON string or text array? Logic says JSON.stringify([])
+}
+
+interface VersionRow {
+    id: string;
+    promptId: string;
+    content: string;
+    systemInstructions: string;
+    temperature: number;
+    topP: number;
+    maxTokens: number;
+    model: string;
+    output: string | null;
+    createdAt: number;
+    executionTime: number | null;
+    error: string | null;
+}
 
 // ============= STATE =============
 
@@ -237,7 +270,7 @@ async function loadPromptsFromDB() {
     if (!pglite) return;
 
     // Load prompts
-    const promptsResult = await pglite.query<any>(
+    const promptsResult = await pglite.query<PromptRow>(
         `SELECT id, title, board_id as "boardId", status, current_version_id as "currentVersionId", 
          pos, created_at as "createdAt", deployed_at as "deployedAt", 
          starred = 1 as starred, archived = 1 as archived, schedule_json, workflow_json, tags
@@ -246,7 +279,7 @@ async function loadPromptsFromDB() {
     );
 
     // Load versions
-    const versionsResult = await pglite.query<any>(
+    const versionsResult = await pglite.query<VersionRow>(
         `SELECT v.id, v.prompt_id as "promptId", v.content, v.system_instructions as "systemInstructions",
          v.temperature, v.top_p as "topP", v.max_tokens as "maxTokens", v.model, v.output,
          v.created_at as "createdAt", v.execution_time as "executionTime", v.error
@@ -263,7 +296,7 @@ async function loadPromptsFromDB() {
             s.versions = {};
 
             const promptsMap: Record<string, PromptCard> = {};
-            promptsResult.rows.forEach((row: any) => {
+            promptsResult.rows.forEach((row: PromptRow) => {
                 let tags: string[] = [];
                 try {
                     if (row.tags) {
@@ -291,7 +324,7 @@ async function loadPromptsFromDB() {
             });
             s.prompts = promptsMap;
 
-            for (const row of versionsResult.rows as any[]) {
+            for (const row of versionsResult.rows as VersionRow[]) {
                 s.versions[row.id] = {
                     ...row,
                     parameters: {
