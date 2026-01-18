@@ -350,16 +350,39 @@ export class ResearchDO extends DurableObject<Env> {
             const data = await response.json() as any;
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
+            // Clean markdown code blocks if present
+            const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            let parsedOutput = null;
+            try {
+                parsedOutput = JSON.parse(cleanText);
+            } catch (e) {
+                console.warn('[ResearchDO] Failed to parse Epistemic JSON, falling back to raw text', e);
+            }
+
             job.status = 'completed';
-            job.text = text;
+            job.text = text; // Keep raw text as backup
+            job.outputs = parsedOutput ? [parsedOutput] : [{ raw: text }];
             job.completedAt = Date.now();
             await this.ctx.storage.put('job', job);
 
             // Phase 4: Notify Epistemic Completion
             const token = (this.env as any).TELEGRAM_BOT_TOKEN;
             if (token) {
-                const preview = text.substring(0, 500).trim();
-                await sendNotification(token, this.env as any, `🧠 **Epistemic Insight Ready!**\n\nJob: \`${job.id.slice(0, 8)}\`\n\n**Analysis:**\n${preview}...`);
+                // If parsed, show smart summary
+                let msg = '';
+                if (parsedOutput) {
+                    msg = `🧠 **Epistemic Insight Ready!**\n\n` +
+                        `🎯 **Hypothesis:** ${parsedOutput.hypothesis}\n\n` +
+                        `💡 **Core Insight:** ${parsedOutput.synthesis}\n\n` +
+                        `📊 **Confidence:** ${parsedOutput.confidence_score * 100}%\n\n` +
+                        `Read full analysis in dashboard.`;
+                } else {
+                    const preview = text.substring(0, 500).trim();
+                    msg = `🧠 **Epistemic Insight Ready!** (Raw)\n\nJob: \`${job.id.slice(0, 8)}\`\n\n**Analysis:**\n${preview}...`;
+                }
+
+                await sendNotification(token, this.env as any, msg);
             }
 
         } catch (e) {
