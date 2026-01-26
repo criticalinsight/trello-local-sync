@@ -31,7 +31,7 @@ interface Env {
 const POLL_INTERVAL_MS = 10000; // 10 seconds
 const MAX_POLL_DURATION_MS = 60 * 60 * 1000; // 1 hour max (for long Deep Research reports)
 
-export class ResearchDO extends DurableObject<Env> {
+export class ResearchDOSql extends DurableObject<Env> {
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
     }

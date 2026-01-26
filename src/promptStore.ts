@@ -8,7 +8,7 @@ import type {
     PromptParameters,
     PromptBoardMeta,
     PromptWorkflow,
-    PromptWorkflow,
+    Persona,
 } from './types';
 import { generateTags } from './utils/autoTagger';
 import { syncManager } from './syncManager';
@@ -51,6 +51,7 @@ interface PromptStoreState {
     prompts: Record<string, PromptCard>;
     versions: Record<string, PromptVersion>;
     boards: Record<string, PromptBoardMeta>;
+    personae: Record<string, Persona>;
     connected: boolean;
     syncing: boolean;
     executionQueue: string[]; // prompt IDs queued for execution
@@ -60,6 +61,7 @@ export const [promptStore, setPromptStore] = createStore<PromptStoreState>({
     prompts: {},
     versions: {},
     boards: {},
+    personae: {},
     connected: false,
     syncing: false,
     executionQueue: [],
@@ -70,6 +72,9 @@ let pglite: PGlite | null = null;
 // let socket: WebSocket | null = null;
 // let clientId: string = '';
 let currentBoardId: string = '';
+
+export const getPGlite = () => pglite;
+export const setPglite = (p: PGlite | null) => (pglite = p);
 
 // ============= UTILITIES =============
 
@@ -122,7 +127,7 @@ async function handleBoardEvent(event: {
 // ============= DATABASE INITIALIZATION =============
 
 export async function initPromptPGlite(boardId: string) {
-    if (pglite && currentBoardId === boardId) {
+    if (getPGlite() && currentBoardId === boardId) {
         console.log(`[PromptStore] PGlite already initialized for board: ${boardId}`);
         return;
     }
@@ -131,23 +136,28 @@ export async function initPromptPGlite(boardId: string) {
     currentBoardId = boardId;
 
     // Close previous instance if it exists to prevent handle leaks
-    if (pglite) {
+    if (getPGlite()) {
         try {
             console.log('[PromptStore] Closing previous instance...');
-            await pglite.close();
-            pglite = null;
+            // Need to avoid recursion if close() triggers something
+            const old = getPGlite();
+            setPglite(null);
+            await old!.close();
         } catch (e) {
             console.warn('[PromptStore] Failed to close previous PGlite instance', e);
         }
     }
 
     try {
-        // Sanitize boardId for IndexDB name
-        const dbName = `prompt-board-${boardId.replace(/[^a-zA-Z0-9-]/g, '_')}`;
-        // Create new PGlite instance for prompts
-        pglite = new PGlite(`idb://${dbName}`);
-        await pglite.waitReady;
-        console.log(`[PromptStore] PGlite ready: ${dbName}`);
+        if (!getPGlite()) {
+            // Sanitize boardId for IndexDB name
+            const dbName = `prompt-board-${boardId.replace(/[^a-zA-Z0-9-]/g, '_')}`;
+            // Create new PGlite instance for prompts
+            const instance = new PGlite(`idb://${dbName}`);
+            setPglite(instance);
+        }
+        await getPGlite()!.waitReady;
+        console.log(`[PromptStore] PGlite ready for board: ${boardId}`);
     } catch (e) {
         console.error('[PromptStore] PGlite failed to initialize', e);
         throw e;
@@ -250,14 +260,17 @@ export async function initPromptPGlite(boardId: string) {
         console.warn('[PromptStore] Meta entry failed (non-critical)', e);
     }
 
-    // Load existing data
-    console.log('[PromptStore] Loading prompts from DB...');
-    await loadPromptsFromDB();
-    console.log('[PromptStore] Prompts loaded');
-
-    // Initialize memory store
+    // Initialize memory store (creates personae table)
     const { initMemoryStore } = await import('./memoryStore');
     await initMemoryStore(boardId, pglite);
+
+    // Load existing data
+    console.log('[PromptStore] Loading prompts and personae from DB...');
+    await Promise.all([
+        loadPromptsFromDB(),
+        loadPersonaeFromDB()
+    ]);
+    console.log('[PromptStore] Load complete');
 
     // Initialize Sync Manager
     const { syncManager } = await import('./syncManager');
@@ -944,7 +957,7 @@ export async function schedulePrompt(promptId: string, cron: string, enabled: bo
     };
 
     try {
-        const workerUrl = import.meta.env.VITE_AI_WORKER_URL || '';
+        const workerUrl = import.meta.env.VITE_AI_WORKER_URL || (globalThis as any).VITE_AI_WORKER_URL || '';
         if (!workerUrl) return;
 
         const response = await fetch(
@@ -1100,8 +1113,8 @@ export async function runWithCritique(promptId: string): Promise<void> {
             critique: { ...prompt.critique, currentRetry, lastFeedback },
         });
 
-        // Run prompt
-        await runSinglePrompt(promptId);
+        // Run prompt and await completion for critique loop
+        await executePrompt(promptId);
 
         // Get output
         const version = getCurrentVersion(promptId);
@@ -1139,4 +1152,76 @@ export async function runWithCritique(promptId: string): Promise<void> {
     }
 
     console.log(`[Critique] Max retries reached for ${promptId}. Using last output.`);
+}
+async function loadPersonaeFromDB() {
+    if (!pglite) return;
+    const res = await pglite.query<any>(`SELECT id, name, system_instructions as "systemInstructions", description, updated_at as "updatedAt" FROM personae ORDER BY updated_at DESC`);
+
+    setPromptStore(produce(s => {
+        s.personae = {};
+        for (const row of res.rows) {
+            s.personae[row.id] = row;
+        }
+    }));
+}
+
+export async function addPersona(name: string, systemInstructions: string, description?: string): Promise<string> {
+    const id = genId();
+    const now = Date.now();
+    const persona: Persona = { id, name, systemInstructions, description, updatedAt: now };
+
+    setPromptStore(produce(s => {
+        s.personae[id] = persona;
+    }));
+
+    if (pglite) {
+        await pglite.query(
+            `INSERT INTO personae (id, name, system_instructions, description, updated_at) VALUES ($1, $2, $3, $4, $5)`,
+            [id, name, systemInstructions, description || null, now]
+        );
+        // Sync
+        await syncManager.enqueue(
+            `INSERT INTO personae (id, name, system_instructions, description, updated_at) VALUES (?, ?, ?, ?, ?)`,
+            [id, name, systemInstructions, description || null, now]
+        );
+    }
+    return id;
+}
+
+export async function updatePersona(id: string, updates: Partial<Persona>) {
+    const existing = promptStore.personae[id];
+    if (!existing) return;
+
+    const now = Date.now();
+    setPromptStore(produce(s => {
+        Object.assign(s.personae[id], { ...updates, updatedAt: now });
+    }));
+
+    if (pglite) {
+        const fields: string[] = [];
+        const values: any[] = [];
+        let idx = 1;
+
+        if (updates.name !== undefined) { fields.push(`name = $${idx++}`); values.push(updates.name); }
+        if (updates.systemInstructions !== undefined) { fields.push(`system_instructions = $${idx++}`); values.push(updates.systemInstructions); }
+        if (updates.description !== undefined) { fields.push(`description = $${idx++}`); values.push(updates.description); }
+        fields.push(`updated_at = $${idx++}`); values.push(now);
+
+        values.push(id);
+        await pglite.query(`UPDATE personae SET ${fields.join(', ')} WHERE id = $${idx}`, values);
+
+        const syncFields = fields.map(f => f.split('=')[0] + ' = ?');
+        await syncManager.enqueue(`UPDATE personae SET ${syncFields.join(', ')} WHERE id = ?`, values);
+    }
+}
+
+export async function deletePersona(id: string) {
+    setPromptStore(produce(s => {
+        delete s.personae[id];
+    }));
+
+    if (pglite) {
+        await pglite.query(`DELETE FROM personae WHERE id = $1`, [id]);
+        await syncManager.enqueue(`DELETE FROM personae WHERE id = ?`, [id]);
+    }
 }

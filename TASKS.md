@@ -70,3 +70,11 @@
 - [x] **Frontend Integration** <!-- id: p18_2 -->
     - [x] Create `EpistemicView` for displaying deep reasoning chains <!-- id: p18_2_0 -->
     - [x] Add "Deep Research" mode to Prompt Playground <!-- id: p18_2_1 -->
+
+## 🧹 Codebase Cleanup (Phase 19)
+- [x] Remove unused dashboards (Refinery, Agent) <!-- id: p19_0 -->
+- [x] Remove Presentation Mode <!-- id: p19_1 -->
+- [x] Simplify default boards and seeding <!-- id: p19_2 -->
+- [x] Remove Analytics, Calendar, and Model Arena <!-- id: p19_3 -->
+- [x] Update documentation <!-- id: p19_4 -->
+- [x] Migrate from npm to Bun <!-- id: p19_5 -->

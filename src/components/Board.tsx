@@ -17,7 +17,6 @@ import { StatusPill } from './StatusPill';
 import { CardModal } from './CardModal';
 import { ThemeToggle } from './ThemeToggle';
 import { SearchBar } from './SearchBar';
-import { CalendarView } from './CalendarView';
 import type { Card as CardType, List as ListType } from '../types';
 
 // Icons
@@ -415,7 +414,6 @@ const List: Component<{ list: ListType; onOpenCard: (id: string) => void; search
 export const Board: Component = () => {
     const [openCardId, setOpenCardId] = createSignal<string | null>(null);
     const [searchQuery, setSearchQuery] = createSignal('');
-    const [viewMode, setViewMode] = createSignal<'board' | 'calendar'>('board');
     const [newListTitle, setNewListTitle] = createSignal('');
 
     // Undo/Redo Shortcuts
@@ -485,7 +483,7 @@ export const Board: Component = () => {
                     <h1 class="text-xl font-bold text-white flex items-center gap-2">
                         {store.boards[store.activeBoardId]?.icon || '📋'} {store.boards[store.activeBoardId]?.title || 'Work'}
                     </h1>
-                    <p class="text-slate-400 text-sm mt-1">Refinery Engine • Multi-Board</p>
+                    <p class="text-slate-400 text-sm mt-1">Local-Sync Engine • Multi-Board</p>
                 </div>
 
                 {/* Board Tabs */}
@@ -506,21 +504,6 @@ export const Board: Component = () => {
                     </For>
                 </div>
                 <div class="flex items-center gap-2 sm:gap-4">
-                    {/* View Toggle */}
-                    <div class="flex bg-slate-800 rounded p-1">
-                        <button
-                            onClick={() => setViewMode('board')}
-                            class={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode() === 'board' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            Board
-                        </button>
-                        <button
-                            onClick={() => setViewMode('calendar')}
-                            class={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode() === 'calendar' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            Calendar
-                        </button>
-                    </div>
 
                     <button
                         onClick={handleExport}
@@ -554,54 +537,40 @@ export const Board: Component = () => {
 
             {/* Content Area */}
             <div class="flex-1 overflow-hidden relative">
-                <Show
-                    when={viewMode() === 'board'}
-                    fallback={
-                        <CalendarView
-                            onOpenCard={(id) => {
-                                const card = store.cards[id];
-                                if (card) {
-                                    handleOpenModal(card, card.listId);
-                                }
-                            }}
-                        />
-                    }
-                >
-                    <div class="h-full overflow-x-auto p-6">
-                        <div class="flex items-start gap-6 min-w-max h-full">
-                            <For each={lists()}>
-                                {(list) => (
-                                    <div class="w-80 shrink-0">
-                                        <List
-                                            list={list}
-                                            searchQuery={searchQuery()}
-                                            onOpenCard={(id) => {
-                                                const card = store.cards[id];
-                                                if (card) handleOpenModal(card, list.id);
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                            </For>
-
-                            {/* Add List Button */}
-                            <div class="w-72 shrink-0">
-                                <form
-                                    onSubmit={handleAddList}
-                                    class="bg-slate-900/50 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-colors"
-                                >
-                                    <input
-                                        type="text"
-                                        placeholder="+ Add another list"
-                                        class="w-full bg-transparent text-slate-100 placeholder-slate-400 focus:outline-none focus:placeholder-slate-500 font-medium"
-                                        value={newListTitle()}
-                                        onInput={(e) => setNewListTitle(e.currentTarget.value)}
+                <div class="h-full overflow-x-auto p-6">
+                    <div class="flex items-start gap-6 min-w-max h-full">
+                        <For each={lists()}>
+                            {(list) => (
+                                <div class="w-80 shrink-0">
+                                    <List
+                                        list={list}
+                                        searchQuery={searchQuery()}
+                                        onOpenCard={(id) => {
+                                            const card = store.cards[id];
+                                            if (card) handleOpenModal(card, list.id);
+                                        }}
                                     />
-                                </form>
-                            </div>
+                                </div>
+                            )}
+                        </For>
+
+                        {/* Add List Button */}
+                        <div class="w-72 shrink-0">
+                            <form
+                                onSubmit={handleAddList}
+                                class="bg-slate-900/50 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-colors"
+                            >
+                                <input
+                                    type="text"
+                                    placeholder="+ Add another list"
+                                    class="w-full bg-transparent text-slate-100 placeholder-slate-400 focus:outline-none focus:placeholder-slate-500 font-medium"
+                                    value={newListTitle()}
+                                    onInput={(e) => setNewListTitle(e.currentTarget.value)}
+                                />
+                            </form>
                         </div>
                     </div>
-                </Show>
+                </div>
             </div>
         </div>
     );

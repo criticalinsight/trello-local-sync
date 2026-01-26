@@ -10,17 +10,14 @@ routes = [
 
 [durable_objects]
 bindings = [
-    { name = "BOARD_DO", class_name = "BoardDO" },
-    { name = "RESEARCH_DO", class_name = "ResearchDO" }
+    { name = "BOARD_DO_SQL", class_name = "BoardDOSql" },
+    { name = "RESEARCH_DO_SQL", class_name = "ResearchDOSql" }
 ]
 
 [[migrations]]
-tag = "v1"
-new_sqlite_classes = ["BoardDO"]
-
-[[migrations]]
-tag = "v2"
-new_sqlite_classes = ["ResearchDO"]
+tag = "v6"
+new_sqlite_classes = ["BoardDOSql", "ResearchDOSql"]
+deleted_classes = ["BoardDO", "ResearchDO", "ContentDO"]
 
 [observability]
 enabled = true

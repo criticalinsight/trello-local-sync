@@ -15,8 +15,10 @@
     },
     "dependencies": {
         "@electric-sql/pglite": "^0.2.0",
+        "@google/generative-ai": "^0.24.1",
         "@types/diff": "^7.0.2",
         "diff": "^8.0.3",
+        "dotenv": "^17.2.3",
         "mobile-drag-drop": "^3.0.0-rc.0",
         "solid-js": "^1.8.0"
     },
@@ -25,6 +27,7 @@
         "@playwright/test": "^1.57.0",
         "@typescript-eslint/eslint-plugin": "^8.53.0",
         "@typescript-eslint/parser": "^8.53.0",
+        "@vitest/coverage-v8": "^4.0.18",
         "autoprefixer": "^10.4.17",
         "eslint": "^9.39.2",
         "eslint-plugin-solid": "^0.14.5",

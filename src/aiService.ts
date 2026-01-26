@@ -77,7 +77,7 @@ const DEFAULT_CONFIG: AIConfig = {
         (import.meta.env.PROD ? 'https://work.moecapital.com/api/ai/interact' : '/api/ai/interact'),
     apiKey: import.meta.env.VITE_GEMINI_API_KEY,
     defaultModel: 'gemini-2.5-flash',
-    enableFallback: true,
+    enableFallback: false,
     timeout: 60 * 60 * 1000, // 1 hour for deep research reports
     pollInterval: 10000, // Poll every 10 seconds (matches ResearchDO)
     maxPollAttempts: 360, // 360 * 10s = 1 hour of polling
@@ -340,7 +340,9 @@ Example:
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            const errorBody = await response.text();
+            let errorBody = '';
+            try { errorBody = await response.text(); } catch { }
+
             if (response.status === 429) {
                 throw new AIError(`Rate limit for ${model}`, 'RATE_LIMIT', model, true);
             }
@@ -348,7 +350,7 @@ Example:
                 throw new AIError(`${model} overloaded`, 'OVERLOADED', model, true);
             }
             throw new AIError(
-                `Request failed: ${response.status} - ${errorBody}`,
+                `Request failed: ${response.status}`,
                 'REQUEST_FAILED',
                 model,
                 response.status >= 500,
@@ -387,6 +389,11 @@ Example:
     } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof AIError) throw error;
+        // Also check promptStore error wrapping if it exists, or just ensure we don't double wrap
+        if ((error as any).name === 'AIError') throw error;
+
+        console.error('AI Service Error:', error);
+
         if ((error as Error).name === 'AbortError') {
             throw new AIError(`Timeout for ${model}`, 'TIMEOUT', model, true);
         }
@@ -457,38 +464,25 @@ async function pollJobStatus(
     throw new AIError(`Job ${jobId} timed out`, 'TIMEOUT', model, false);
 }
 
-// Extract content from Interactions API response
-function extractContent(response: unknown): string {
-    try {
-        const r = response as {
-            outputs?: Array<{ text?: string; content?: string }>;
-            output?: { text?: string };
-            text?: string;
-            content?: string;
-        };
+// Helper to extract text from response data
+function extractContent(data: any): string {
+    if (data.text) return data.text;
 
-        // Interactions API format
-        if (r.outputs?.[0]?.text) return r.outputs[0].text;
-        if (r.outputs?.[0]?.content) return r.outputs[0].content;
-        if (r.output?.text) return r.output.text;
-        if (r.text) return r.text;
-        if (r.content) return String(r.content);
-
-        // Fallback: look for any text field in outputs
-        if (Array.isArray(r.outputs) && r.outputs.length > 0) {
-            const first = r.outputs[0] as Record<string, unknown>;
-            for (const key of Object.keys(first)) {
-                if (typeof first[key] === 'string' && first[key]) {
-                    return first[key] as string;
-                }
-            }
-        }
-
-        throw new Error('Unable to extract content');
-    } catch {
-        console.error('[AI] Failed to parse response:', response);
-        throw new AIError('Invalid response format', 'PARSE_ERROR', undefined, false);
+    if (data.outputs && Array.isArray(data.outputs) && data.outputs.length > 0) {
+        // Handle various worker response formats
+        const output = data.outputs[0];
+        if (typeof output === 'string') return output;
+        if (output?.text) return output.text;
+        if (output?.content) return output.content;
     }
+
+    // Check for direct content field for older versions
+    if (data.content) return String(data.content);
+
+    // Fallback logic for nested structures
+    if (data.output?.text) return data.output.text;
+
+    throw new Error('Invalid response format');
 }
 
 // Simple generate function
@@ -521,6 +515,20 @@ export async function generate(
     });
 
     return result.content;
+}
+
+/**
+ * Runs two model generations in parallel for the Arena.
+ */
+export async function generateArenaOutput(
+    primaryRequest: GenerateRequest,
+    secondaryModel: GeminiModel
+): Promise<{ primary: GenerateResponse; secondary: GenerateResponse }> {
+    const [primary, secondary] = await Promise.all([
+        generateWithFallback(primaryRequest),
+        generateWithFallback({ ...primaryRequest, model: secondaryModel })
+    ]);
+    return { primary, secondary };
 }
 
 export { DEFAULT_CONFIG as AI_DEFAULT_CONFIG };
@@ -636,7 +644,7 @@ export async function getEmbedding(text: string): Promise<number[]> {
     if (!text || !text.trim()) return [];
 
     try {
-        const response = await fetch(`${WORKER_URL}/embedding`, {
+        const response = await fetch(`${config.workerUrl.replace('/interact', '/embedding')}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text }),

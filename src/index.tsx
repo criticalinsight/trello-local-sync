@@ -4,14 +4,9 @@ import { createSignal, onMount, Show } from 'solid-js';
 import { Home } from './components/Home';
 import { Board } from './components/Board';
 import { PromptBoard } from './components/PromptBoard';
-import { PresentationView } from './components/PresentationView';
-import { AgentDashboard } from './components/AgentDashboard';
-import { RefineryDashboard } from './components/RefineryDashboard';
 import { SnackbarContainer } from './components/Snackbar';
-import { GlobalAgentBar } from './components/GlobalAgentBar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { initStore } from './store';
-import { initPromptStore } from './promptStore';
 import './index.css';
 import { polyfill } from 'mobile-drag-drop';
 // import "mobile-drag-drop/default.css"; // We'll add custom minimal css or use default if needed
@@ -27,9 +22,8 @@ window.addEventListener('touchmove', function () { }, { passive: false });
 
 const App = () => {
     // Simple routing state
-    const [page, setPage] = createSignal<'home' | 'board' | 'prompts' | 'presentation' | 'refinery'>('home');
+    const [page, setPage] = createSignal<'home' | 'board' | 'prompts'>('home');
     const [boardId, setBoardId] = createSignal<string>('');
-    const [promptId, setPromptId] = createSignal<string>('');
 
     const navigate = (path: string) => {
         window.history.pushState({}, '', path);
@@ -41,29 +35,12 @@ const App = () => {
 
         if (path === '/' || path === '') {
             setPage('home');
-        } else if (path === '/r' || path.startsWith('/r/')) {
-            // Refinery route: /r
-            setPage('refinery');
-        } else if (path.includes('/present/')) {
-            // Presentation route: /prompts/:boardId/present/:promptId
-            const parts = path.split('/');
-            // /prompts/123/present/456 -> ["", "prompts", "123", "present", "456"]
-            const bId = parts[2];
-            const pId = parts[4];
-
-            if (bId && pId) {
-                setBoardId(bId);
-                setPromptId(pId);
-                setPage('presentation');
-                await initPromptStore(bId);
-            }
         } else if (path.startsWith('/prompts/')) {
             // Prompt board route: /prompts/:id
             const id = path.substring('/prompts/'.length);
             if (id) {
                 setBoardId(id);
                 setPage('prompts');
-                // initialization moved to PromptBoard component
             } else {
                 setPage('home');
             }
@@ -124,25 +101,10 @@ const App = () => {
                 <PromptBoard
                     boardId={boardId()}
                     onNavigateHome={() => navigate('/')}
-                    onNavigatePresent={(promptId) =>
-                        navigate(`/prompts/${boardId()}/present/${promptId}`)
-                    }
                 />
-            </Show>
-            <Show when={page() === 'presentation'}>
-                <PresentationView
-                    boardId={boardId()}
-                    promptId={promptId()}
-                    onClose={() => navigate('/prompts/' + boardId())}
-                />
-            </Show>
-            <Show when={page() === 'refinery'}>
-                <RefineryDashboard onNavigateHome={() => navigate('/')} />
             </Show>
 
             {/* Global UX Components */}
-            <GlobalAgentBar />
-            <AgentDashboard />
             <SnackbarContainer />
         </>
     );

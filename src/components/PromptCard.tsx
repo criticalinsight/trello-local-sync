@@ -4,9 +4,9 @@ import { promptStore, getCurrentVersion, deletePrompt } from '../promptStore';
 
 interface PromptCardProps {
     prompt: PromptCardType;
-    onOpen: (promptId: string) => void;
     onDragStart?: (e: DragEvent, promptId: string) => void;
     onDragEnd?: (e: DragEvent) => void;
+    onOpen: (id: string) => void;
 }
 
 // Status colors and labels
@@ -23,94 +23,41 @@ const statusConfig: Record<
 
 // Icons
 const TrashIcon = () => (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        class="w-4 h-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        stroke-width="2"
-    >
-        <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-        />
-    </svg>
-);
-
-const PlayIcon = () => (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        class="w-4 h-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        stroke-width="2"
-    >
-        <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-        />
-        <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
 );
 
 const SpinnerIcon = () => (
-    <svg
-        class="animate-spin w-4 h-4"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-    >
-        <circle
-            class="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            stroke-width="4"
-        />
-        <path
-            class="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        />
+    <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
     </svg>
 );
 
 export const PromptCard: Component<PromptCardProps> = (props) => {
     const version = () => getCurrentVersion(props.prompt.id);
-    const config = () => statusConfig[props.prompt.status];
+    const config = () => statusConfig[props.prompt.status] || statusConfig.draft;
+
+    const truncatedContent = () => {
+        const v = version();
+        if (!v || !v.content) return '';
+        return v.content.length > 100 ? v.content.substring(0, 100) + '...' : v.content;
+    };
 
     const handleDragStart = (e: DragEvent) => {
-        e.dataTransfer?.setData('text/plain', props.prompt.id);
-        e.dataTransfer!.effectAllowed = 'move';
-        (e.target as HTMLElement).classList.add('opacity-50', 'scale-95');
         props.onDragStart?.(e, props.prompt.id);
     };
 
     const handleDragEnd = (e: DragEvent) => {
-        (e.target as HTMLElement).classList.remove('opacity-50', 'scale-95');
         props.onDragEnd?.(e);
     };
 
-    const handleDelete = async (e: MouseEvent) => {
+    const handleDelete = (e: MouseEvent) => {
         e.stopPropagation();
         if (confirm('Delete this prompt?')) {
-            await deletePrompt(props.prompt.id);
+            deletePrompt(props.prompt.id);
         }
-    };
-
-    const truncatedContent = () => {
-        const content = version()?.content || '';
-        if (content.length <= 120) return content;
-        return content.slice(0, 120) + '...';
     };
 
     return (
@@ -118,7 +65,7 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
             class="group bg-slate-800 border border-slate-700 rounded-lg p-3 cursor-pointer
                    hover:border-blue-500/50 hover:bg-slate-750 transition-all
                    shadow-sm hover:shadow-md"
-            draggable={props.prompt.status === 'draft'}
+            draggable={props.prompt.status === 'draft' || props.prompt.status === 'error' || props.prompt.status === 'deployed'}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onClick={() => props.onOpen(props.prompt.id)}
@@ -149,12 +96,11 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
             </div>
 
             {/* Title */}
-            <h3 class="font-medium text-white mb-2 truncate">{props.prompt.title}</h3>
+            <h3 class="font-medium text-white mb-1 truncate">{props.prompt.title}</h3>
 
             {/* Content Preview */}
             <Show when={truncatedContent()}>
-                <p class="text-sm text-slate-400 line-clamp-3 mb-2">{truncatedContent()}</p>
-                <p class="text-sm text-slate-400 line-clamp-3 mb-2">{truncatedContent()}</p>
+                <p class="text-xs text-slate-400 line-clamp-2 mb-2">{truncatedContent()}</p>
             </Show>
 
             {/* Tags */}
@@ -162,7 +108,7 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
                 <div class="flex flex-wrap gap-1 mb-2">
                     <For each={props.prompt.tags}>
                         {(tag) => (
-                            <span class="px-1.5 py-0.5 text-[10px] bg-slate-700 text-slate-300 rounded border border-slate-600">
+                            <span class="px-1.5 py-0.5 text-[9px] bg-slate-700 text-slate-300 rounded border border-slate-600">
                                 {tag}
                             </span>
                         )}
@@ -171,21 +117,21 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
             </Show>
 
             {/* Footer with metadata */}
-            <div class="flex items-center justify-between mt-auto pt-2 border-t border-slate-700/50 text-xs text-slate-500">
+            <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-700/50 text-[10px] text-slate-500">
                 <div class="flex items-center gap-2">
                     <Show when={version()?.executionTime}>
                         <span>{(version()!.executionTime! / 1000).toFixed(1)}s</span>
                     </Show>
                     <Show when={props.prompt.schedule?.enabled}>
                         <span class="text-purple-400" title="Schedule Enabled">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </span>
                     </Show>
                     <Show when={props.prompt.workflow?.enabled}>
                         <span class="text-emerald-400" title="Workflow Enabled">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
                         </span>
@@ -198,7 +144,7 @@ export const PromptCard: Component<PromptCardProps> = (props) => {
 
             {/* Error indicator */}
             <Show when={props.prompt.status === 'error' && version()?.error}>
-                <div class="mt-2 text-xs text-red-400 bg-red-900/20 rounded p-2 truncate">
+                <div class="mt-2 text-[10px] text-red-400 bg-red-900/10 rounded p-1.5 truncate border border-red-900/30">
                     {version()?.error}
                 </div>
             </Show>

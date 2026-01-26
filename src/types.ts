@@ -155,6 +155,23 @@ export type PromptSyncMessage =
     | { type: 'PROMPT_DELETE'; promptId: string; clientId: string }
     | { type: 'SYNC_PROMPTS'; prompts: PromptCard[]; versions: PromptVersion[] };
 
+// Phase 19: Persona Engine
+export interface Persona {
+    id: string;
+    name: string;
+    systemInstructions: string;
+    description?: string;
+    updatedAt: number;
+}
+
+export interface ArenaState {
+    enabled: boolean;
+    secondaryModel: string;
+    secondaryOutput?: string;
+    secondaryExecutionTime?: number;
+    secondaryError?: string;
+}
+
 // Phase 20: Prompt Persistence
 export interface SavedPrompt {
     id: string;
@@ -173,8 +190,8 @@ export interface SavedPrompt {
 // ============= CLOUDFLARE ENVIRONMENT =============
 
 export interface Env {
-    BOARD_DO: DurableObjectNamespace;
-    RESEARCH_DO: DurableObjectNamespace;
+    BOARD_DO_SQL: DurableObjectNamespace;
+    RESEARCH_DO_SQL: DurableObjectNamespace;
     ASSETS: Fetcher;
     MEDIA_BUCKET: R2Bucket;
     GEMINI_API_KEY: string;

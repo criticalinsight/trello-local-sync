@@ -67,6 +67,17 @@ export async function initMemoryStore(boardId: string, pgliteInstance?: PGlite) 
         );
     `);
 
+    // Create personae table
+    await pglite.query(`
+        CREATE TABLE IF NOT EXISTS personae (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            system_instructions TEXT NOT NULL,
+            description TEXT,
+            updated_at BIGINT NOT NULL
+        );
+    `);
+
     // Create edges table
     await pglite.query(`
         CREATE TABLE IF NOT EXISTS edges (
@@ -392,4 +403,36 @@ export function getMemoriesForContext(limit = 10, query?: string): string {
             return related ? `${contextLine} (Related: ${related})` : contextLine;
         })
         .join('\n');
+}
+// ============= PERSONA OPERATIONS =============
+
+export async function getPersonae(): Promise<import('./types').Persona[]> {
+    if (!pglite) return [];
+    const res = await pglite.query<any>(`SELECT * FROM personae ORDER BY updated_at DESC`);
+    return res.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        systemInstructions: row.system_instructions,
+        description: row.description,
+        updatedAt: row.updated_at
+    }));
+}
+
+export async function savePersona(persona: import('./types').Persona) {
+    if (!pglite) return;
+    await pglite.query(
+        `INSERT INTO personae (id, name, system_instructions, description, updated_at)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT(id) DO UPDATE SET
+         name = EXCLUDED.name,
+         system_instructions = EXCLUDED.system_instructions,
+         description = EXCLUDED.description,
+         updated_at = EXCLUDED.updated_at`,
+        [persona.id, persona.name, persona.systemInstructions, persona.description, persona.updatedAt]
+    );
+}
+
+export async function deletePersona(id: string) {
+    if (!pglite) return;
+    await pglite.query(`DELETE FROM personae WHERE id = $1`, [id]);
 }

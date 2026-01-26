@@ -1,6 +1,6 @@
 // Worker entry point for Cloudflare
-export { BoardDO } from './BoardDO';
-export { ResearchDO } from './ResearchDO';
+export { BoardDOSql } from './BoardDO';
+export { ResearchDOSql } from './ResearchDO';
 import { handleTelegramWebhook, registerWebhook } from './telegramBot';
 
 export const APP_VERSION = '1.0.1';
@@ -132,8 +132,8 @@ export default {
                 if (config?.requiresBackground) {
                     try {
                         const jobId = crypto.randomUUID();
-                        const doId = env.RESEARCH_DO.idFromName(jobId);
-                        const stub = env.RESEARCH_DO.get(doId);
+                        const doId = env.RESEARCH_DO_SQL.idFromName(jobId);
+                        const stub = env.RESEARCH_DO_SQL.get(doId);
 
                         const doResponse = await stub.fetch('http://do/start', {
                             method: 'POST',
@@ -265,8 +265,8 @@ export default {
                 });
             }
 
-            const doId = env.RESEARCH_DO.idFromName(jobId);
-            const stub = env.RESEARCH_DO.get(doId);
+            const doId = env.RESEARCH_DO_SQL.idFromName(jobId);
+            const stub = env.RESEARCH_DO_SQL.get(doId);
 
             const doResponse = await stub.fetch('http://do/status');
             const result = await doResponse.json();
@@ -375,8 +375,8 @@ export default {
         // Durable Object routes
         if (url.pathname.startsWith('/api') || request.headers.get('Upgrade') === 'websocket') {
             const boardId = url.searchParams.get('board') || 'default';
-            const id = env.BOARD_DO.idFromName(boardId);
-            const stub = env.BOARD_DO.get(id);
+            const id = env.BOARD_DO_SQL.idFromName(boardId);
+            const stub = env.BOARD_DO_SQL.get(id);
             return stub.fetch(request);
         }
 
@@ -430,8 +430,8 @@ export default {
         console.log('[Worker] Cron Trigger fired:', event.cron, event.scheduledTime);
 
         // Example: Tick the 'default' board
-        const id = env.BOARD_DO.idFromName('default');
-        const stub = env.BOARD_DO.get(id);
+        const id = env.BOARD_DO_SQL.idFromName('default');
+        const stub = env.BOARD_DO_SQL.get(id);
         ctx.waitUntil(stub.fetch('http://do/api/scheduler/tick', { method: 'POST' }));
     },
 };

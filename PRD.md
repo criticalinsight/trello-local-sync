@@ -10,6 +10,7 @@
 ## 2. Technical Stack
 
 - **Frontend Framework:** SolidJS (Signal-based reactivity, no Virtual DOM).
+- **Package Manager & Runtime:** Bun (v1.0+).
 - **Local Database:** PGlite (PostgreSQL compiled to WASM).
 - **Edge Backend:** Cloudflare Workers + Durable Objects.
 - **Edge Database:** Native SQLite (embedded in Durable Object).
@@ -23,7 +24,7 @@
 - **FR-01:** System shall initialize with default lists.
 - **FR-02:** User can create, rename, delete, and reorder lists (Drag & Drop).
 - FR-02B: User can manage multiple independent boards via the Board Switcher.
-- FR-02C: System supports specialized board types: Market Intelligence, Epistemic Vetting, and Portfolio.
+- FR-02C: System supports Task Boards and AI Prompt Boards.
 - FR-02D: Boards are logically isolated in the sync protocol and database.
 
 ### 3.2 Card Management
@@ -174,76 +175,7 @@ interface PromptVersion {
 
 ---
 
-## 11. Content Refinery & Intelligence Engine
 
-### 11.1 Overview
-The system includes an autonomous backend pipeline for ingesting, refining, and routing market intelligence.
-
-### 11.2 Components
-- **Ingestion**: Telegram channel posts and RSS feeds.
-- **Deduplication Engine**: Fingerprinting to prevent redundant signal processing.
-- **Epistemic Analyst**: Multi-agent vetting loop to validate "PROCEED" status for high-relevance signals.
-- **Knowledge Graph**: Persistent storage of entities (Tickers) and relationships (Mentions).
-- **Daily Briefing**: 24h signal synthesis delivered via Telegram.
-
-### 11.3 Automated Routing Workflow
-1. **Signal Extraction**: AI extracts structured JSON from raw text.
-2. **Vetting**: High-relevance signals (>=80%) are debated by a secondary AI agent.
-3. **Card Creation**: Validated signals are auto-posted to **Market Intelligence** board.
-
-### Track A: AI Agent Ecosystem 🤖
-
-| Feature                       | Description                                                                     | Priority |
-| ----------------------------- | ------------------------------------------------------------------------------- | -------- |
-| **Agent Templates**           | Pre-built prompt chains for common tasks (summarization, code review, research) | High     |
-| **Multi-Agent Orchestration** | Chain prompts together with conditional logic                                   | Medium   |
-| **Custom Tool Calling**       | Let prompts call external APIs/webhooks                                         | Medium   |
-| **Agent Marketplace**         | Share/import community-built agents                                             | Low      |
-
-### Track B: Smart Automation 🔄
-
-| Feature                 | Description                                     | Priority |
-| ----------------------- | ----------------------------------------------- | -------- |
-| **Scheduled Prompts**   | Cron-style execution for recurring AI tasks     | High ✅   |
-| **Triggered Workflows** | Webhooks that trigger prompt execution          | High ✅   |
-| **Output Pipelines**    | Auto-route outputs to Slack, email, Notion      | Medium   |
-| **Watch Folders**       | Monitor file changes → run prompts on new files | Low      |
-
-### Track C: Knowledge & Context 🧠
-
-| Feature              | Description                                   | Priority  |
-| -------------------- | --------------------------------------------- | --------- |
-| **RAG Integration**  | Upload docs, build vector indexes for context | High      |
-| **Memory System**    | Persistent context across prompt sessions     | High ✅   |
-| **Knowledge Graphs** | Visual relationship mapping between concepts  | Medium ✅ |
-| **Source Citations** | Track which docs influenced outputs           | Low       |
-
-### Track D: Developer Experience 💻
-
-| Feature               | Description                            | Priority |
-| --------------------- | -------------------------------------- | -------- |
-| **CLI Tool**          | `work prompt run my-prompt.yaml`       | High     |
-| **SDK/API**           | Programmatic access to prompt boards   | High     |
-| **Git Sync**          | Version prompts in repo, sync on push  | Medium   |
-| **CI/CD Integration** | Run prompts as part of build pipelines | Low      |
-
-### Track E: Visual & Creative 🎨
-
-| Feature                | Description                                | Priority  |
-| ---------------------- | ------------------------------------------ | --------- |
-| **Image Generation**   | Integrate Imagen/DALL-E for visual outputs | High      |
-| **Diagram Generation** | Auto-generate Mermaid/PlantUML from text   | Medium    |
-| **Presentation Mode**  | Turn outputs into slides/documents         | Medium ✅ |
-| **Asset Library**      | Store generated images for reuse           | Low       |
-
-### Track F: Analytics & Optimization 📊
-
-| Feature                 | Description                          | Priority |
-| ----------------------- | ------------------------------------ | -------- |
-| **A/B Testing**         | Compare prompt variants side-by-side | High     |
-| **Quality Scoring**     | Auto-rate outputs with rubrics       | Medium   |
-| **Cost Dashboard**      | Track token usage, estimate costs    | High     |
-| **Performance Heatmap** | Visualize which prompts perform best | Low      |
 
 ---
 
@@ -253,7 +185,7 @@ The system includes an autonomous backend pipeline for ingesting, refining, and 
 | ----------------------- | ------ | ------- |
 | UI Latency              | < 16ms | ✅      |
 | Offline Capability      | 100%   | ✅      |
-| Test Coverage           | 80%+   | 🔲      |
+| Test Coverage           | 99%+   | 🔲      |
 | Lighthouse Performance  | 95+    | 🔲      |
 | AI Response Time (sync) | < 3s   | ✅      |
 | AI Response Time (deep) | < 2min | ✅      |
@@ -268,6 +200,7 @@ The system includes an autonomous backend pipeline for ingesting, refining, and 
 | ------------------ | ------- | ------------------ |
 | SolidJS            | 1.8.x   | Frontend framework |
 | PGlite             | 0.2.x   | Local PostgreSQL   |
+| Bun                | 1.x     | Runtime & PM       |
 | Cloudflare Workers | -       | Edge compute       |
 | Gemini API         | v1beta  | AI generation      |
 

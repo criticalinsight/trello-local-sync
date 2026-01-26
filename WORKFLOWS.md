@@ -1,4 +1,4 @@
-hj# System Workflows: Content Refinery & Intelligence Engine
+# System Workflows: Content Refinery & Intelligence Engine
 
 This document outlines the core automated workflows implemented within the **Work** (Local-First Kanban) ecosystem, specifically focusing on the **Content Refinery** pipeline.
 
@@ -8,10 +8,10 @@ This workflow handles the transition from raw unstructured data to structured ma
 
 ```mermaid
 graph TD
-    A[Telegram Channel / RSS Feed] -->|POST /webhook| B(ContentDO)
+    A[Telegram Channel / RSS Feed] -->|POST /webhook| B(BoardDO)
     B -->|Batching| C{Batch Full?}
     C -->|Yes| D[Trigger AI Extraction]
-    D -->|Gemini 1.5 Flash| E[JSON Extraction]
+    D -->|Gemini 2.5 Flash| E[JSON Extraction]
     E -->|Fingerprinting| F{Duplicate?}
     F -->|No| G[Store in BoardDO: signals]
     F -->|Yes| H[Discard]

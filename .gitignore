@@ -8,3 +8,6 @@ dist
 .ralph_venv
 .agent
 ralph.log
+
+# Sly Agent Data
+.sly/

@@ -11,9 +11,8 @@ import {
 } from '../promptStore';
 import type { PromptCard as PromptCardType, PromptStatus } from '../types';
 import { PromptCard } from './PromptCard';
-import { PromptPlayground } from './PromptPlayground';
+import { PromptPlaygroundV2 } from './PromptPlaygroundV2';
 import { ThemeToggle } from './ThemeToggle';
-import { AnalyticsView } from './AnalyticsView';
 
 // Column configuration
 const columns: {
@@ -23,16 +22,16 @@ const columns: {
     headerAction?: 'add' | 'runAll';
     wipLimit?: number;
 }[] = [
-    {
-        status: 'draft',
-        title: 'Draft Prompts',
-        color: 'from-slate-600 to-slate-700',
-        headerAction: 'add',
-    },
-    { status: 'queued', title: 'Queued', color: 'from-amber-600 to-amber-700' },
-    { status: 'generating', title: 'Generating', color: 'from-blue-600 to-blue-700', wipLimit: 5 },
-    { status: 'deployed', title: 'Deployed', color: 'from-emerald-600 to-emerald-700' },
-];
+        {
+            status: 'draft',
+            title: 'Draft Prompts',
+            color: 'from-slate-600 to-slate-700',
+            headerAction: 'add',
+        },
+        { status: 'queued', title: 'Queued', color: 'from-amber-600 to-amber-700' },
+        { status: 'generating', title: 'Generating', color: 'from-blue-600 to-blue-700', wipLimit: 5 },
+        { status: 'deployed', title: 'Deployed', color: 'from-emerald-600 to-emerald-700' },
+    ];
 
 // Icons
 const PlusIcon = () => (
@@ -85,11 +84,10 @@ const HomeIcon = () => (
 interface PromptBoardProps {
     boardId: string;
     onNavigateHome: () => void;
-    onNavigatePresent?: (promptId: string) => void;
 }
 
 export const PromptBoard: Component<PromptBoardProps> = (props) => {
-    const [view, setView] = createSignal<'board' | 'analytics'>('board');
+    // View state simplified
     const [selectedPromptId, setSelectedPromptId] = createSignal<string | null>(null);
     const [newPromptTitle, setNewPromptTitle] = createSignal('');
     const [showAddInput, setShowAddInput] = createSignal(false);
@@ -237,12 +235,12 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                             r="10"
                             stroke="currentColor"
                             stroke-width="4"
-                         />
+                        />
                         <path
                             class="opacity-75"
                             fill="currentColor"
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                         />
+                        />
                     </svg>
                     <span class="ml-3">Loading prompts...</span>
                 </div>
@@ -271,21 +269,7 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                         </div>
 
                         <div class="flex items-center gap-3">
-                            {/* View Switcher */}
-                            <div class="flex bg-slate-800 rounded-lg p-1 mr-2 border border-slate-700">
-                                <button
-                                    class={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view() === 'board' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                                    onClick={() => setView('board')}
-                                >
-                                    Board
-                                </button>
-                                <button
-                                    class={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view() === 'analytics' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                                    onClick={() => setView('analytics')}
-                                >
-                                    Analytics
-                                </button>
-                            </div>
+                            {/* View Switcher Removed */}
 
                             {/* Stats */}
                             <div class="flex items-center gap-4 text-sm">
@@ -321,228 +305,218 @@ export const PromptBoard: Component<PromptBoardProps> = (props) => {
                 </header>
 
                 {/* Board Columns */}
-                <Show when={view() === 'board'}>
-                    <div class="flex gap-4 p-6 overflow-x-auto min-h-[calc(100vh-80px)]">
-                        <For each={columns}>
-                            {(col) => {
-                                const count = getPromptsForColumn(col.status).length;
-                                const isOverLimit = col.wipLimit && count > col.wipLimit;
+                <div class="flex gap-4 p-6 overflow-x-auto min-h-[calc(100vh-80px)]">
+                    <For each={columns}>
+                        {(col) => {
+                            const count = getPromptsForColumn(col.status).length;
+                            const isOverLimit = col.wipLimit && count > col.wipLimit;
 
-                                return (
-                                    <div
-                                        class={`flex-shrink-0 w-80 flex flex-col rounded-xl bg-slate-800/50 border transition-colors
-                                    ${
-                                        isOverLimit
+                            return (
+                                <div
+                                    class={`flex-shrink-0 w-80 flex flex-col rounded-xl bg-slate-800/50 border transition-colors
+                                    ${isOverLimit
                                             ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
                                             : dragOverStatus() === col.status
-                                              ? 'border-blue-500 bg-blue-900/20'
-                                              : 'border-slate-700'
-                                    }`}
-                                        onDragOver={(e) => handleDragOver(e, col.status)}
-                                        onDragLeave={handleDragLeave}
-                                        onDrop={(e) => handleDrop(e, col.status)}
+                                                ? 'border-blue-500 bg-blue-900/20'
+                                                : 'border-slate-700'
+                                        }`}
+                                    onDragOver={(e) => handleDragOver(e, col.status)}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={(e) => handleDrop(e, col.status)}
+                                >
+                                    {/* Column Header */}
+                                    <div
+                                        class={`px-4 py-3 rounded-t-xl bg-gradient-to-r ${col.color} flex items-center justify-between`}
                                     >
-                                        {/* Column Header */}
-                                        <div
-                                            class={`px-4 py-3 rounded-t-xl bg-gradient-to-r ${col.color} flex items-center justify-between`}
-                                        >
+                                        <div class="flex items-center gap-2">
+                                            <h2 class="font-semibold text-white">
+                                                {col.title}
+                                            </h2>
                                             <div class="flex items-center gap-2">
-                                                <h2 class="font-semibold text-white">
-                                                    {col.title}
-                                                </h2>
-                                                <div class="flex items-center gap-2">
-                                                    <span
-                                                        class={`px-2 py-0.5 text-xs font-medium rounded-full ${isOverLimit ? 'bg-red-500 text-white animate-pulse' : 'bg-white/20'}`}
-                                                    >
-                                                        {count}
+                                                <span
+                                                    class={`px-2 py-0.5 text-xs font-medium rounded-full ${isOverLimit ? 'bg-red-500 text-white animate-pulse' : 'bg-white/20'}`}
+                                                >
+                                                    {count}
+                                                </span>
+                                                <Show when={isOverLimit}>
+                                                    <span class="text-xs text-red-200 font-medium whitespace-nowrap">
+                                                        (Limit: {col.wipLimit})
                                                     </span>
-                                                    <Show when={isOverLimit}>
-                                                        <span class="text-xs text-red-200 font-medium whitespace-nowrap">
-                                                            (Limit: {col.wipLimit})
-                                                        </span>
-                                                    </Show>
-                                                </div>
-                                            </div>
-
-                                            <div class="flex items-center gap-1">
-                                                <Show when={col.status === 'draft'}>
-                                                    <Show when={getDrafts().length > 0}>
-                                                        <button
-                                                            onClick={() => handleDeleteAll('draft')}
-                                                            class="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-colors"
-                                                            title="Delete all drafts"
-                                                        >
-                                                            <svg
-                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                class="w-5 h-5"
-                                                                fill="none"
-                                                                viewBox="0 0 24 24"
-                                                                stroke="currentColor"
-                                                                stroke-width="2"
-                                                            >
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                                />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={handleRunAll}
-                                                            class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1"
-                                                            title="Run all drafts"
-                                                        >
-                                                            <PlayAllIcon />
-                                                            <span class="text-xs font-medium">
-                                                                Run All
-                                                            </span>
-                                                        </button>
-                                                    </Show>
-                                                    <button
-                                                        onClick={() => setShowAddInput(true)}
-                                                        class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-                                                        title="Add new prompt"
-                                                    >
-                                                        <PlusIcon />
-                                                    </button>
                                                 </Show>
                                             </div>
                                         </div>
 
-                                        {/* Add New Prompt Input */}
-                                        <Show when={showAddInput() && col.status === 'draft'}>
-                                            <div class="p-3 border-b border-slate-700">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Enter prompt title..."
-                                                    value={newPromptTitle()}
-                                                    onInput={(e) =>
-                                                        setNewPromptTitle(e.currentTarget.value)
-                                                    }
-                                                    onKeyDown={handleKeyDown}
-                                                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg
-                                               text-white placeholder-slate-400 focus:outline-none focus:border-purple-500
-                                               focus:ring-1 focus:ring-purple-500"
-                                                    autofocus
-                                                />
-                                                <div class="flex justify-end gap-2 mt-2">
+                                        <div class="flex items-center gap-1">
+                                            <Show when={col.status === 'draft'}>
+                                                <Show when={getDrafts().length > 0}>
                                                     <button
-                                                        onClick={() => {
-                                                            setShowAddInput(false);
-                                                            setNewPromptTitle('');
-                                                        }}
-                                                        class="px-3 py-1 text-sm text-slate-400 hover:text-white transition-colors"
+                                                        onClick={() => handleDeleteAll('draft')}
+                                                        class="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-colors"
+                                                        title="Delete all drafts"
                                                     >
-                                                        Cancel
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            class="w-5 h-5"
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                            stroke-width="2"
+                                                        >
+                                                            <path
+                                                                stroke-linecap="round"
+                                                                stroke-linejoin="round"
+                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                            />
+                                                        </svg>
                                                     </button>
                                                     <button
-                                                        onClick={handleAddPrompt}
-                                                        class="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded transition-colors"
+                                                        onClick={handleRunAll}
+                                                        class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1"
+                                                        title="Run all drafts"
                                                     >
-                                                        Add
+                                                        <PlayAllIcon />
+                                                        <span class="text-xs font-medium">
+                                                            Run All
+                                                        </span>
                                                     </button>
-                                                </div>
-                                            </div>
-                                        </Show>
-
-                                        {/* Cards */}
-                                        <div class="flex-1 p-3 space-y-3 overflow-y-auto">
-                                            <For each={getPromptsForColumn(col.status)}>
-                                                {(prompt) => (
-                                                    <PromptCard
-                                                        prompt={prompt}
-                                                        onOpen={handleOpenPlayground}
-                                                    />
-                                                )}
-                                            </For>
-
-                                            {/* Empty state */}
-                                            <Show
-                                                when={getPromptsForColumn(col.status).length === 0}
-                                            >
-                                                <div class="text-center py-8 text-slate-500 text-sm">
-                                                    <Show when={col.status === 'draft'}>
-                                                        Click + to create your first prompt
-                                                    </Show>
-                                                    <Show when={col.status !== 'draft'}>
-                                                        No prompts yet
-                                                    </Show>
-                                                </div>
+                                                </Show>
+                                                <button
+                                                    onClick={() => setShowAddInput(true)}
+                                                    class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                                                    title="Add new prompt"
+                                                >
+                                                    <PlusIcon />
+                                                </button>
                                             </Show>
                                         </div>
                                     </div>
-                                );
-                            }}
-                        </For>
 
-                        {/* Error Column (shown only if there are errors) */}
-                        <Show when={getPromptsByStatus('error').length > 0}>
-                            <div
-                                class="flex-shrink-0 w-80 flex flex-col rounded-xl bg-slate-800/50 border border-red-900/50"
-                                onDragOver={(e) => handleDragOver(e, 'error')}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDrop(e, 'error')}
-                            >
-                                <div class="px-4 py-3 rounded-t-xl bg-gradient-to-r from-red-600 to-red-700 flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <h2 class="font-semibold text-white">Errors</h2>
-                                        <span class="px-2 py-0.5 text-xs font-medium bg-white/20 rounded-full">
-                                            {getPromptsByStatus('error').length}
-                                        </span>
-                                    </div>
-                                    <button
-                                        onClick={() => handleDeleteAll('error')}
-                                        class="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-colors"
-                                        title="Clear all errors"
-                                    >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            class="w-5 h-5"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            stroke-width="2"
+                                    {/* Add New Prompt Input */}
+                                    <Show when={showAddInput() && col.status === 'draft'}>
+                                        <div class="p-3 border-b border-slate-700">
+                                            <input
+                                                type="text"
+                                                placeholder="Enter prompt title..."
+                                                value={newPromptTitle()}
+                                                onInput={(e) =>
+                                                    setNewPromptTitle(e.currentTarget.value)
+                                                }
+                                                onKeyDown={handleKeyDown}
+                                                class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg
+                                               text-white placeholder-slate-400 focus:outline-none focus:border-purple-500
+                                               focus:ring-1 focus:ring-purple-500"
+                                                autofocus
+                                            />
+                                            <div class="flex justify-end gap-2 mt-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setShowAddInput(false);
+                                                        setNewPromptTitle('');
+                                                    }}
+                                                    class="px-3 py-1 text-sm text-slate-400 hover:text-white transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={handleAddPrompt}
+                                                    class="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded transition-colors"
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </Show>
+
+                                    {/* Cards */}
+                                    <div class="flex-1 p-3 space-y-3 overflow-y-auto">
+                                        <For each={getPromptsForColumn(col.status)}>
+                                            {(prompt) => (
+                                                <PromptCard
+                                                    prompt={prompt}
+                                                    onOpen={handleOpenPlayground}
+                                                />
+                                            )}
+                                        </For>
+
+                                        {/* Empty state */}
+                                        <Show
+                                            when={getPromptsForColumn(col.status).length === 0}
                                         >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                            />
-                                        </svg>
-                                    </button>
+                                            <div class="text-center py-8 text-slate-500 text-sm">
+                                                <Show when={col.status === 'draft'}>
+                                                    Click + to create your first prompt
+                                                </Show>
+                                                <Show when={col.status !== 'draft'}>
+                                                    No prompts yet
+                                                </Show>
+                                            </div>
+                                        </Show>
+                                    </div>
                                 </div>
+                            );
+                        }}
+                    </For>
 
-                                <div class="flex-1 p-3 space-y-3 overflow-y-auto">
-                                    <For each={getPromptsByStatus('error')}>
-                                        {(prompt) => (
-                                            <PromptCard
-                                                prompt={prompt}
-                                                onOpen={handleOpenPlayground}
-                                            />
-                                        )}
-                                    </For>
+                    {/* Error Column (shown only if there are errors) */}
+                    <Show when={getPromptsByStatus('error').length > 0}>
+                        <div
+                            class="flex-shrink-0 w-80 flex flex-col rounded-xl bg-slate-800/50 border border-red-900/50"
+                            onDragOver={(e) => handleDragOver(e, 'error')}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, 'error')}
+                        >
+                            <div class="px-4 py-3 rounded-t-xl bg-gradient-to-r from-red-600 to-red-700 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <h2 class="font-semibold text-white">Errors</h2>
+                                    <span class="px-2 py-0.5 text-xs font-medium bg-white/20 rounded-full">
+                                        {getPromptsByStatus('error').length}
+                                    </span>
                                 </div>
+                                <button
+                                    onClick={() => handleDeleteAll('error')}
+                                    class="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-colors"
+                                    title="Clear all errors"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="w-5 h-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                        />
+                                    </svg>
+                                </button>
                             </div>
-                        </Show>
-                    </div>
-                </Show>
 
-                <Show when={view() === 'analytics'}>
-                    <div class="h-[calc(100vh-80px)] overflow-y-auto">
-                        <AnalyticsView />
-                    </div>
-                </Show>
+                            <div class="flex-1 p-3 space-y-3 overflow-y-auto">
+                                <For each={getPromptsByStatus('error')}>
+                                    {(prompt) => (
+                                        <PromptCard
+                                            prompt={prompt}
+                                            onOpen={handleOpenPlayground}
+                                        />
+                                    )}
+                                </For>
+                            </div>
+                        </div>
+                    </Show>
+                </div>
 
-                {/* Playground Modal */}
-                <Show when={selectedPromptId()}>
-                    <PromptPlayground
-                        promptId={selectedPromptId()!}
-                        onClose={handleClosePlayground}
-                        onPresent={() => props.onNavigatePresent?.(selectedPromptId()!)}
-                    />
-                </Show>
-            </div>
-        </Show>
+
+            </div >
+            <Show when={selectedPromptId()}>
+                <PromptPlaygroundV2
+                    promptId={selectedPromptId()!}
+                    onClose={handleClosePlayground}
+                />
+            </Show>
+        </Show >
     );
 };
 

@@ -7,7 +7,7 @@ import { LeakyBucket } from './utils/rateLimiter';
 const BATCH_THRESHOLD = 50;
 const BATCH_WINDOW_MS = 1000;
 
-export class BoardDO extends DurableObject<Env> {
+export class BoardDOSql extends DurableObject<Env> {
     private sessions: Map<WebSocket, { id: string, boardId: string }> = new Map();
     private writeQueue: Array<{ sql: string; params: unknown[]; clientId: string }> = [];
     private lastFlush: number = Date.now();
@@ -197,13 +197,7 @@ export class BoardDO extends DurableObject<Env> {
         const now = Date.now();
         const defaultBoards = [
             ['board-main', 'Standard Kanban', 'general', '📋'],
-            ['board-intel', 'Market Intelligence', 'refinery', '⚡'],
-            ['board-vetting', 'Epistemic Vetting', 'refinery', '🧠'],
-            ['board-portfolio', 'Portfolio Alpha', 'finance', '💰'],
-            ['board-americamoe', 'Americamoe', 'telegram', '🦅'],
-            ['board-moneyacademy', 'Money Academy KE', 'telegram', '🇰🇪'],
-            ['board-gotrythis', 'GoTryThis', 'telegram', '🚀'],
-            ['board-moecrypto', 'MoeCrypto', 'telegram', '💎']
+            ['board-prompts', 'Prompt Engineering', 'ai', '🤖']
         ];
 
         for (const [id, title, cat, icon] of defaultBoards) {
@@ -219,20 +213,9 @@ export class BoardDO extends DurableObject<Env> {
             if (listCount && (listCount.count as number) === 0) {
                 if (boardId === 'board-main') {
                     this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-main-todo', 'board-main', 'To Do', 0), ('list-main-doing', 'board-main', 'In Progress', 1), ('list-main-done', 'board-main', 'Done', 2)");
-                } else if (boardId === 'board-intel') {
-                    this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-intel-critical', 'board-intel', '🔥 Critical Alerts', -1), ('list-intel-todo', 'board-intel', 'Hot Signals', 0), ('list-intel-research', 'board-intel', 'Active Research', 1), ('list-intel-archived', 'board-intel', 'Historical', 2)");
-                } else if (boardId === 'board-vetting') {
-                    this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-vet-pending', 'board-vetting', 'Pending Vetting', 0), ('list-vet-debating', 'board-vetting', 'In Debate', 1), ('list-vet-validated', 'board-vetting', 'Validated', 2)");
-                } else if (boardId === 'board-portfolio') {
-                    this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-port-watchlist', 'board-portfolio', 'Watchlist', 0), ('list-port-positions', 'board-portfolio', 'Active Positions', 1), ('list-port-exits', 'board-portfolio', 'Recent Exits', 2)");
-                } else if (boardId.startsWith('board-')) {
-                    const channel = boardId.replace('board-', '');
-                    this.ctx.storage.sql.exec(
-                        "INSERT INTO lists(id, board_id, title, pos) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)",
-                        `list-${channel}-critical`, boardId, '🚨 Critical Alerts', -1,
-                        `list-${channel}-todo`, boardId, 'Signal Queue', 0,
-                        `list-${channel}-vetted`, boardId, 'Analyst Approved', 1
-                    );
+                } else if (boardId === 'board-prompts') {
+                    // Prompt boards handle columns dynamically usually, but we can seed defaults
+                    this.ctx.storage.sql.exec("INSERT INTO lists(id, board_id, title, pos) VALUES ('list-prompts-draft', 'board-prompts', 'Draft', 0), ('list-prompts-queued', 'board-prompts', 'Queued', 1), ('list-prompts-generating', 'board-prompts', 'Generating', 2), ('list-prompts-deployed', 'board-prompts', 'Deployed', 3), ('list-prompts-error', 'board-prompts', 'Error', 4)");
                 }
             }
         }
@@ -739,7 +722,7 @@ export class BoardDO extends DurableObject<Env> {
             ${signalsText}`;
 
             try {
-                const resDO = this.env.RESEARCH_DO.get(this.env.RESEARCH_DO.idFromName('default'));
+                const resDO = this.env.RESEARCH_DO_SQL.get(this.env.RESEARCH_DO_SQL.idFromName('default'));
                 const res = await resDO.fetch('http://do/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
